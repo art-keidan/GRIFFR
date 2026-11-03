@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document version="1" font="HoeflerText-Regular" size="12">
+<styles>
+<style name="Testo" target="paragraph" family="Hoefler Text" size="12" align="justified"/>
+<style name="Titolo 1" target="paragraph" based-on="Testo" bold="on" size="18" align="natural" space-before="18" space-after="6"/>
+<style name="Titolo 2" target="paragraph" based-on="Testo" bold="on" size="14" align="natural" space-before="12" space-after="4"/>
+<style name="Citazione" target="paragraph" based-on="Testo" size="11" left-indent="24" right-indent="24" space-before="6" space-after="6"/>
+<style name="Esempio" target="paragraph" based-on="Testo" align="natural" space-before="6" space-after="6"/>
+<style name="Sottoesempio" target="paragraph" based-on="Esempio" space-before="0" space-after="0"/>
+<style name="Latino" target="word" lang="la"/>
+<style name="Greco antico" target="word" lang="grc"/>
+<style name="Enfasi" target="character" italic="on"/>
+<style name="Forte" target="character" bold="on"/>
+<style name="Maiuscoletto" target="character" features="3/3 37/1 smcp=1"/>
+<style name="Maiuscoletto delle sigle" target="character" features="38/1 c2sc=1"/>
+</styles>
+<page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
+<p style="Titolo 1">Le tabelle di Annapurna SIL</p>
+<p style="Testo">Annapurna SIL, versione 2.100 (2024), di SIL International; disegno di Peter Martin e Annie Olsen; licenza SIL Open Font License. Un file di font è un insieme di tabelle, ciascuna con un nome di quattro lettere: questo ne ha 23. Qui sono raggruppate per compito, con i dati letti dal file (con ttx di fontTools e dalle tabelle stesse, il 20 ottobre 2026) e, dove una tabella cambia il testo, un esempio in Annapurna SIL composto da questo programma: con Core Text, che legge le tabelle OpenType, e con Graphite, che legge le tabelle Graphite. Le misure del font sono in unità: 2048 unità fanno il corpo.</p>
+<p style="Titolo 2">1. Identità e misure generali</p>
+<p style="Testo"><t char-style="Forte">head</t> (54 byte), l'intestazione: 2048 unità per em, versione 2.1, creato il 29 maggio 2024, modificato l'11 giugno 2024.</p>
+<p style="Testo"><t char-style="Forte">name</t> (12,9 KB), i nomi leggibili: la famiglia «Annapurna SIL», lo stile «Regular», il nome PostScript «AnnapurnaSIL-Regular» con cui il programma lo scrive nei file, la versione, il copyright, i progettisti, il testo della licenza e il suo indirizzo.</p>
+<p style="Testo"><t char-style="Forte">OS/2</t> (96 byte), misure e dati per i sistemi: peso 400 (normale), larghezza 5 (normale), fornitore «SIL», altezza della x 1024 unità, delle maiuscole 1434. Il campo fsType vale 0: il font si può incorporare senza restrizioni, ed è per questo che il PDF lo contiene.</p>
+<p style="Testo"><t char-style="Forte">hhea</t> (36 byte), le misure verticali di tutto il font: 1939 unità sopra la linea di base, 984 sotto, nessuna interlinea aggiunta. A corpo 22 sono 20,8 punti sopra e 10,6 sotto: più del corpo, perché i segni sopra (matra, anusvara, candrabindu) e sotto (ukar, virama) chiedono spazio. Si vede nella distanza fra queste due righe:</p>
+<p style="Testo" font="AnnapurnaSIL-Regular" size="22">कूँ कें ङ्ख्य र्द्धं<t font="HoeflerText-Regular" size="12"> </t><t font="HoeflerText-Regular" size="12"><br/></t>ग्रृ हॄ ष्ट्र द्ध्र्य</p>
+<p style="Testo"><t char-style="Forte">hmtx</t> (4,3 KB), la larghezza di ogni glifo: «क» 1706 unità, «झ» 1490, la sua variante nepalese 1906, la linea di testa U+A8FB 1201, la sua forma stretta 244 e quella di riempimento 0.</p>
+<p style="Testo"><t char-style="Forte">maxp</t> (32 byte), i limiti: 1087 glifi; il più complesso ha 205 punti e 16 contorni.</p>
+<p style="Testo"><t char-style="Forte">post</t> (15,2 KB), i nomi dei glifi (846) e la posizione del sottolineato (−160 unità). I nomi dicono che cosa è ogni disegno: uni091D è «झ», uni091D.alt la sua variante nepalese, uniA8FB.narrow la linea di testa stretta.</p>
+<p style="Titolo 2">2. Dai caratteri ai disegni</p>
+<p style="Testo"><t char-style="Forte">cmap</t> (1 KB), dal carattere al glifo: 512 caratteri, fra cui 128 devanagari, 32 del devanagari esteso, il latino con gli accenti e l'alfabeto fonetico internazionale, i segni diacritici, le cifre in apice, la punteggiatura. Un carattere che il font non ha, come il birmano «က» alla fine dell'esempio, lo prende un altro font:</p>
+<p style="Testo" font="AnnapurnaSIL-Regular" size="22">नमस्ते · Annapurna · ʃɑːnti · ɖʱəɾ · ꣻ · က</p>
+<p style="Testo"><t char-style="Forte">glyf</t> (269 KB) e <t char-style="Forte">loca</t> (4,3 KB): i contorni di ogni glifo, fatti di curve quadratiche (il modo di TrueType), e dove comincia ciascuno nel file. Il più grande disegno del devanagari:</p>
+<p style="Testo" font="AnnapurnaSIL-Regular" size="60">ॐ</p>
+<p style="Titolo 2">3. Per lo schermo</p>
+<p style="Testo"><t char-style="Forte">cvt</t> (170 byte), <t char-style="Forte">fpgm</t> (3,6 KB) e <t char-style="Forte">prep</t> (203 byte): il «hinting» di TrueType, istruzioni che adattano i contorni alla griglia dei pixel ai corpi piccoli. macOS di norma non le esegue, e nel PDF non contano.</p>
+<p style="Testo"><t char-style="Forte">gasp</t> (8 byte): come sfumare i bordi ai vari corpi. Qui un solo intervallo, fino a 65535 pixel per em, con il comportamento 15: adattamento alla griglia e sfumatura a tutti i corpi.</p>
+<p style="Titolo 2">4. OpenType: la composizione di Core Text</p>
+<p style="Testo"><t char-style="Forte">GDEF</t> (194 byte) divide i glifi in classi: 998 di base e 108 segni, che si attaccano a un altro glifo; i segni hanno a loro volta classi di attacco, che dicono a quali basi si possono unire.</p>
+<p style="Testo"><t char-style="Forte">GSUB</t> (16,5 KB), le sostituzioni: 128 regole (lookup) raccolte in 40 funzioni, per le scritture «deva» e «dev2» (questa con le lingue nepalese e newari) e per la latina. Le funzioni obbligatorie del devanagari formano i congiunti (akhn, half, blwf, pres, cjct…), il reph (rphf) e il nukta (nukt): ognuno di questi gruppi è un glifo solo, o una consonante a metà seguita da una intera:</p>
+<p style="Testo" font="AnnapurnaSIL-Regular" size="22">क्ष ज्ञ त्र द्ध श्र क्र · स्त · र्क · क़</p>
+<p style="Testo">Le funzioni stilistiche ss01–ss17 danno le varianti regionali e storiche: ss01 la jha nepalese, ss02 quella newari, ss08–ss11 le cifre cinque, otto e nove. Qui senza funzioni, poi con ss01, ss02, ss08 + ss09 + ss10:</p>
+<p style="Testo" font="AnnapurnaSIL-Regular" size="22">झ ५ ८ ९<t font="HoeflerText-Regular" size="12">   </t><t features="ss01=1">झ</t><t font="HoeflerText-Regular" size="12">   </t><t features="ss02=1">झ</t><t font="HoeflerText-Regular" size="12">   </t><t features="ss08=1 ss09=1 ss10=1">५ ८ ९</t></p>
+<p style="Testo">La stessa scelta GSUB la fa anche per lingua, con la funzione locl, per il nepalese e il newari: basta che il testo abbia la sua lingua (data al tratto, o quella del documento). Con Core Text, senza lingua, in nepalese e in newari:</p>
+<p style="Testo" font="AnnapurnaSIL-Regular" size="22">झ ५ ८ ९<t font="HoeflerText-Regular" size="12">   </t><t lang="ne">झ ५ ८ ९</t><t font="HoeflerText-Regular" size="12">   </t><t lang="new">झ ५ ८ ९</t></p>
+<p style="Testo">cv21 agisce sulla linea di testa scritta da sola, U+A8FB, nelle forme normale, staccata, stretta e di riempimento:</p>
+<p style="Testo" font="AnnapurnaSIL-Regular" size="22"><t features="cv21=0">कꣻख </t><t features="cv21=1">कꣻख </t><t features="cv21=2">कꣻख </t><t features="cv21=3">कꣻख</t></p>
+<p style="Testo"><t char-style="Forte">GPOS</t> (18,3 KB), le posizioni: 59 regole in tre funzioni: abvm mette i segni sopra la base, blwm quelli sotto, dist regola le distanze fra i glifi. Qui i segni sopra e sotto, ciascuno al suo posto sulla sua consonante:</p>
+<p style="Testo" font="AnnapurnaSIL-Regular" size="22">कें कुं ङ्गे ठूँ ड़ु रु रू</p>
+<p style="Titolo 2">5. Graphite: la composizione di graphite2</p>
+<p style="Testo"><t char-style="Forte">Feat</t> (736 byte), le funzioni Graphite: 35, di cui 18 visibili (sono quelle del pannello delle funzioni) e 17 nascoste che ripetono le stesse con i vecchi nomi (jhav, krav, trav…), tenute per i documenti di una volta. Le visibili: Jha alternates (India, Nepal, Newar), Kra, Tra e Shra alternate, Ukar nukta position, Ekar nukta position, Digit five, eight e nine alternate, Visarga connecting bar, Limbu glottal stop connecting bar, Dya and hya alternates, Archaic forms, Ra Ukar with Nukta ligatures, Cha alternate, Headstroke alternates, Jain Om alternate, Rya alternate. Corrispondono alle funzioni ss e cv di GSUB.</p>
+<p style="Testo"><t char-style="Forte">Silf</t> (151 KB), le regole Graphite già compilate: 11 passate, le prime 9 di sostituzione e le ultime 2 di posizionamento, nessuna per il testo da destra a sinistra; i glifi arrivano al 1095, otto oltre i 1087 veri: sono pseudo-glifi d'appoggio per le regole. Per lo stesso testo Graphite e Core Text danno di solito gli stessi glifi; prima Core Text, poi Graphite:</p>
+<p style="Testo" font="AnnapurnaSIL-Regular" size="22">सत्यमेव जयते।<t font="HoeflerText-Regular" size="12">   </t><t graphite="on">सत्यमेव जयते।</t></p>
+<p style="Testo">Una differenza vera: una vocale «ि» senza consonante. Core Text aggiunge un cerchietto tratteggiato ◌ per mostrare che manca la base; le regole di Graphite in questo font no. Prima Core Text, poi Graphite:</p>
+<p style="Testo"><t font="AnnapurnaSIL-Regular" size="22">ि</t>      <t font="AnnapurnaSIL-Regular" size="22" graphite="on">ि</t></p>
+<p style="Testo"><t char-style="Forte">Glat</t> (31,8 KB) e <t char-style="Forte">Gloc</t> (2,2 KB): gli attributi dei glifi che le regole leggono (81 per glifo: il peso di a capo, la direzione, i punti d'attacco dei segni…); Gloc dice dove comincia in Glat la riga di ogni glifo.</p>
+<p style="Testo"><t char-style="Forte">Sill</t> (140 byte), le scelte predefinite per lingua. Per il nepalese («ne» e «nep») la jha nepalese e le varianti di cinque, otto e nove; per il newari («new») la jha newari e un'altra forma del nove. Lo stesso testo con Graphite, senza lingua, in nepalese e in newari (la stessa scelta che GSUB fa con locl, per un'altra via):</p>
+<p style="Testo" font="AnnapurnaSIL-Regular" size="22"><t graphite="on">झ ५ ८ ९</t><t font="HoeflerText-Regular" size="12">   </t><t lang="ne" graphite="on">झ ५ ८ ९</t><t font="HoeflerText-Regular" size="12">   </t><t lang="new" graphite="on">झ ५ ८ ९</t></p>
+<p style="Testo"><t char-style="Forte">Silt</t> (4 KB, 37 KB una volta decompresso con gzip): non serve a comporre. È il file di TypeTuner, il programma di SIL che costruisce una copia del font con altre scelte già fatte: per esempio «Region: Nepal», che rende la jha nepalese quella normale per tutti i programmi, anche per quelli che non sanno scegliere le funzioni. Dentro c'è un testo XML con l'elenco delle scelte e delle modifiche da fare al font.</p>
+<p style="Titolo 2">In breve</p>
+<p style="Testo">Per comporre il devanagari Annapurna SIL porta due insiemi di regole equivalenti: OpenType (GDEF, GSUB, GPOS) per Core Text e gli altri programmi, Graphite (Silf, Glat, Gloc, Feat, Sill) per chi usa graphite2. Sui testi provati danno gli stessi glifi; le differenze stanno nei nomi e nell'accesso alle varianti (Feat ha i nomi delle funzioni, Sill le scelte per lingua) e in comportamenti come il cerchietto tratteggiato. Le altre tabelle sono comuni a ogni font TrueType: identità, misure, caratteri, contorni e istruzioni per lo schermo.</p>
+</document>
