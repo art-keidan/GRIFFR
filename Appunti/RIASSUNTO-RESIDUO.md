@@ -1,10 +1,10 @@
 # Stato del progetto e lavoro residuo
 
-Aggiornato il 5 novembre 2026.
+Aggiornato il 6 novembre 2026.
 
-## Priorità attuale · revamp con Claude
+## Compositore ad azioni · realizzato
 
-L’utente ha scelto il compositore ad azioni ispirato ad Automator. Prima delle tappe funzionali residue va realizzata questa interfaccia nativa. Prototipo, scelte, punti del codice e criteri di completamento sono nella [consegna a Claude](CONSEGNA-CLAUDE.md). Le tappe elencate sotto restano conservate e riprendono dopo il revamp.
+Il compositore ispirato ad Automator è nell'app: libreria, flusso per fase con blocchi richiudibili, variabili nominate salvate nello stile (formato 12), anteprima con Applica. Il [resoconto](COMPOSITORE-AD-AZIONI.md) dice che cosa c'è, come è provato e che cosa non è stato verificato a schermo. Le tappe sotto riprendono da qui.
 
 ## Che cosa è stato realizzato
 
@@ -27,7 +27,7 @@ Le tappe archiviate in `Appunti/archivio/` sono documentazione storica delle dec
 
 ### 1. Formule riutilizzabili e compositore completo
 
-Il primo percorso completo è implementato: definizioni nominate con parametri tipizzati, somme, chiamate, argomenti di prova e risultati numerici, lunghezze e booleani. La bacheca costruisce le espressioni e le collega alle proprietà compatibili degli stili; il testo, l'ispettore, Annulla, il file e l'importazione condividono la definizione. Il formato 11 conserva i collegamenti. Le diagnosi coprono riferimenti e parametri mancanti, tipi, cicli e limiti di espansione.
+Il primo percorso completo è implementato: definizioni nominate con parametri tipizzati, somme, chiamate, argomenti di prova e risultati numerici, lunghezze e booleani. La bacheca costruisce le espressioni e le collega alle proprietà compatibili degli stili; il testo, l'ispettore, Annulla, il file e l'importazione condividono la definizione. Il formato 11 conserva i collegamenti; il 12 aggiunge le variabili degli stili. Le diagnosi coprono riferimenti e parametri mancanti, tipi, cicli e limiti di espansione.
 
 Il [resoconto e il campione](FORMULE-RIUTILIZZABILI.md) descrivono il percorso utilizzabile. L'estensione verso il catalogo completo comprende ancora operazioni sugli oggetti editoriali, risultati facoltativi e ulteriori effetti.
 

@@ -328,6 +328,9 @@ private struct ActionBlock: View {
                             }
                         }
                     } label: { ComposerPill(title: operation.property.title) }.fixedSize()
+                }
+                // Il valore su una riga sua: un calcolo con argomenti può essere lungo.
+                HStack(spacing: 8) {
                     Text("a").foregroundStyle(.secondary)
                     valueControl
                 }
@@ -365,7 +368,7 @@ private struct ActionBlock: View {
                     Divider()
                     Button("Dai un nome a questo calcolo") { model.extractVariable(from: formula.id) }
                 }
-            } label: { VariablePill(title: valueTitle) }.fixedSize()
+            } label: { VariablePill(title: valueTitle) }
         } else {
             FormulaArgumentPill(operation: operation, target: target, styleNames: model.sheet.styles.filter {
                 operation.property == .nextStyle ? $0.target == .paragraph : (($0.target != .paragraph || formula.target == .paragraph) && !$0.formulas.contains(where: \.isRuntimeRule))
@@ -398,7 +401,7 @@ private struct VariablePill: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: "function").font(.system(size: 10, weight: .semibold))
-            Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1)
+            Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.middle)
             Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
         }
         .foregroundStyle(Color(nsColor: Theme.accentInk))
@@ -465,41 +468,52 @@ private struct ExpressionLine: View {
     private var variables: [StyleVariable] { model.currentStyle?.variables ?? [] }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Menu {
-                Button("Valore") { commit(.constant(.length(12))) }
-                Button("Somma") { commit(.add(.constant(.length(12)), .constant(.length(6)))) }
-                ForEach(model.sheet.reusableFormulas) { definition in
-                    Button("Richiama · " + definition.name) {
-                        commit(.call(definition.id, arguments: Dictionary(uniqueKeysWithValues: definition.parameters.map { ($0.id, FormulaExpression.constant($0.type.zero)) })))
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                kindMenu
+                switch expression {
+                case .constant, .variable:
+                    OperandControl(model: model, expression: expression, owner: owner, type: nil, commit: commit)
+                case .add(let a, let b):
+                    OperandControl(model: model, expression: a, owner: owner, type: nil) { commit(.add($0, b)) }
+                    Text("+")
+                    OperandControl(model: model, expression: b, owner: owner, type: nil) { commit(.add(a, $0)) }
+                case .call(let id, _):
+                    if model.sheet.reusableFormulas.contains(where: { $0.id == id }) {
+                        Button("Apri la definizione") { model.section = .reusable }.buttonStyle(.link).font(.caption)
+                    } else {
+                        Text("Formula non trovata").foregroundStyle(Color(nsColor: Theme.warn))
                     }
+                case .parameter:
+                    Text("Parametro").foregroundStyle(.secondary)
                 }
-            } label: { ComposerPill(title: kindTitle) }.menuStyle(.borderlessButton).fixedSize()
-            switch expression {
-            case .constant, .variable:
-                OperandControl(model: model, expression: expression, owner: owner, type: nil, commit: commit)
-            case .add(let a, let b):
-                OperandControl(model: model, expression: a, owner: owner, type: nil) { commit(.add($0, b)) }
-                Text("+")
-                OperandControl(model: model, expression: b, owner: owner, type: nil) { commit(.add(a, $0)) }
-            case .call(let id, let arguments):
-                if let definition = model.sheet.reusableFormulas.first(where: { $0.id == id }) {
-                    ForEach(definition.parameters) { parameter in
-                        Text(parameter.name).foregroundStyle(.secondary)
+            }
+            // Gli argomenti di una formula richiamata, uno per riga.
+            if case .call(let id, let arguments) = expression, let definition = model.sheet.reusableFormulas.first(where: { $0.id == id }) {
+                ForEach(definition.parameters) { parameter in
+                    HStack(spacing: 8) {
+                        Text(parameter.name).foregroundStyle(.secondary).fixedSize()
                         OperandControl(model: model, expression: arguments[parameter.id] ?? .constant(parameter.type.zero), owner: owner, type: parameter.type) { value in
                             var updated = arguments
                             updated[parameter.id] = value
                             commit(.call(id, arguments: updated))
                         }
                     }
-                    Button("Modifica definizione") { model.section = .reusable }
-                } else {
-                    Text("Formula non trovata").foregroundStyle(Color(nsColor: Theme.warn))
                 }
-            case .parameter:
-                Text("Parametro").foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var kindMenu: some View {
+        Menu {
+            Button("Valore") { commit(.constant(.length(12))) }
+            Button("Somma") { commit(.add(.constant(.length(12)), .constant(.length(6)))) }
+            ForEach(model.sheet.reusableFormulas) { definition in
+                Button("Richiama · " + definition.name) {
+                    commit(.call(definition.id, arguments: Dictionary(uniqueKeysWithValues: definition.parameters.map { ($0.id, FormulaExpression.constant($0.type.zero)) })))
+                }
+            }
+        } label: { ComposerPill(title: kindTitle) }.menuStyle(.borderlessButton).fixedSize()
     }
 
     private var kindTitle: String {
@@ -532,7 +546,7 @@ private struct OperandControl: View {
         HStack(spacing: 4) {
             switch expression {
             case .constant(let value):
-                FormulaValueEditor(value: Binding(get: { value }, set: { commit(.constant($0)) })).frame(maxWidth: 90)
+                FormulaValueEditor(value: Binding(get: { value }, set: { commit(.constant($0)) }))
                 if value.type == .length { Text("pt").foregroundStyle(.secondary) }
             case .variable(let id):
                 VariablePill(title: variables.first { $0.id == id }?.name ?? "Variabile assente")
