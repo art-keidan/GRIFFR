@@ -192,25 +192,26 @@ enum MainMenu {
 
 /// Riempie il menu delle altre serie di note con gli stili di flottante del documento in primo piano.
 @MainActor
-/// Inserisci › Campo: numero di pagina, numero delle pagine, il primo campo formula, e titolo e numero della sezione in corso per ogni ruolo (quelli
-/// pronti e quelli del documento, letti quando il menu si apre).
+/// Inserisci › Campo: numero di pagina, numero delle pagine, e titolo e numero della sezione in corso per ogni ruolo (quelli
+/// pronti e quelli del documento, letti quando il menu si apre). Ogni voce inserisce una formula; il suggerimento ne dice
+/// la catena («Posizione → Pagina contenente → Numero»).
 final class FieldMenuFiller: NSObject, NSMenuDelegate {
     static let shared = FieldMenuFiller()
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        func add(_ title: String, _ field: Field) {
-            menu.addItem(withTitle: title, action: #selector(EditorWindowController.insertField(_:)), keyEquivalent: "").representedObject = field.encoded
+        func add(_ formula: FieldFormula) {
+            let item = menu.addItem(withTitle: formula.title, action: #selector(EditorWindowController.insertField(_:)), keyEquivalent: "")
+            item.representedObject = Field.formula(formula).encoded
+            item.toolTip = formula.chain
         }
-        add("Numero di pagina", .page)
-        add("Numero delle pagine", .pageCount)
-        // Il campo formula, accanto ai campi di sempre finché la sua grammatica non è completa.
-        add("Pagina contenente → Numero", .formula(.pageContainingNumber))
+        add(.pageContainingNumber)
+        add(.documentPageCount)
         let roles = (NSApp.mainWindow?.windowController as? EditorWindowController)?.fieldRoles() ?? Section.Role.builtIn
         menu.addItem(.separator())
-        for role in roles { add("Titolo della sezione in corso: \(role)", .sectionTitle(role: role)) }
+        for role in roles { add(.sectionContainingTitle(role: role)) }
         menu.addItem(.separator())
-        for role in roles { add("Numero della sezione in corso: \(role)", .sectionNumber(role: role)) }
+        for role in roles { add(.sectionContainingNumber(role: role)) }
     }
 }
 

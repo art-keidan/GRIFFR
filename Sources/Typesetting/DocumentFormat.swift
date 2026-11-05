@@ -117,13 +117,16 @@ import Foundation
 ///   superiore, del paragrafo che apre una sequenza di pagine. `opens-section` su `style` di paragrafo: il ruolo della
 ///   sezione che lo stile apre quando lo si dà a un paragrafo (vuoto: nessuno).
 ///
+/// - La versione 13 aggiunge i campi formula `document.page-count.write-here`, `position.section-containing.title.write-here` e
+///   `position.section-containing.number.write-here` (questi due con `role`). I campi storici `page`, `pages`,
+///   `section-title` e `section-number` si leggono ancora e diventano le formule equivalenti.
 /// - La versione 12 introduce `<variable id="…" name="Distanza" expression="…"/>` dentro `style`, prima delle formule:
 ///   un risultato con un nome che le formule dello stile richiamano per identità (`binding` con una variabile).
 ///
 /// La lettura è severa: elementi o attributi sconosciuti sono un errore con il numero di riga, non vengono
 /// ignorati, così un refuso in un file corretto a mano non fa perdere contenuto in silenzio.
 public enum DocumentFormat {
-    public static let version = 12
+    public static let version = 13
 
     public static func writingVersion(for document: Document) -> Int {
         let contextual = document.styles.styles.flatMap(\.formulas).contains {
@@ -134,21 +137,16 @@ public enum DocumentFormat {
         let extended = document.styles.styles.flatMap(\.formulas).contains {
             [.family, .color, .smallCaps, .hyphenates].contains($0.operation.property)
         }
-        let formulaFields = document.flatParagraphs.contains { paragraph in
-            func containsFormula(_ paragraph: Paragraph) -> Bool {
-                paragraph.inlines.contains { inline in
-                    switch inline {
-                    case .text(let run):
-                        if case .some(.formula(_)) = run.field { return true }
-                        return false
-                    case .floating(let object):
-                        return object.paragraphs.contains { runs in runs.contains { if case .some(.formula(_)) = $0.field { return true }; return false } }
-                    case .image: return false
-                    }
+        // Ogni campo si scrive come formula: conta la versione che ha introdotto la sua.
+        let fieldVersion = document.flatParagraphs.flatMap { item -> [Int] in
+            item.paragraph.inlines.flatMap { inline -> [Int] in
+                switch inline {
+                case .text(let run): return run.field.map { [$0.asFormula.formatVersion] } ?? []
+                case .floating(let object): return object.paragraphs.flatMap { $0.compactMap { $0.field?.asFormula.formatVersion } }
+                case .image: return []
                 }
             }
-            return containsFormula(paragraph.paragraph)
-        }
+        }.max() ?? 1
         let styles = document.styles.styles
         // La versione più bassa che sa leggere tutto ciò che il documento usa: ogni costrutto con la versione che l'ha
         // introdotto. Un documento aperto da una versione più nuova non scende sotto di essa.
@@ -160,7 +158,7 @@ public enum DocumentFormat {
             (6, subtracts),
             (7, preciseFace),
             (8, contextual),
-            (9, formulaFields),
+            (fieldVersion, fieldVersion > 1),
             (10, !document.styles.reusableFormulas.isEmpty),
             (11, styles.contains { $0.formulas.contains { $0.binding != nil } }),
             (12, styles.contains { !$0.variables.isEmpty }),
@@ -833,13 +831,9 @@ public enum DocumentFormat {
 
     /// Il tipo di un campo: `kind` e, per quelli di una sezione, `role`.
     private static func fieldAttributes(_ field: Field) -> String {
-        switch field {
-        case .page: " kind=\"page\""
-        case .pageCount: " kind=\"pages\""
-        case .sectionTitle(let role): " kind=\"section-title\" role=\"\(escapedAttribute(role))\""
-        case .sectionNumber(let role): " kind=\"section-number\" role=\"\(escapedAttribute(role))\""
-        case .formula(let formula): " kind=\"formula\" expression=\"\(formula.rawValue)\""
-        }
+        // Si scrivono soltanto formule: i campi storici diventano quelle equivalenti.
+        let formula = field.asFormula
+        return " kind=\"formula\" expression=\"\(formula.expression)\"" + (formula.role.map { " role=\"\(escapedAttribute($0))\"" } ?? "")
     }
 
     /// Gli attributi di una pagina: formato, margini, pagine affacciate.
@@ -1616,17 +1610,21 @@ public enum DocumentFormat {
                     guard check(attributes, allowed: ["kind", "role", "font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines",
                                                       "graphite", "word-style", "char-style", "rules-off", "expression"], element: name, parser) else { return }
                     let field: Field
+                    // I campi storici si leggono e diventano le formule equivalenti.
                     switch (attributes["kind"], attributes["role"]) {
-                    case ("page"?, nil): field = .page
-                    case ("pages"?, nil): field = .pageCount
-                    case ("section-title"?, let role?) where !role.isEmpty: field = .sectionTitle(role: role)
-                    case ("section-number"?, let role?) where !role.isEmpty: field = .sectionNumber(role: role)
-                    case ("formula"?, nil):
+                    case ("page"?, nil): field = Field.page.formula
+                    case ("pages"?, nil): field = Field.pageCount.formula
+                    case ("section-title"?, let role?) where !role.isEmpty: field = Field.sectionTitle(role: role).formula
+                    case ("section-number"?, let role?) where !role.isEmpty: field = Field.sectionNumber(role: role).formula
+                    case ("formula"?, let role):
                         guard settings.sourceVersion >= 9 else {
                             throw DocumentFormatError.malformed(line: line, detail: "Questa formula inserita nel testo richiede il formato 9")
                         }
-                        guard let expression = attributes["expression"], let formula = FieldFormula(rawValue: expression) else {
+                        guard let expression = attributes["expression"], let formula = FieldFormula(expression: expression, role: role) else {
                             throw DocumentFormatError.invalidValue(line: line, attribute: "expression", value: attributes["expression"] ?? "")
+                        }
+                        guard settings.sourceVersion >= formula.formatVersion else {
+                            throw DocumentFormatError.malformed(line: line, detail: "Questa formula inserita nel testo richiede il formato \(formula.formatVersion)")
                         }
                         field = .formula(formula)
                     default: throw DocumentFormatError.invalidValue(line: line, attribute: "kind", value: attributes["kind"] ?? "")

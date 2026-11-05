@@ -2674,7 +2674,8 @@ struct EditingBehaviourTests {
         h.editor.insertField(item)
         h.step()
         #expect(h.undoActionName == "Campo")
-        #expect(h.attributed.attribute(.field, at: 7, effectiveRange: nil) as? String == "page")
+        // Il numero di pagina si inserisce come formula (Posizione → Pagina contenente → Numero).
+        #expect(h.attributed.attribute(.field, at: 7, effectiveRange: nil) as? String == Field.formula(.pageContainingNumber).encoded)
         h.type("x")
         #expect(h.attributed.attribute(.field, at: 8, effectiveRange: nil) == nil, "ciò che si scrive dopo un campo è testo")
         let paragraph = try #require(h.editor.currentDocument().blocks.first.flatMap { if case .paragraph(let p) = $0 { p } else { nil } })

@@ -77,7 +77,7 @@ final class TextDocument: NSDocument {
     override func prepareSavePanel(_ savePanel: NSSavePanel) -> Bool {
         let accepted = super.prepareSavePanel(savePanel)
         if let fileURL, DocumentFormat.writingVersion(for: snapshot) > backingVersion {
-            savePanel.message = "Le definizioni di stile richiedono il formato \(DocumentFormat.writingVersion(for: snapshot)). Scegli un nome per la copia."
+            savePanel.message = "Gli stili o i campi del documento richiedono il formato \(DocumentFormat.writingVersion(for: snapshot)). Scegli un nome per la copia."
             savePanel.nameFieldStringValue = fileURL.deletingPathExtension().lastPathComponent + " (stili).grx"
         }
         return accepted

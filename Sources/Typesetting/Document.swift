@@ -807,13 +807,73 @@ public struct FloatingObject: Equatable, Sendable {
 }
 
 /// Una formula inserita nel testo. Il carattere che la ospita ne è la posizione persistente; il suo aspetto è quello
-/// del tratto che la contiene.
-public enum FieldFormula: String, Hashable, Sendable {
+/// del tratto che la contiene. Ogni formula parte da un oggetto (la posizione del carattere, o il documento), ne prende
+/// un risultato e lo scrive nel punto del campo.
+public enum FieldFormula: Hashable, Sendable {
     /// Posizione → Pagina contenente → Numero → Scrivi risultato qui.
-    case pageContainingNumber = "position.page-containing.number.write-here"
+    case pageContainingNumber
+    /// Documento → Numero delle pagine → Scrivi risultato qui.
+    case documentPageCount
+    /// Posizione → Sezione contenente (di un ruolo) → Titolo → Scrivi risultato qui.
+    case sectionContainingTitle(role: String)
+    /// Posizione → Sezione contenente (di un ruolo) → Numero → Scrivi risultato qui.
+    case sectionContainingNumber(role: String)
+
+    /// L'espressione come la scrive il file; il ruolo, per le sezioni, sta a parte.
+    public var expression: String {
+        switch self {
+        case .pageContainingNumber: "position.page-containing.number.write-here"
+        case .documentPageCount: "document.page-count.write-here"
+        case .sectionContainingTitle: "position.section-containing.title.write-here"
+        case .sectionContainingNumber: "position.section-containing.number.write-here"
+        }
+    }
+
+    public var role: String? {
+        switch self {
+        case .sectionContainingTitle(let role), .sectionContainingNumber(let role): role
+        default: nil
+        }
+    }
+
+    public init?(expression: String, role: String? = nil) {
+        switch (expression, role) {
+        case ("position.page-containing.number.write-here", nil): self = .pageContainingNumber
+        case ("document.page-count.write-here", nil): self = .documentPageCount
+        case ("position.section-containing.title.write-here", let role?) where !role.isEmpty: self = .sectionContainingTitle(role: role)
+        case ("position.section-containing.number.write-here", let role?) where !role.isEmpty: self = .sectionContainingNumber(role: role)
+        default: return nil
+        }
+    }
+
+    /// La versione del formato che ha introdotto la formula.
+    public var formatVersion: Int { self == .pageContainingNumber ? 9 : 13 }
+
+    /// Il nome nei menu.
+    public var title: String {
+        switch self {
+        case .pageContainingNumber: "Numero di pagina"
+        case .documentPageCount: "Numero delle pagine"
+        case .sectionContainingTitle(let role): "Titolo della sezione in corso: \(role)"
+        case .sectionContainingNumber(let role): "Numero della sezione in corso: \(role)"
+        }
+    }
+
+    /// La catena dell'espressione, da leggere: «Posizione → Pagina contenente → Numero».
+    public var chain: String {
+        switch self {
+        case .pageContainingNumber: "Posizione → Pagina contenente → Numero"
+        case .documentPageCount: "Documento → Numero delle pagine"
+        case .sectionContainingTitle(let role): "Posizione → Sezione contenente (\(role)) → Titolo"
+        case .sectionContainingNumber(let role): "Posizione → Sezione contenente (\(role)) → Numero"
+        }
+    }
 }
 
 /// Un campo: un testo che la composizione calcola nel punto in cui compare (un «rimando relativo»). Nel testo è un carattere solo.
+///
+/// I quattro casi storici restano per leggere i documenti di prima; entrando nel documento o nel testo diventano le
+/// formule equivalenti (`formula`), e il file scrive soltanto formule.
 public enum Field: Hashable, Sendable {
     /// Il numero della pagina, come lo scrive la Lista che numera le pagine.
     case page
@@ -829,26 +889,41 @@ public enum Field: Hashable, Sendable {
     /// Il carattere che tiene il posto del campo nel testo.
     public static let placeholder = "\u{FFFC}"
 
-    /// Il campo come valore di un attributo: «page», «pages», «section-title» o «section-number» con il ruolo dopo un a capo.
-    public var encoded: String {
+    /// La formula che il campo calcola: per i campi storici, quella equivalente.
+    public var asFormula: FieldFormula {
         switch self {
-        case .page: "page"
-        case .pageCount: "pages"
-        case .sectionTitle(let role): "section-title\n" + role
-        case .sectionNumber(let role): "section-number\n" + role
-        case .formula(let formula): "formula\n" + formula.rawValue
+        case .page: .pageContainingNumber
+        case .pageCount: .documentPageCount
+        case .sectionTitle(let role): .sectionContainingTitle(role: role)
+        case .sectionNumber(let role): .sectionContainingNumber(role: role)
+        case .formula(let formula): formula
         }
     }
 
+    /// Il campo come formula.
+    public var formula: Field { .formula(asFormula) }
+
+    /// Un campo storico e la sua formula sono lo stesso campo.
+    public static func == (lhs: Field, rhs: Field) -> Bool { lhs.asFormula == rhs.asFormula }
+    public func hash(into hasher: inout Hasher) { hasher.combine(asFormula) }
+
+    /// Il campo come valore di un attributo: «formula», l'espressione e, per le sezioni, il ruolo, separati da a capo.
+    public var encoded: String {
+        let formula = asFormula
+        return "formula\n" + formula.expression + (formula.role.map { "\n" + $0 } ?? "")
+    }
+
+    /// Legge anche le forme storiche («page», «pages», «section-title» e «section-number» col ruolo), che diventano
+    /// formule.
     public init?(encoded: String) {
-        let parts = encoded.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+        let parts = encoded.split(separator: "\n", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
         switch (parts.first, parts.count) {
-        case ("page"?, 1): self = .page
-        case ("pages"?, 1): self = .pageCount
-        case ("section-title"?, 2) where !parts[1].isEmpty: self = .sectionTitle(role: parts[1])
-        case ("section-number"?, 2) where !parts[1].isEmpty: self = .sectionNumber(role: parts[1])
-        case ("formula"?, 2):
-            guard let formula = FieldFormula(rawValue: parts[1]) else { return nil }
+        case ("page"?, 1): self = .formula(.pageContainingNumber)
+        case ("pages"?, 1): self = .formula(.documentPageCount)
+        case ("section-title"?, 2) where !parts[1].isEmpty: self = .formula(.sectionContainingTitle(role: parts[1]))
+        case ("section-number"?, 2) where !parts[1].isEmpty: self = .formula(.sectionContainingNumber(role: parts[1]))
+        case ("formula"?, 2), ("formula"?, 3):
+            guard let formula = FieldFormula(expression: parts[1], role: parts.count == 3 ? parts[2] : nil) else { return nil }
             self = .formula(formula)
         default: return nil
         }

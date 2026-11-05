@@ -31,13 +31,16 @@ Il primo percorso completo è implementato: definizioni nominate con parametri t
 
 Il [resoconto e il campione](FORMULE-RIUTILIZZABILI.md) descrivono il percorso utilizzabile. L'estensione verso il catalogo completo comprende ancora operazioni sugli oggetti editoriali, risultati facoltativi e ulteriori effetti.
 
-### 2. `Posizione`, campi e `Scrivi risultato`
+### 2. `Posizione`, campi e `Scrivi risultato` · realizzato il 6 novembre
 
-Il motore ha già campi fissi per numero di pagina, totale delle pagine e sezione corrente. È stato aggiunto il primo campo formula dinamico:
+Tutti i campi sono formule, con un oggetto di partenza, un risultato e il punto in cui si scrive:
 
-`Posizione → Pagina contenente → Numero formattato → Scrivi risultato qui`.
+- `Posizione → Pagina contenente → Numero` (formato 9);
+- `Documento → Numero delle pagine`, `Posizione → Sezione contenente (ruolo) → Titolo` e `… → Numero` (formato 13).
 
-Il campo dovrà conservare il punto a cui è ancorato, la formula e lo stile del testo prodotto; dovrà aggiornarsi quando cambia la paginazione, senza duplicarsi dopo salvataggio, riapertura o ricomposizione.
+Per scelta dell'autore i campi storici (`page`, `pages`, `section-title`, `section-number`) si leggono ancora e diventano le formule equivalenti; il file scrive soltanto formule. Un documento di prima che contiene campi, dopo l'apertura, si salva quindi in una copia nel formato nuovo (la protezione dell'originale del fork resta). Inserisci › Campo inserisce le formule con i nomi di sempre; il suggerimento di ogni voce ne dice la catena. Il campo è un carattere solo con la sua formula e lo stile del tratto: si aggiorna a ogni composizione e non si duplica salvando, riaprendo o ricomponendo (`FieldFormulaTests`).
+
+Rimandato alla tappa 3: «Scrivi risultato» come azione del compositore, cioè uno stile che genera testo, che è il centro delle testate. Restano da aggiungere risultati come la pagina della sezione e i rimandi a un paragrafo.
 
 ### 3. Testate di capitolo nello spirito di `memoir`
 
@@ -74,7 +77,7 @@ Dopo il nucleo delle formule restano anche miglioramenti del motore, da affronta
 ## Ordine consigliato
 
 1. Completato il primo vocabolario di formule nominate, parametri, tipi e diagnosi nel compositore; estendere le operazioni insieme ai casi successivi.
-2. Implementare `Posizione` e `Scrivi risultato` come campi persistenti.
+2. ~~Implementare `Posizione` e `Scrivi risultato` come campi persistenti.~~ Fatto (formato 13).
 3. Realizzare una testata di capitolo completa.
 4. Realizzare il flottante derivato della quinta parola e generalizzare le relazioni fra oggetti.
 5. Migrare tabelle e flottanti nella stessa grammatica e chiudere la compatibilità dei documenti.

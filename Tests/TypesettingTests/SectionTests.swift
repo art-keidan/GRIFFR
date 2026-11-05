@@ -615,7 +615,11 @@ extension TypesettingSuite {
             document.blocks.append(.paragraph(Paragraph(inlines: [.text(field(.page)), .text(field(.page)),
                                                                   .floating(FloatingObject(paragraphs: [[TextRun("Nota a pagina ", style: body), field(.page)]]))])))
             let written = DocumentFormat.string(for: document)
-            #expect(written.contains("<field kind=\"page\"/><field kind=\"page\"/>") && written.contains("<field kind=\"section-title\" role=\"capitolo\"/>"))
+            // I campi si scrivono come formule, anche quelli costruiti nella forma storica.
+            let page = "<field kind=\"formula\" expression=\"position.page-containing.number.write-here\"/>"
+            #expect(written.contains(page + page))
+            #expect(written.contains("<field kind=\"formula\" expression=\"position.section-containing.title.write-here\" role=\"capitolo\"/>"))
+            #expect(written.contains("version=\"13\""), "la sezione contenente richiede il formato 13")
             #expect(written.contains("page-numbering=\"Romani\"") && written.contains("page-numbering=\"Arabi\""))
             let read = try DocumentFormat.document(from: written)
             #expect(read.blocks == document.blocks && read.sections == document.sections && read.pageNumbering == "Romani")

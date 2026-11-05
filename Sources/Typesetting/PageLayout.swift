@@ -602,12 +602,11 @@ public enum PageLayout {
         }
         /// Il testo di un campo, nel punto della composizione in cui si è.
         func fieldText(_ field: Field) -> String {
-            switch field {
-            case .page: pages[pages.count - 1].number
-            case .pageCount: pageCount.map(String.init) ?? "?"
-            case .sectionTitle(let role): openSections.reversed().first { $0.mark.role == role }?.title ?? ""
-            case .sectionNumber(let role): openSections.reversed().first { $0.mark.role == role }?.number ?? ""
-            case .formula(.pageContainingNumber): pages[pages.count - 1].number
+            switch field.asFormula {
+            case .pageContainingNumber: pages[pages.count - 1].number
+            case .documentPageCount: pageCount.map(String.init) ?? "?"
+            case .sectionContainingTitle(let role): openSections.reversed().first { $0.mark.role == role }?.title ?? ""
+            case .sectionContainingNumber(let role): openSections.reversed().first { $0.mark.role == role }?.number ?? ""
             }
         }
         /// Il tipo della pagina `number`: il nome (`nil` per il predefinito) e le misure.
@@ -2019,12 +2018,11 @@ public enum PageLayout {
                 let area = pageSetup.textRect
                 let sections = index < pageSections.count ? pageSections[index] : []
                 func value(_ field: Field) -> String {
-                    switch field {
-                    case .page: pages[index].number
-                    case .pageCount: pageCount.map(String.init) ?? String(pages.count)
-                    case .sectionTitle(let role): sections.last { $0.role == role }?.title ?? ""
-                    case .sectionNumber(let role): sections.last { $0.role == role }?.number ?? ""
-                    case .formula(.pageContainingNumber): pages[index].number
+                    switch field.asFormula {
+                    case .pageContainingNumber: pages[index].number
+                    case .documentPageCount: pageCount.map(String.init) ?? String(pages.count)
+                    case .sectionContainingTitle(let role): sections.last { $0.role == role }?.title ?? ""
+                    case .sectionContainingNumber(let role): sections.last { $0.role == role }?.number ?? ""
                     }
                 }
                 var note = entry.note
