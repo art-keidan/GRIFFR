@@ -192,7 +192,7 @@ enum MainMenu {
 
 /// Riempie il menu delle altre serie di note con gli stili di flottante del documento in primo piano.
 @MainActor
-/// Inserisci › Campo: numero di pagina, numero delle pagine, e titolo e numero della sezione in corso per ogni ruolo (quelli
+/// Inserisci › Campo: numero di pagina, numero delle pagine, il primo campo formula, e titolo e numero della sezione in corso per ogni ruolo (quelli
 /// pronti e quelli del documento, letti quando il menu si apre).
 final class FieldMenuFiller: NSObject, NSMenuDelegate {
     static let shared = FieldMenuFiller()
@@ -202,8 +202,10 @@ final class FieldMenuFiller: NSObject, NSMenuDelegate {
         func add(_ title: String, _ field: Field) {
             menu.addItem(withTitle: title, action: #selector(EditorWindowController.insertField(_:)), keyEquivalent: "").representedObject = field.encoded
         }
-        add("Pagina contenente → Numero", .formula(.pageContainingNumber))
+        add("Numero di pagina", .page)
         add("Numero delle pagine", .pageCount)
+        // Il campo formula, accanto ai campi di sempre finché la sua grammatica non è completa.
+        add("Pagina contenente → Numero", .formula(.pageContainingNumber))
         let roles = (NSApp.mainWindow?.windowController as? EditorWindowController)?.fieldRoles() ?? Section.Role.builtIn
         menu.addItem(.separator())
         for role in roles { add("Titolo della sezione in corso: \(role)", .sectionTitle(role: role)) }
