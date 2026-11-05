@@ -90,7 +90,7 @@ public enum DefinitionImport {
                 return false
             } ?? false
             func dependencies(_ sheet: StyleSheet) -> [ReusableFormula] {
-                var ids = Set(sheet.style(named: name)?.formulas.flatMap { Array($0.binding?.references ?? []) } ?? [])
+                var ids = sheet.style(named: name)?.reusableReferences ?? []
                 var previous = Set<UUID>()
                 while previous != ids {
                     previous = ids
@@ -194,7 +194,7 @@ public enum DefinitionImport {
         func renamedStyle(_ name: String?) -> String? { name.map { styleRenames[$0] ?? $0 } }
         func renamedList(_ name: String?) -> String? { name.map { listRenames[$0] ?? $0 } }
         var styles = destination.styles
-        var required = Set(importedStyles.flatMap { name in source.styles.style(named: name)?.formulas.flatMap { Array($0.binding?.references ?? []) } ?? [] })
+        var required = Set(importedStyles.flatMap { name in source.styles.style(named: name)?.reusableReferences ?? [] })
         var previous = Set<UUID>()
         while previous != required {
             previous = required
@@ -240,6 +240,11 @@ public enum DefinitionImport {
             style.basedOn = renamedStyle(style.basedOn)
             style.values.listName = renamedList(style.values.listName)
             style.values.nextStyle = renamedStyle(style.values.nextStyle)
+            style.variables = style.variables.map { variable in
+                var changed = variable
+                changed.expression = variable.expression.remapping(formulaRenames)
+                return changed
+            }
             style.formulas = style.formulas.map { formula in
                 var changed = formula
                 changed.binding = formula.binding?.remapping(formulaRenames)
@@ -294,5 +299,13 @@ public enum DefinitionImport {
             names.character = renamedStyle(names.character)
         }
         return Result(text: result, styles: styles, lists: lists, floatStyles: floatStyles)
+    }
+}
+
+extension NamedStyle {
+    /// Le formule riutilizzabili che lo stile richiama, dalle sue formule e dalle sue variabili: quelle che devono
+    /// viaggiare con lui quando si incolla o si importa.
+    public var reusableReferences: Set<UUID> {
+        Set(formulas.flatMap { Array($0.binding?.references ?? []) } + variables.flatMap { Array($0.expression.references) })
     }
 }

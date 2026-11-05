@@ -212,9 +212,13 @@ public struct NamedStyle: Hashable, Sendable {
     public var basedOn: String?
     public var values: StyleValues
     public var formulas: [StyleFormula]
+    /// I risultati con un nome che le formule dello stile richiamano (formato 12).
+    public var variables: [StyleVariable]
 
-    public init(name: String, target: StyleTarget, basedOn: String? = nil, values: StyleValues = StyleValues(), formulas: [StyleFormula] = []) {
+    public init(name: String, target: StyleTarget, basedOn: String? = nil, values: StyleValues = StyleValues(), formulas: [StyleFormula] = [],
+                variables: [StyleVariable] = []) {
         self.formulas = formulas
+        self.variables = variables
         self.name = name
         self.target = target
         self.basedOn = basedOn

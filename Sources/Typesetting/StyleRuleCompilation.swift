@@ -67,7 +67,16 @@ extension StyleSheet {
     /// Riferimenti che il file e il compositore possono verificare dopo avere letto tutti gli stili.
     public func formulaReferenceProblem() -> String? {
         do { _ = try resolvingReusable() } catch { return reusableProblem(error) }
+        let library = ReusableFormulaLibrary(definitions: reusableFormulas)
         for owner in styles {
+            let names = owner.variables.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
+            if names.contains("") || Set(names).count != names.count {
+                return "Le variabili di «\(owner.name)» hanno bisogno di nomi non vuoti e diversi."
+            }
+            for variable in owner.variables {
+                do { _ = try library.evaluate(variable.expression.substitutingVariables(owner.variables)) }
+                catch { return "La variabile «\(variable.name)» di «\(owner.name)»: " + reusableProblem(error) }
+            }
             if let next = owner.values.nextStyle, !next.isEmpty, style(named: next)?.target != .paragraph { return "Lo stile dopo Invio di «\(owner.name)» non esiste o non è di paragrafo." }
             for formula in owner.formulas {
                 if case .firstAfter(let name) = formula.when.position, style(named: name)?.target != .paragraph {

@@ -117,10 +117,13 @@ import Foundation
 ///   superiore, del paragrafo che apre una sequenza di pagine. `opens-section` su `style` di paragrafo: il ruolo della
 ///   sezione che lo stile apre quando lo si dà a un paragrafo (vuoto: nessuno).
 ///
+/// - La versione 12 introduce `<variable id="…" name="Distanza" expression="…"/>` dentro `style`, prima delle formule:
+///   un risultato con un nome che le formule dello stile richiamano per identità (`binding` con una variabile).
+///
 /// La lettura è severa: elementi o attributi sconosciuti sono un errore con il numero di riga, non vengono
 /// ignorati, così un refuso in un file corretto a mano non fa perdere contenuto in silenzio.
 public enum DocumentFormat {
-    public static let version = 11
+    public static let version = 12
 
     public static func writingVersion(for document: Document) -> Int {
         let contextual = document.styles.styles.flatMap(\.formulas).contains {
@@ -160,6 +163,7 @@ public enum DocumentFormat {
             (9, formulaFields),
             (10, !document.styles.reusableFormulas.isEmpty),
             (11, styles.contains { $0.formulas.contains { $0.binding != nil } }),
+            (12, styles.contains { !$0.variables.isEmpty }),
         ]
         return needs.filter(\.used).map(\.version).reduce(max(1, document.sourceVersion), max)
     }
@@ -216,9 +220,14 @@ public enum DocumentFormat {
                 // La stringa vuota è «nessuna Lista»: toglie quella che darebbe lo stile su cui si basa.
                 if let list = values.listName, !list.isEmpty, !knownLists.contains(list) { values.listName = nil }
                 out += styleValueAttributes(values)
-                if style.formulas.isEmpty { out += "/>\n" }
+                if style.formulas.isEmpty && style.variables.isEmpty { out += "/>\n" }
                 else {
                     out += ">\n"
+                    // Le variabili prima delle formule che le richiamano.
+                    for variable in style.variables {
+                        out += "<variable id=\"\(variable.id.uuidString)\" name=\"\(escapedAttribute(variable.name))\""
+                            + " expression=\"\(FormulaCodec.encode(variable.expression))\"/>\n"
+                    }
                     for formula in style.formulas { out += formulaElement(formula) }
                     out += "</style>\n"
                 }
@@ -1313,6 +1322,18 @@ public enum DocumentFormat {
 
                 case ("formula", "style") where settings.sourceVersion >= 4:
                     try readFormula(attributes, line: line, parser)
+
+                case ("variable", "style") where settings.sourceVersion >= 12:
+                    guard check(attributes, allowed: ["id", "name", "expression"], element: name, parser) else { return }
+                    guard let index = settings.styles.styles.indices.last,
+                          let id = attributes["id"].flatMap(UUID.init(uuidString:)),
+                          let label = attributes["name"]?.trimmingCharacters(in: .whitespacesAndNewlines), !label.isEmpty,
+                          let encoded = attributes["expression"],
+                          let expression = try? FormulaCodec.decode(FormulaExpression.self, encoded),
+                          !settings.styles.styles[index].variables.contains(where: { $0.id == id || $0.name == label }) else {
+                        throw DocumentFormatError.malformed(line: line, detail: "Variabile dello stile non valida o duplicata")
+                    }
+                    settings.styles.styles[index].variables.append(StyleVariable(id: id, name: label, expression: expression))
 
                 case ("rules", "document"):
                     guard check(attributes, allowed: [], element: name, parser) else { return }

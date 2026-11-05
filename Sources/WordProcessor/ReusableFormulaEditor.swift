@@ -27,7 +27,7 @@ struct FormulaExpressionEditor: View {
             switch expression {
             case .constant(let value):
                 FormulaValueEditor(value: Binding(get: { value }, set: { expression = .constant($0) }))
-            case .parameter: EmptyView()
+            case .parameter, .variable: EmptyView()
             case .add(let a, let b):
                 child(Binding(get: { a }, set: { expression = .add($0, b) }), type)
                 Text("+")
@@ -58,6 +58,7 @@ struct FormulaExpressionEditor: View {
         case .parameter(let id): "Parametro · " + (parameters.first { $0.id == id }?.name ?? "assente")
         case .add: "Somma · " + type.title
         case .call(let id, _): "Richiama · " + (definitions.first { $0.id == id }?.name ?? "assente")
+        case .variable: "Variabile"
         }
     }
 }

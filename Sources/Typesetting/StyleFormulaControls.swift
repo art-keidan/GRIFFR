@@ -19,7 +19,7 @@ extension StyleSheet {
         var seen: Set<String> = []
         while let name = next, seen.insert(name).inserted, let style = style(named: name) {
             let formulas = style.formulas.filter { $0.operation.property.inspectorProperty == property }
-            if !formulas.isEmpty { return StyleFormulaDefinition(calculation: formulas.contains { $0.binding != nil } ? formulas.compactMap { $0.binding?.summary(in: reusableFormulas) }.joined(separator: "; ") : nil, owner: name, formulas: formulas) }
+            if !formulas.isEmpty { return StyleFormulaDefinition(calculation: formulas.contains { $0.binding != nil } ? formulas.compactMap { $0.binding?.summary(in: reusableFormulas, variables: style.variables) }.joined(separator: "; ") : nil, owner: name, formulas: formulas) }
             if property.isFixed(in: style.values.limited(to: style.target)) { return nil }
             next = style.basedOn
         }

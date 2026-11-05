@@ -37,6 +37,23 @@ public indirect enum FormulaExpression: Hashable, Sendable, Codable {
     case parameter(UUID)
     case add(FormulaExpression, FormulaExpression)
     case call(UUID, arguments: [UUID: FormulaExpression])
+    /// Una variabile dello stile che contiene la formula (vedi `StyleVariable`): si sostituisce con la sua espressione
+    /// prima di valutare. Nelle definizioni riutilizzabili non vale, perché non appartengono a uno stile.
+    case variable(UUID)
+}
+
+/// Un risultato con un nome, dentro uno stile: «Distanza» = Rientro con margine(12 pt). Le formule dello stile lo
+/// richiamano per identità, così rinominarlo non interrompe nulla; più formule possono usare la stessa variabile.
+public struct StyleVariable: Identifiable, Hashable, Sendable, Codable {
+    public let id: UUID
+    public var name: String
+    public var expression: FormulaExpression
+
+    public init(id: UUID = UUID(), name: String, expression: FormulaExpression) {
+        self.id = id
+        self.name = name
+        self.expression = expression
+    }
 }
 
 public struct ReusableFormula: Identifiable, Hashable, Sendable, Codable {
@@ -63,6 +80,7 @@ public enum ReusableFormulaError: Error, Equatable {
     case duplicateParameter(UUID)
     case missingDefinition(UUID)
     case missingParameter(UUID)
+    case missingVariable(UUID)
     case invalidArguments(UUID)
     case incompatibleTypes
     case invalidNumber
@@ -108,6 +126,9 @@ public struct ReusableFormulaLibrary: Sendable {
                 case .parameter(let parameter):
                     guard let result = parameters[parameter] else { throw ReusableFormulaError.missingParameter(parameter) }
                     return result
+                case .variable(let variable):
+                    // Le variabili si sostituiscono prima (vedi `substitutingVariables`): qui sono fuori posto.
+                    throw ReusableFormulaError.missingVariable(variable)
                 case .add(let lhs, let rhs):
                     let a = try type(of: lhs), b = try type(of: rhs)
                     guard a == b, a != .boolean else { throw ReusableFormulaError.incompatibleTypes }
@@ -144,6 +165,7 @@ public struct ReusableFormulaLibrary: Sendable {
                 case .parameter(let id):
                     guard let result = arguments[id] else { throw ReusableFormulaError.missingParameter(id) }
                     return result
+                case .variable(let id): throw ReusableFormulaError.missingVariable(id)
                 case .add(let lhs, let rhs):
                     let a = try value(lhs), b = try value(rhs)
                     switch (a, b) {

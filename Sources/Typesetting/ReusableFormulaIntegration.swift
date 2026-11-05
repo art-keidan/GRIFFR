@@ -19,14 +19,39 @@ public enum FormulaCodec {
 extension FormulaExpression {
     public var references: Set<UUID> {
         switch self {
-        case .constant, .parameter: []
+        case .constant, .parameter, .variable: []
         case .add(let a, let b): a.references.union(b.references)
         case .call(let id, let arguments): arguments.values.reduce([id]) { $0.union($1.references) }
         }
     }
+    /// Le variabili dello stile che l'espressione richiama.
+    public var variableReferences: Set<UUID> {
+        switch self {
+        case .constant, .parameter: []
+        case .variable(let id): [id]
+        case .add(let a, let b): a.variableReferences.union(b.variableReferences)
+        case .call(_, let arguments): arguments.values.reduce([]) { $0.union($1.variableReferences) }
+        }
+    }
+    /// L'espressione con le variabili dello stile al posto dei loro nomi, anche quando una variabile ne usa un'altra.
+    /// Una variabile assente o un giro di variabili è un errore.
+    public func substitutingVariables(_ variables: [StyleVariable], visiting: [UUID] = []) throws -> FormulaExpression {
+        switch self {
+        case .constant, .parameter: return self
+        case .variable(let id):
+            if let start = visiting.firstIndex(of: id) { throw ReusableFormulaError.cycle(Array(visiting[start...]) + [id]) }
+            guard visiting.count < 64 else { throw ReusableFormulaError.expansionLimit }
+            guard let variable = variables.first(where: { $0.id == id }) else { throw ReusableFormulaError.missingVariable(id) }
+            return try variable.expression.substitutingVariables(variables, visiting: visiting + [id])
+        case .add(let a, let b):
+            return .add(try a.substitutingVariables(variables, visiting: visiting), try b.substitutingVariables(variables, visiting: visiting))
+        case .call(let id, let arguments):
+            return .call(id, arguments: try arguments.mapValues { try $0.substitutingVariables(variables, visiting: visiting) })
+        }
+    }
     public func remapping(_ ids: [UUID: UUID]) -> FormulaExpression {
         switch self {
-        case .constant, .parameter: self
+        case .constant, .parameter, .variable: self
         case .add(let a, let b): .add(a.remapping(ids), b.remapping(ids))
         case .call(let id, let args): .call(ids[id] ?? id, arguments: args.mapValues { $0.remapping(ids) })
         }
@@ -61,9 +86,9 @@ extension StyleFormula {
         default: nil
         }
     }
-    public func resolved(in library: ReusableFormulaLibrary) throws -> StyleFormula {
+    public func resolved(in library: ReusableFormulaLibrary, variables: [StyleVariable] = []) throws -> StyleFormula {
         guard let binding else { return self }
-        let value = try library.evaluate(binding)
+        let value = try library.evaluate(binding.substitutingVariables(variables))
         guard value.type == bindingType else { throw ReusableFormulaError.incompatibleTypes }
         let argument: StyleArgument
         switch (operation.argument, value) {
@@ -88,7 +113,7 @@ extension StyleSheet {
         var result = style
         let library = ReusableFormulaLibrary(definitions: reusableFormulas)
         result.formulas = try style.formulas.map {
-            let resolved = try $0.resolved(in: library)
+            let resolved = try $0.resolved(in: library, variables: style.variables)
             try resolved.validate(for: style.target)
             return resolved
         }
@@ -106,6 +131,7 @@ extension StyleSheet {
         case ReusableFormulaError.cycle(let path): return "Collegamento circolare: " + path.map(name).joined(separator: " → ")
         case ReusableFormulaError.missingDefinition(let id): return "Formula non trovata: " + name(id)
         case ReusableFormulaError.missingParameter: return "Un parametro richiamato è stato rimosso."
+        case ReusableFormulaError.missingVariable: return "Una variabile richiamata non esiste più nello stile."
         case ReusableFormulaError.invalidArguments(let id): return "Completa gli argomenti di «" + name(id) + "»."
         case ReusableFormulaError.invalidName: return "Assegna nomi non vuoti e distinti alle definizioni e ai loro parametri."
         case ReusableFormulaError.expansionLimit: return "La formula supera il limite di valutazione: riduci i passaggi o le chiamate."
@@ -127,14 +153,15 @@ extension StyleFormula {
     }
 }
 extension FormulaExpression {
-    public func summary(in definitions: [ReusableFormula]) -> String {
+    public func summary(in definitions: [ReusableFormula], variables: [StyleVariable] = []) -> String {
         switch self {
         case .constant(let value): return value.description
         case .parameter: return "Parametro"
-        case .add(let a, let b): return "(" + a.summary(in: definitions) + " + " + b.summary(in: definitions) + ")"
+        case .variable(let id): return variables.first { $0.id == id }?.name ?? "Variabile assente"
+        case .add(let a, let b): return "(" + a.summary(in: definitions, variables: variables) + " + " + b.summary(in: definitions, variables: variables) + ")"
         case .call(let id, let args):
             let definition = definitions.first { $0.id == id }
-            return (definition?.name ?? "Formula assente") + "(" + (definition?.parameters ?? []).map { $0.name + ": " + (args[$0.id]?.summary(in: definitions) ?? "mancante") }.joined(separator: ", ") + ")"
+            return (definition?.name ?? "Formula assente") + "(" + (definition?.parameters ?? []).map { $0.name + ": " + (args[$0.id]?.summary(in: definitions, variables: variables) ?? "mancante") }.joined(separator: ", ") + ")"
         }
     }
 }
