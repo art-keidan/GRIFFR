@@ -205,3 +205,35 @@ extension ComposerBoardModel {
         }
     }
 }
+
+/// Spostare trascinando: un'azione va al posto di un'altra della stessa fase (l'ordine fra fasi lo decide il motore), una
+/// parte della testata al posto di un'altra.
+extension ComposerBoardModel {
+    /// Vero se l'azione `id` può andare al posto di `target`: stesso stile, stessa fase.
+    func canMoveAction(_ id: UUID, to target: UUID) -> Bool {
+        guard id != target, let style = currentStyle,
+              let a = style.formulas.first(where: { $0.id == id }), let b = style.formulas.first(where: { $0.id == target }) else { return false }
+        return a.phase == b.phase
+    }
+
+    /// Porta l'azione `id` al posto di `target`, spostando le altre di uno.
+    func moveAction(_ id: UUID, to target: UUID) {
+        guard canMoveAction(id, to: target), let i = currentStyleIndex,
+              let from = sheet.styles[i].formulas.firstIndex(where: { $0.id == id }),
+              let to = sheet.styles[i].formulas.firstIndex(where: { $0.id == target }) else { return }
+        let formula = sheet.styles[i].formulas.remove(at: from)
+        sheet.styles[i].formulas.insert(formula, at: to)
+    }
+
+    /// Porta la parte `from` della testata al posto `to`.
+    func moveHeadingPart(from: Int, to: Int) {
+        guard from != to else { return }
+        guard let name = selectedStyle else { return }
+        selectStyle(name)
+        guard let i = currentStyleIndex, var heading = sheet.styles[i].heading,
+              heading.parts.indices.contains(from), heading.parts.indices.contains(to) else { return }
+        let part = heading.parts.remove(at: from)
+        heading.parts.insert(part, at: to)
+        sheet.styles[i].heading = heading
+    }
+}

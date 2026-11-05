@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Typesetting
+import UniformTypeIdentifiers
 
 /// Il compositore di stili ad azioni: la libreria a sinistra, la sequenza dello stile al centro, l'anteprima a destra.
 /// Ogni blocco è una formula o una variabile dello stile nella bozza della bacheca; l'ordine mostrato è quello in cui il
@@ -183,6 +184,8 @@ private struct ComposerFlow: View {
     let style: NamedStyle
     @Binding var expanded: Set<UUID>
     @Binding var selectedAction: UUID?
+    /// The action being dragged: it shows faded and takes the place of the action it passes over, within its phase.
+    @State private var dragging: UUID?
 
     private var objectTitle: String {
         switch style.target {
@@ -230,6 +233,12 @@ private struct ComposerFlow: View {
                                 state: states.last { $0.id == entry.formula.id },
                                 expanded: binding(for: entry.formula.id),
                                 selected: Binding(get: { selectedAction == entry.formula.id }, set: { if $0 { selectedAction = entry.formula.id } }))
+                        .opacity(dragging == entry.formula.id ? 0.4 : 1)
+                        .onDrag {
+                            dragging = entry.formula.id
+                            return NSItemProvider(object: entry.formula.id.uuidString as NSString)
+                        }
+                        .onDrop(of: [UTType.text], delegate: ActionDrop(model: model, target: entry.formula.id, dragging: $dragging))
                 }
             }
             if ordered.isEmpty && style.variables.isEmpty {
@@ -260,6 +269,47 @@ private struct ComposerFlow: View {
     private func setParent(_ parent: String?) {
         guard let i = model.sheet.styles.firstIndex(where: { $0.name == style.name }) else { return }
         model.sheet.styles[i].basedOn = parent
+    }
+}
+
+/// Dragging an action over another of the same phase moves it there at once; across phases the drop is refused.
+private struct ActionDrop: DropDelegate {
+    let model: ComposerBoardModel
+    let target: UUID
+    @Binding var dragging: UUID?
+
+    func validateDrop(info: DropInfo) -> Bool {
+        guard let dragging else { return false }
+        return dragging == target || model.canMoveAction(dragging, to: target)
+    }
+    func dropEntered(info: DropInfo) {
+        guard let dragging, model.canMoveAction(dragging, to: target) else { return }
+        withAnimation(.easeInOut(duration: 0.15)) { model.moveAction(dragging, to: target) }
+    }
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: validateDrop(info: info) ? .move : .forbidden)
+    }
+    func performDrop(info: DropInfo) -> Bool {
+        dragging = nil
+        return true
+    }
+}
+
+/// Dragging a heading part over another moves it there.
+private struct HeadingPartDrop: DropDelegate {
+    let model: ComposerBoardModel
+    let target: Int
+    @Binding var dragging: Int?
+
+    func dropEntered(info: DropInfo) {
+        guard let from = dragging, from != target else { return }
+        withAnimation(.easeInOut(duration: 0.15)) { model.moveHeadingPart(from: from, to: target) }
+        dragging = target
+    }
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
+    func performDrop(info: DropInfo) -> Bool {
+        dragging = nil
+        return true
     }
 }
 
@@ -319,13 +369,20 @@ private struct ActionBlock: View {
                     .layoutPriority(1)
                 if !expanded { Text(summary).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail) }
                 Spacer(minLength: 6)
-                moveButton("arrow.up", -1, "Sposta prima", .upArrow)
-                moveButton("arrow.down", 1, "Sposta dopo", .downArrow)
                 Button { model.removeStyleFormula(formula.id) } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless).accessibilityLabel("Togli l'azione")
+                    .buttonStyle(.borderless).accessibilityLabel("Remove action")
             }
             .contentShape(Rectangle())
             .onTapGesture { selected = true }
+            // Without arrows: the action is dragged; from the keyboard ⌥⌘↑ and ⌥⌘↓ move the chosen one within its phase.
+            .background {
+                if selected {
+                    Button("") { model.moveStyleFormula(formula.id, by: -1) }.keyboardShortcut(.upArrow, modifiers: [.command, .option])
+                        .opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
+                    Button("") { model.moveStyleFormula(formula.id, by: 1) }.keyboardShortcut(.downArrow, modifiers: [.command, .option])
+                        .opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
+                }
+            }
         } content: {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
@@ -374,7 +431,9 @@ private struct ActionBlock: View {
             .menuStyle(.borderlessButton)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Azione \(number): " + operation.predicate.title + " " + operation.property.title)
+        .accessibilityLabel("Action \(number): " + operation.predicate.title + " " + operation.property.title)
+        .accessibilityAction(named: "Move up") { model.moveStyleFormula(formula.id, by: -1) }
+        .accessibilityAction(named: "Move down") { model.moveStyleFormula(formula.id, by: 1) }
     }
 
     @ViewBuilder private var valueControl: some View {
@@ -404,14 +463,6 @@ private struct ActionBlock: View {
                     .menuStyle(.borderlessButton).fixedSize().help("Usa una variabile").accessibilityLabel("Usa una variabile")
             }
         }
-    }
-
-    @ViewBuilder private func moveButton(_ symbol: String, _ offset: Int, _ label: String, _ key: KeyEquivalent) -> some View {
-        let button = Button { model.moveStyleFormula(formula.id, by: offset) } label: { Image(systemName: symbol) }
-            .buttonStyle(.borderless).disabled(!model.canMove(formula.id, by: offset))
-            .help(model.canMove(formula.id, by: offset) ? label : label + ": non oltre la sua fase")
-            .accessibilityLabel(label)
-        if selected { button.keyboardShortcut(key, modifiers: [.command, .option]) } else { button }
     }
 }
 
@@ -732,6 +783,7 @@ struct HeadingBlock: View {
     @ObservedObject var model: ComposerBoardModel
     let heading: HeadingComposition
     @Binding var expanded: Bool
+    @State private var draggingPart: Int?
     private let mm = 72 / 25.4
 
     private var paragraphStyles: [String] { model.sheet.styles.map(\.name) }
@@ -756,6 +808,12 @@ struct HeadingBlock: View {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(Array(heading.parts.enumerated()), id: \.offset) { index, part in
                         partRow(index, part)
+                            .opacity(draggingPart == index ? 0.4 : 1)
+                            .onDrag {
+                                draggingPart = index
+                                return NSItemProvider(object: String(index) as NSString)
+                            }
+                            .onDrop(of: [UTType.text], delegate: HeadingPartDrop(model: model, target: index, dragging: $draggingPart))
                     }
                     if let problem = heading.problem {
                         Text(problem).font(.caption).foregroundStyle(Color(nsColor: Theme.warn))
@@ -793,12 +851,8 @@ struct HeadingBlock: View {
                     Text("mm").foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 4)
-                Button { model.moveHeadingPart(at: index, by: -1) } label: { Image(systemName: "arrow.up") }
-                    .buttonStyle(.borderless).disabled(index == 0).accessibilityLabel("Sposta la parte prima")
-                Button { model.moveHeadingPart(at: index, by: 1) } label: { Image(systemName: "arrow.down") }
-                    .buttonStyle(.borderless).disabled(index + 1 == heading.parts.count).accessibilityLabel("Sposta la parte dopo")
                 Button { model.removeHeadingPart(at: index) } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless).accessibilityLabel("Togli la parte")
+                    .buttonStyle(.borderless).accessibilityLabel("Remove part")
             }
             // I controlli dell'aspetto su una seconda riga, sotto il valore.
             HStack(spacing: 6) {
@@ -826,7 +880,9 @@ struct HeadingBlock: View {
             }
             .padding(.leading, 12)
         }
-        .accessibilityElement(children: .contain).accessibilityLabel("Parte \(index + 1): " + part.title)
+        .accessibilityElement(children: .contain).accessibilityLabel("Part \(index + 1): " + part.title)
+        .accessibilityAction(named: "Move up") { model.moveHeadingPart(at: index, by: -1) }
+        .accessibilityAction(named: "Move down") { model.moveHeadingPart(at: index, by: 1) }
     }
 
     private func styleMenu(_ current: String?, _ commit: @escaping (String?) -> Void) -> some View {
