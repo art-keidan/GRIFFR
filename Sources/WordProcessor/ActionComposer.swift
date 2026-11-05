@@ -17,11 +17,11 @@ struct ActionComposer: View {
                 expanded.insert(id)
                 selectedAction = id
             }
-            .frame(minWidth: 180, idealWidth: 230, maxWidth: 320)
+            .frame(minWidth: 180, idealWidth: 220, maxWidth: 260)
             ScrollView {
                 if let style = model.currentStyle {
                     ComposerFlow(model: model, style: style, expanded: $expanded, selectedAction: $selectedAction)
-                        .padding(16)
+                        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     Text("Nessuno stile").foregroundStyle(.secondary).padding(24)
                 }
@@ -71,12 +71,14 @@ private struct ComposerLibrary: View {
             TextField("Cerca un'azione", text: $search).textFieldStyle(.roundedBorder)
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
-                    group("Formattazione")
-                    ForEach(properties(directive: false), id: \.self) { property in
+                    // Con la ricerca, un gruppo senza voci non compare.
+                    let formatting = properties(directive: false), behaviours = properties(directive: true)
+                    if !formatting.isEmpty { group("Formattazione") }
+                    ForEach(formatting, id: \.self) { property in
                         item(property.title, symbol: property.symbol) { if let id = model.addAction(property) { added(id) } }
                     }
-                    group("Comportamenti")
-                    ForEach(properties(directive: true), id: \.self) { property in
+                    if !behaviours.isEmpty { group("Comportamenti") }
+                    ForEach(behaviours, id: \.self) { property in
                         item(property.title, symbol: property.symbol) { if let id = model.addAction(property) { added(id) } }
                     }
                     conditions
@@ -121,7 +123,7 @@ private struct ComposerLibrary: View {
             }
         }
         let formulas = model.sheet.reusableFormulas.filter { matches($0.name) }
-        group("Formule del documento")
+        if !formulas.isEmpty || search.trimmingCharacters(in: .whitespaces).isEmpty { group("Formule del documento") }
         ForEach(formulas) { definition in
             item(definition.name, symbol: "function") { _ = model.addVariable(calling: definition) }
         }
@@ -294,6 +296,7 @@ private struct ActionBlock: View {
                     .buttonStyle(.borderless).accessibilityLabel(expanded ? "Richiudi l'azione" : "Apri l'azione")
                 Image(systemName: operation.property.symbol).foregroundStyle(Color(nsColor: Theme.glyph))
                 Text(operation.predicate.title + " " + operation.property.title.lowercased()).fontWeight(.medium).lineLimit(1)
+                    .layoutPriority(1)
                 if !expanded { Text(summary).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail) }
                 Spacer(minLength: 6)
                 moveButton("arrow.up", -1, "Sposta prima", .upArrow)

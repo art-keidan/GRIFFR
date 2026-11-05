@@ -636,7 +636,7 @@ extension ComposerBoard {
         case .smallCaps: return c.smallCaps.rawValue
         case .hyphenates: return c.hyphenates ? "Attiva" : "Disattivata"
         case .language: return c.language ?? "Lingua documento"
-        case .alignment: return p.alignment.rawValue
+        case .alignment: return p.alignment.title
         case .spaceBefore: return p.spaceBefore.formatted() + " pt"
         case .spaceAfter: return p.spaceAfter.formatted() + " pt"
         case .firstLineIndent: return p.firstLineIndent.formatted() + " pt"
@@ -706,7 +706,7 @@ struct FormulaArgumentPill: View {
         case .family(let name), .face(let name): name
         case .language(let language): language ?? "Lingua documento"
         case .color(let color): color ?? "Automatico"
-        case .alignment(let alignment): alignment.rawValue
+        case .alignment(let alignment): alignment.title
         case .smallCaps(let mode): mode.rawValue
         case .hyphenates(let enabled): enabled ? "Attiva" : "Disattivata"
         }
@@ -757,7 +757,7 @@ struct FormulaArgumentPill: View {
                 ForEach(FontRole.allCases, id: \.self) { role in Button(roleTitle(role)) { commit(.font(role)) } }
             case .alignment:
                 ForEach(ParagraphStyle.Alignment.allCases, id: \.self) { alignment in
-                    Button(alignment.rawValue) { commit(.alignment(alignment)) }
+                    Button(alignment.title) { commit(.alignment(alignment)) }
                 }
             case .smallCaps:
                 ForEach(SmallCaps.allCases, id: \.self) { mode in Button(mode.rawValue) { commit(.smallCaps(mode)) } }
@@ -890,20 +890,20 @@ struct FormulaQualifiers: View {
                             ForEach(styleNames, id: \.self) { name in Button(name) { choose(TextRule.Position.firstAfter(name)) } }
                         }
                     }
-                } label: { ComposerPill(title: StyleCondition(position: condition.position).summary) }
+                } label: { ComposerPill(title: StyleCondition(position: condition.position).summary) }.fixedSize()
                 if !operation.property.isDirective {
                     Menu {
                         Button("Nessuna condizione numerica") { choose(Optional<TextRule.Condition>.none) }
                         ForEach(TextRule.Condition.Property.allCases, id: \.self) { metric in
                             Button(metricTitle(metric)) { choose(TextRule.Condition(metric, .greaterOrEqual, metric == .lastLineFill ? 50 : 2)) }
                         }
-                    } label: { ComposerPill(title: condition.measurement.map { metricTitle($0.property) } ?? "＋ Condizione") }
+                    } label: { ComposerPill(title: condition.measurement.map { metricTitle($0.property) } ?? "＋ Condizione") }.fixedSize()
                     if let metric = condition.measurement {
                         Menu {
                             ForEach(TextRule.Condition.Comparison.allCases, id: \.self) { comparison in
                                 Button(comparison.symbol) { choose(TextRule.Condition(metric.property, comparison, metric.value)) }
                             }
-                        } label: { ComposerPill(title: metric.comparison.symbol) }
+                        } label: { ComposerPill(title: metric.comparison.symbol) }.fixedSize()
                         FormulaNumberPill(value: metric.value) { choose(TextRule.Condition(metric.property, metric.comparison, $0)) }
                     }
                 }
@@ -921,7 +921,7 @@ struct FormulaQualifiers: View {
                         ForEach(selections) { selection in
                             if valid(condition, .selection(selection.id)) { Button(selection.name) { target = .selection(selection.id) } }
                         }
-                    } label: { ComposerPill(title: targetTitle) }
+                    } label: { ComposerPill(title: targetTitle) }.fixedSize()
                     if case .firstWords(let count) = target {
                         FormulaNumberPill(value: Double(count)) { if $0 >= 1, $0.rounded() == $0 { target = .firstWords(Int($0)) } }
                     }
@@ -979,5 +979,19 @@ extension ComposerBoard {
             Text("Mantiene ordine e precedenze della regola originale.").font(.caption).foregroundStyle(.secondary)
         }.menuStyle(.borderlessButton).padding(20).frame(width: 850, alignment: .leading)
             .background(Color(nsColor: Theme.side)).clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+extension ParagraphStyle.Alignment {
+    /// Il nome dell'allineamento nel compositore.
+    var title: String {
+        switch self {
+        case .natural: "Naturale"
+        case .left: "A sinistra"
+        case .right: "A destra"
+        case .center: "Al centro"
+        case .justified: "Giustificato"
+        case .decimal: "Sulla virgola"
+        }
     }
 }
