@@ -504,8 +504,14 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         var result = sheet
         for index in result.styles.indices {
             guard let own = result.styles[index].values.variations else { continue }
-            let resolved = sheet.values(of: result.styles[index].name)
-            guard resolved.family == family, FontRole(italic: resolved.italic ?? false, bold: resolved.bold ?? false) == role,
+            // Famiglia e ruolo come li dà lo stile risolto: con le formule non stanno più nei campi dei valori.
+            let style = result.styles[index]
+            let character = sheet.resolveCharacter(paragraphStyle: style.target == .paragraph ? style.name : nil,
+                                                   wordStyle: style.target == .word ? style.name : nil,
+                                                   characterStyle: style.target == .character ? style.name : nil, base: TextStyling.styleBase)
+            let traits = TextStyling.traits(ofFace: character.fontName)
+            let styleRole = character.fontRole ?? FontRole(italic: traits?.italic ?? false, bold: traits?.bold ?? false)
+            guard FontRoleResolver().family(of: character) == family, styleRole == role,
                   same(own.filter { governed.contains($0.tag) }, instance.variations) else { continue }
             let rest = own.filter { !governed.contains($0.tag) }
             result.styles[index].values.variations = rest.isEmpty ? nil : rest

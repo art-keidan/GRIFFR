@@ -242,7 +242,9 @@ extension NamedStyle {
         if !formulas.isEmpty {
             var before = values.withoutResolutionSteps
             var details = StyleValues()
-            if formulas.contains(where: { $0.operation.property == .face }) {
+            // Assi, funzioni e corpo ottico dello stile valgono nel font che famiglia o faccia scelgono: vanno dopo quelle
+            // formule, che altrimenti ricalcolerebbero il font e li cancellerebbero (il peso 600 portato nello stile).
+            if formulas.contains(where: { [.face, .family].contains($0.operation.property) }) {
                 details.features = before.features; before.features = nil
                 details.variations = before.variations; before.variations = nil
                 details.opticalSize = before.opticalSize; before.opticalSize = nil

@@ -95,8 +95,12 @@ struct VariableFontEditorTests {
         send(slider, h)
         e.moveStyleAdditionsToStyles(nil); h.step()
         #expect(e.styleMonitor.additions.isEmpty)
-        let testo = e.currentDocument().styles.values(of: "Testo")
-        #expect(testo.family == "Adobe Kis VF")
+        let sheet = e.currentDocument().styles
+        let testo = sheet.values(of: "Testo")
+        // La famiglia ora sta in una formula dello stile, non nel campo storico: conta che lo stile la dichiari e la dia.
+        #expect(sheet.style(named: "Testo")?.declares(.family) == true)
+        let resolved = sheet.resolveCharacter(paragraphStyle: "Testo", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
+        #expect(FontRoleResolver().family(of: resolved) == "Adobe Kis VF")
         #expect(testo.variations == [AxisValue(tag: "wght", value: 600)])
         // L'altro capoverso dello stesso stile: lo stesso font, senza corpo ottico fissato.
         #expect(font(h, at: 28).postScriptName == "AdobeKisVF-Semibold")
