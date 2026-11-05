@@ -89,6 +89,37 @@ struct ActionComposerTests {
         #expect(board.validationIssue != nil)
     }
 
+    @Test("La testata dal compositore: pronta, un'etichetta prima del titolo, parti spostate e tolte; Applica, Annulla, file")
+    func headingThroughTheComposer() throws {
+        let h = EditorHarness(paragraphs: ["Prova."])
+        defer { h.close() }
+        h.editor.openStyleComposer(nil)
+        let board = try #require(h.editor.composerModel)
+        board.selectStyle("Titolo 1")
+        board.useStandardHeading()
+        #expect(board.currentHeading == .standard)
+        board.addHeadingPart(.label(text: "Capitolo", style: nil, alignment: .center, minHeight: nil))
+        let parts = try #require(board.currentHeading?.parts)
+        let label = try #require(parts.firstIndex { if case .label = $0 { true } else { false } })
+        #expect(label < (parts.firstIndex(of: .title) ?? 0), "l'etichetta va prima del titolo")
+        board.moveHeadingPart(at: label, by: -1)
+        board.removeHeadingPart(at: parts.count - 1)
+        #expect(board.currentHeading?.parts.last == .title, "tolto lo spazio dopo il titolo")
+        #expect(board.validationIssue == nil, "\(board.validationIssue ?? "")")
+        board.apply(); h.step()
+        let applied = try #require(h.editor.settings.styles.style(named: "Titolo 1")?.heading)
+        #expect(applied == board.currentHeading)
+        let xml = try #require(String(data: try h.document.data(ofType: TextDocument.typeName), encoding: .utf8))
+        #expect(xml.contains("<heading encoding=\"json-v1\""))
+        h.undo()
+        #expect(h.editor.settings.styles.style(named: "Titolo 1")?.heading == nil)
+        h.redo()
+        #expect(h.editor.settings.styles.style(named: "Titolo 1")?.heading == applied)
+        // Una seconda parte «titolo» è una diagnosi.
+        board.updateHeadingPart(at: 0, to: .title)
+        #expect(board.validationIssue?.contains("titolo") == true)
+    }
+
     @Test("La finestra del compositore si disegna anche stretta, con le tre aree e le azioni aperte")
     func layout() throws {
         let h = EditorHarness(paragraphs: ["Prova."])

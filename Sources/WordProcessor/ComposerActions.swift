@@ -145,3 +145,63 @@ extension ComposerBoardModel {
         return peers.indices.contains(position + offset)
     }
 }
+
+/// La testata dello stile scelto nella bozza (vedi `HeadingComposition`): si crea, si compone parte per parte, si toglie.
+extension ComposerBoardModel {
+    var currentHeading: HeadingComposition? { currentStyle?.heading }
+
+    private func changeHeading(_ change: (inout HeadingComposition?) -> Void) {
+        guard let name = selectedStyle else { return }
+        selectStyle(name)
+        guard let i = currentStyleIndex, sheet.styles[i].target == .paragraph else { return }
+        var heading = sheet.styles[i].heading
+        change(&heading)
+        sheet.styles[i].heading = heading
+    }
+
+    /// La testata pronta del caso guida.
+    func useStandardHeading() { changeHeading { $0 = .standard } }
+
+    func removeHeading() { changeHeading { $0 = nil } }
+
+    /// Una parte nuova in fondo alla testata (prima di quanto segue il titolo, se è un'etichetta o il numero). Senza
+    /// testata, ne nasce una con il solo titolo.
+    func addHeadingPart(_ part: HeadingPart) {
+        changeHeading { heading in
+            var parts = heading?.parts ?? [.title]
+            if part == .title, parts.contains(.title) { return }
+            switch part {
+            case .label, .number:
+                let title = parts.firstIndex(of: .title) ?? parts.count
+                parts.insert(part, at: title)
+            default:
+                parts.append(part)
+            }
+            heading = HeadingComposition(parts: parts)
+        }
+    }
+
+    func updateHeadingPart(at index: Int, to part: HeadingPart) {
+        changeHeading { heading in
+            guard var current = heading, current.parts.indices.contains(index) else { return }
+            current.parts[index] = part
+            heading = current
+        }
+    }
+
+    func moveHeadingPart(at index: Int, by offset: Int) {
+        changeHeading { heading in
+            guard var current = heading, current.parts.indices.contains(index), current.parts.indices.contains(index + offset) else { return }
+            current.parts.swapAt(index, index + offset)
+            heading = current
+        }
+    }
+
+    func removeHeadingPart(at index: Int) {
+        changeHeading { heading in
+            guard var current = heading, current.parts.indices.contains(index) else { return }
+            current.parts.remove(at: index)
+            heading = current.parts.isEmpty ? nil : current
+        }
+    }
+}

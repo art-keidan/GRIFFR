@@ -88,7 +88,7 @@ public enum HeadingAlignment: String, Hashable, Sendable, Codable, CaseIterable 
     }
 
     /// Il lato effettivo su una pagina: sinistra, centro o destra.
-    func resolved(onLeftPage: Bool) -> HeadingAlignment {
+    public func resolved(onLeftPage: Bool) -> HeadingAlignment {
         switch self {
         case .outside: onLeftPage ? .left : .right
         case .inside: onLeftPage ? .right : .left

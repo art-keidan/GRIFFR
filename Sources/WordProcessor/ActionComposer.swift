@@ -82,6 +82,7 @@ private struct ComposerLibrary: View {
                         item(property.title, symbol: property.symbol) { if let id = model.addAction(property) { added(id) } }
                     }
                     conditions
+                    headingItems
                     calculations
                 }
             }
@@ -105,6 +106,18 @@ private struct ComposerLibrary: View {
                     .menuStyle(.borderlessButton).disabled(selectedAction == nil).padding(.vertical, 3)
             }
             if matches("Sempre") { conditionItem("Sempre", .any) }
+        }
+    }
+
+    @ViewBuilder private var headingItems: some View {
+        let mm = 72 / 25.4
+        if model.currentStyle?.target == .paragraph, matches("Testata") || matches("Filetto") || matches("Etichetta") || matches("Numero") || matches("Spazio") {
+            group("Testata")
+            if matches("Testata") { item("Testata pronta", symbol: "rectangle.split.1x2") { model.useStandardHeading() } }
+            if matches("Etichetta") { item("Etichetta", symbol: "textformat") { model.addHeadingPart(.label(text: "Capitolo", style: nil, alignment: .left, minHeight: nil)) } }
+            if matches("Numero") { item("Numero della sezione", symbol: "number") { model.addHeadingPart(.number(prefix: "", style: nil, alignment: .left, minHeight: nil)) } }
+            if matches("Filetto") { item("Filetto", symbol: "minus") { model.addHeadingPart(.rule(thickness: 0.5 * mm, length: nil, alignment: .left)) } }
+            if matches("Spazio") { item("Spazio", symbol: "arrow.up.and.down") { model.addHeadingPart(.space(3 * mm)) } }
         }
     }
 
@@ -199,6 +212,10 @@ private struct ComposerFlow: View {
                 Spacer()
                 Text("Oggetto iniziale").font(.caption).foregroundStyle(.secondary)
             }.padding(.horizontal, 4)
+            if let heading = style.heading {
+                caption("Testata")
+                HeadingBlock(model: model, heading: heading, expanded: binding(for: headingID))
+            }
             if !style.variables.isEmpty {
                 caption("Variabili")
                 ForEach(style.variables) { variable in
@@ -221,6 +238,9 @@ private struct ComposerFlow: View {
             ComposerBoard(model: model).compatibleProperties(style)
         }
     }
+
+    /// L'identità con cui il blocco della testata ricorda se è aperto.
+    private let headingID = UUID(uuidString: "00000000-0000-0000-0000-00000000AE57")!
 
     private func phases(_ ordered: [(index: Int, formula: StyleFormula)]) -> [StyleFormulaPhase] {
         var result: [StyleFormulaPhase] = []
@@ -639,9 +659,15 @@ private struct ComposerPreview: View {
     @ViewBuilder private func sample(_ style: NamedStyle) -> some View {
         if let result = try? model.preview(style) {
             let paragraph = result.paragraph
-            Text(AttributedString(NSAttributedString(string: model.sample, attributes: TextStyling.characterAttributes(for: result.character).attributes)))
-                .padding(.leading, min(CGFloat(max(paragraph.leftIndent, 0)), 120))
-                .padding(.top, min(CGFloat(max(paragraph.spaceBefore, 0)), 60))
+            Group {
+                if let heading = style.heading {
+                    HeadingPreview(model: model, heading: heading, titleCharacter: result.character)
+                } else {
+                    Text(AttributedString(NSAttributedString(string: model.sample, attributes: TextStyling.characterAttributes(for: result.character).attributes)))
+                        .padding(.leading, min(CGFloat(max(paragraph.leftIndent, 0)), 120))
+                        .padding(.top, min(CGFloat(max(paragraph.spaceBefore, 0)), 60))
+                }
+            }
                 .padding(12).frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(nsColor: Theme.rulerPage))
                 .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color(nsColor: Theme.line)))
@@ -697,4 +723,165 @@ extension StyleProperty {
     /// Le proprietà fra cui un'azione può cambiare restando nella sua specie: formattazione con formattazione,
     /// comportamenti con comportamenti (un comportamento si valuta in un'altra fase).
     var phaseFamily: Bool { isDirective }
+}
+
+// MARK: - Testata
+
+/// La testata di uno stile di titolo nel flusso: un blocco con le parti in ordine, una riga ciascuna.
+struct HeadingBlock: View {
+    @ObservedObject var model: ComposerBoardModel
+    let heading: HeadingComposition
+    @Binding var expanded: Bool
+    private let mm = 72 / 25.4
+
+    private var paragraphStyles: [String] { model.sheet.styles.map(\.name) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Button { expanded.toggle() } label: { Image(systemName: expanded ? "chevron.down" : "chevron.right") }
+                    .buttonStyle(.borderless).accessibilityLabel(expanded ? "Richiudi la testata" : "Apri la testata")
+                Image(systemName: "rectangle.split.1x2").foregroundStyle(Color(nsColor: Theme.glyph))
+                Text("Testata").fontWeight(.medium)
+                if !expanded {
+                    Text(heading.parts.map(\.title).joined(separator: " · ")).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 6)
+                Button { model.removeHeading() } label: { Image(systemName: "xmark") }
+                    .buttonStyle(.borderless).accessibilityLabel("Togli la testata")
+            }
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            if expanded {
+                Divider()
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(heading.parts.enumerated()), id: \.offset) { index, part in
+                        partRow(index, part)
+                    }
+                    if let problem = heading.problem {
+                        Text(problem).font(.caption).foregroundStyle(Color(nsColor: Theme.warn))
+                    }
+                }
+                .padding(10)
+                .menuStyle(.borderlessButton)
+            }
+        }
+        .background(Color(nsColor: Theme.control))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: Theme.line)))
+    }
+
+    @ViewBuilder private func partRow(_ index: Int, _ part: HeadingPart) -> some View {
+        HStack(spacing: 6) {
+            Text(part.title).frame(width: 62, alignment: .leading).foregroundStyle(.secondary)
+            switch part {
+            case .label(let text, let style, let alignment, let minHeight):
+                TextField("Testo", text: Binding(get: { text }, set: { model.updateHeadingPart(at: index, to: .label(text: $0, style: style, alignment: alignment, minHeight: minHeight)) }))
+                    .textFieldStyle(.roundedBorder).frame(width: 90)
+                styleMenu(style) { model.updateHeadingPart(at: index, to: .label(text: text, style: $0, alignment: alignment, minHeight: minHeight)) }
+                alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .label(text: text, style: style, alignment: $0, minHeight: minHeight)) }
+                heightPill(minHeight) { model.updateHeadingPart(at: index, to: .label(text: text, style: style, alignment: alignment, minHeight: $0)) }
+            case .number(let prefix, let style, let alignment, let minHeight):
+                TextField("Prima del numero", text: Binding(get: { prefix }, set: { model.updateHeadingPart(at: index, to: .number(prefix: $0, style: style, alignment: alignment, minHeight: minHeight)) }))
+                    .textFieldStyle(.roundedBorder).frame(width: 90)
+                styleMenu(style) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: $0, alignment: alignment, minHeight: minHeight)) }
+                alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: style, alignment: $0, minHeight: minHeight)) }
+                heightPill(minHeight) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: style, alignment: alignment, minHeight: $0)) }
+            case .title:
+                Text("le righe del titolo, nel suo stile").foregroundStyle(.secondary)
+            case .rule(let thickness, let length, let alignment):
+                FormulaNumberPill(value: (thickness / mm * 100).rounded() / 100) { if $0 > 0 { model.updateHeadingPart(at: index, to: .rule(thickness: $0 * mm, length: length, alignment: alignment)) } }
+                Text("mm").foregroundStyle(.secondary)
+                Menu {
+                    Button("Quanto lo specchio") { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: nil, alignment: alignment)) }
+                    ForEach([20, 40, 60, 80], id: \.self) { n in
+                        Button("\(n) mm") { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: Double(n) * mm, alignment: alignment)) }
+                    }
+                } label: { ComposerPill(title: length.map { "\(Int(($0 / mm).rounded())) mm" } ?? "Quanto lo specchio") }.fixedSize()
+                if length != nil {
+                    alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: length, alignment: $0)) }
+                }
+            case .space(let length):
+                FormulaNumberPill(value: (length / mm * 100).rounded() / 100) { model.updateHeadingPart(at: index, to: .space($0 * mm)) }
+                Text("mm").foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 4)
+            Button { model.moveHeadingPart(at: index, by: -1) } label: { Image(systemName: "arrow.up") }
+                .buttonStyle(.borderless).disabled(index == 0).accessibilityLabel("Sposta la parte prima")
+            Button { model.moveHeadingPart(at: index, by: 1) } label: { Image(systemName: "arrow.down") }
+                .buttonStyle(.borderless).disabled(index + 1 == heading.parts.count).accessibilityLabel("Sposta la parte dopo")
+            Button { model.removeHeadingPart(at: index) } label: { Image(systemName: "xmark") }
+                .buttonStyle(.borderless).accessibilityLabel("Togli la parte")
+        }
+        .accessibilityElement(children: .contain).accessibilityLabel("Parte \(index + 1): " + part.title)
+    }
+
+    private func styleMenu(_ current: String?, _ commit: @escaping (String?) -> Void) -> some View {
+        Menu {
+            Button("Stile del titolo") { commit(nil) }
+            ForEach(paragraphStyles, id: \.self) { name in Button(name) { commit(name) } }
+        } label: { ComposerPill(title: current ?? "Stile del titolo") }.fixedSize()
+    }
+
+    private func alignmentMenu(_ current: HeadingAlignment, _ commit: @escaping (HeadingAlignment) -> Void) -> some View {
+        Menu {
+            ForEach(HeadingAlignment.allCases, id: \.self) { alignment in Button(alignment.title) { commit(alignment) } }
+        } label: { ComposerPill(title: current.title) }.fixedSize()
+    }
+
+    private func heightPill(_ current: Double?, _ commit: @escaping (Double?) -> Void) -> some View {
+        Menu {
+            Button("Naturale") { commit(nil) }
+            ForEach([6, 8, 10, 12, 16, 20], id: \.self) { n in Button("\(n) mm") { commit(Double(n) * mm) } }
+        } label: { ComposerPill(title: current.map { "alta \(Int(($0 / mm).rounded())) mm" } ?? "Naturale") }.fixedSize()
+            .help("Altezza minima della fascia")
+    }
+}
+
+/// La testata nell'anteprima: le parti una sotto l'altra, alla loro misura, con il campione al posto del titolo.
+struct HeadingPreview: View {
+    @ObservedObject var model: ComposerBoardModel
+    let heading: HeadingComposition
+    let titleCharacter: CharacterStyle
+
+    private func character(_ style: String?) -> CharacterStyle {
+        guard let style, let target = model.sheet.style(named: style)?.target else { return titleCharacter }
+        return model.sheet.resolveCharacter(paragraphStyle: target == .paragraph ? style : model.selectedStyle,
+                                            wordStyle: target == .word ? style : nil, characterStyle: target == .character ? style : nil,
+                                            base: TextStyling.styleBase, resolver: model.resolver)
+    }
+
+    private func alignment(_ value: HeadingAlignment) -> Alignment {
+        switch value.resolved(onLeftPage: false) {
+        case .right: .trailing
+        case .center: .center
+        default: .leading
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(heading.parts.enumerated()), id: \.offset) { _, part in
+                switch part {
+                case .label(let text, let style, let value, let minHeight):
+                    line(text, character(style), value, minHeight)
+                case .number(let prefix, let style, let value, let minHeight):
+                    line(prefix + "1", character(style), value, minHeight)
+                case .title:
+                    line(model.sample, titleCharacter, .left, nil)
+                case .rule(let thickness, let length, let value):
+                    Rectangle().fill(Color(nsColor: Theme.text))
+                        .frame(width: length.map { CGFloat($0) }, height: max(CGFloat(thickness), 0.5))
+                        .frame(maxWidth: .infinity, alignment: alignment(value))
+                case .space(let length):
+                    Color.clear.frame(height: min(CGFloat(length), 80))
+                }
+            }
+        }
+    }
+
+    private func line(_ string: String, _ character: CharacterStyle, _ value: HeadingAlignment, _ minHeight: Double?) -> some View {
+        Text(AttributedString(NSAttributedString(string: string, attributes: TextStyling.characterAttributes(for: character).attributes)))
+            .lineLimit(3)
+            .frame(maxWidth: .infinity, minHeight: minHeight.map { min(CGFloat($0), 80) }, alignment: Alignment(horizontal: alignment(value).horizontal, vertical: .bottom))
+    }
 }

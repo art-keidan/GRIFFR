@@ -69,6 +69,7 @@ extension StyleSheet {
         do { _ = try resolvingReusable() } catch { return reusableProblem(error) }
         let library = ReusableFormulaLibrary(definitions: reusableFormulas)
         for owner in styles {
+            if let problem = owner.heading?.problem { return "«\(owner.name)»: " + problem }
             let names = owner.variables.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
             if names.contains("") || Set(names).count != names.count {
                 return "Le variabili di «\(owner.name)» hanno bisogno di nomi non vuoti e diversi."
