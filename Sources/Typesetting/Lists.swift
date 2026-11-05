@@ -214,18 +214,18 @@ public struct ListDefinition: Hashable, Sendable {
     public var lastValue: Int? { end ?? counter.seriesLength }
 
     /// La Lista delle figure: «Figura 1.», «Figura 2.»…
-    public static let figures = ListDefinition(name: "Figure", counter: .decimal, prefix: "Figura ", suffix: ".", continues: true)
+    public static let figures = ListDefinition(name: "Figures", counter: .decimal, prefix: "Figure ", suffix: ".", continues: true)
 
     /// La Lista delle tabelle flottanti: «Tabella 1.», «Tabella 2.»…
-    public static let tables = ListDefinition(name: "Tabelle", counter: .decimal, prefix: "Tabella ", suffix: ".", continues: true)
+    public static let tables = ListDefinition(name: "Tables", counter: .decimal, prefix: "Table ", suffix: ".", continues: true)
 
     /// Le Liste con cui nasce un documento nuovo.
     public static let builtIn: [ListDefinition] = [
-        ListDefinition(name: "Elenco numerato", counter: .decimal, suffix: "."),
-        ListDefinition(name: "Esempi", counter: .decimal, prefix: "(", suffix: ")", continues: true),
-        ListDefinition(name: "Sottoesempi", counter: .lowerLetter, suffix: ".", parent: .list("Esempi"), continues: true),
-        ListDefinition(name: "Note", counter: .decimal, continues: true),
-        ListDefinition(name: "Note a simboli", counter: .symbols, parent: .page, continues: true),
+        ListDefinition(name: "Numbered List", counter: .decimal, suffix: "."),
+        ListDefinition(name: "Examples", counter: .decimal, prefix: "(", suffix: ")", continues: true),
+        ListDefinition(name: "Subexamples", counter: .lowerLetter, suffix: ".", parent: .list("Examples"), continues: true),
+        ListDefinition(name: "Notes", counter: .decimal, continues: true),
+        ListDefinition(name: "Symbol Notes", counter: .symbols, parent: .page, continues: true),
     ]
 }
 

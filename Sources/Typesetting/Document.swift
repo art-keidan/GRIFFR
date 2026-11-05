@@ -105,7 +105,9 @@ public struct PageType: Equatable, Sendable {
     }
 
     /// Il nome con cui si indica il tipo predefinito del documento.
-    public static let defaultName = "Predefinito"
+    public static let defaultName = "Default"
+    /// Il nome del tipo predefinito nei documenti di prima: alla lettura diventa `defaultName`.
+    public static let legacyDefaultName = "Predefinito"
 }
 
 /// I tipi di pagina che una sezione indica (per nome; `nil` dove non ne indica uno): per le sue pagine (e per le dispari,
@@ -138,10 +140,10 @@ public enum SectionStart: String, CaseIterable, Sendable {
 public struct Section: Equatable, Sendable {
     /// I ruoli già pronti; se ne possono usare altri, con un nome qualsiasi.
     public enum Role {
-        public static let part = "parte"
-        public static let chapter = "capitolo"
-        public static let section = "sezione"
-        public static let appendix = "appendice"
+        public static let part = "part"
+        public static let chapter = "chapter"
+        public static let section = "section"
+        public static let appendix = "appendix"
         public static let builtIn = [part, chapter, section, appendix]
     }
 
@@ -639,7 +641,9 @@ public struct ImageObject: Hashable, Sendable {
 /// Uno stile di flottante: dove va un oggetto ancorato nel testo, e come si numera. La nota a piè di pagina, la nota a
 /// margine, la nota di chiusura e la figura saranno stili di flottante (fase 5); per ora c'è la prima.
 public struct FloatStyle: Hashable, Sendable {
-    public static let footnoteName = "Nota a piè di pagina"
+    public static let footnoteName = "Footnote"
+    /// Il nome che lo stile delle note a piè di pagina aveva nei documenti di prima: alla lettura diventa `footnoteName`.
+    public static let legacyFootnoteName = "Nota a piè di pagina"
 
     /// Dove va il contenuto.
     public enum Placement: String, Hashable, Sendable {
@@ -749,14 +753,14 @@ public struct FloatStyle: Hashable, Sendable {
     }
 
     /// Lo stile delle figure con cui nasce un documento nuovo: numerate con la Lista «Figure», senza richiamo.
-    public static let figureName = "Figura"
+    public static let figureName = "Figure"
     public static var defaultFigure: FloatStyle {
-        FloatStyle(name: figureName, placement: .figure, listName: "Figure", reference: .none, showsRule: false)
+        FloatStyle(name: figureName, placement: .figure, listName: ListDefinition.figures.name, reference: .none, showsRule: false)
     }
 
     /// Lo stile delle tabelle flottanti, che nasce la prima volta che una tabella diventa flottante: numerate con la Lista
     /// «Tabelle», didascalia sopra.
-    public static let tableName = "Tabella"
+    public static let tableName = "Table"
     public static var defaultTable: FloatStyle {
         FloatStyle(name: tableName, placement: .figure, listName: ListDefinition.tables.name, reference: .none, showsRule: false, caption: .above)
     }
@@ -764,8 +768,8 @@ public struct FloatStyle: Hashable, Sendable {
     /// Lo stile delle note a piè di pagina.
     public static func footnote(listName: String?) -> FloatStyle { FloatStyle(name: footnoteName, listName: listName) }
 
-    public static let headName = "Intestazione"
-    public static let bottomName = "Piè di pagina"
+    public static let headName = "Header"
+    public static let bottomName = "Footer"
 
     /// Uno stile di intestazione (o, con `.pageBottom`, di piè di pagina): senza richiamo né numero, senza filetto.
     public static func running(name: String, placement: Placement = .pageHead, pages: RunningPages = .all) -> FloatStyle {

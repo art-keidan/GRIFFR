@@ -295,16 +295,16 @@ public struct StyleSheet: Hashable, Sendable {
         }
         if let first = candidates.first { return (self, first) }
         // Il nome: «Titolo N», se è libero; altrimenti «Livello N», «Livello N (2)»…
-        var name = "Titolo \(level)"
+        var name = "Heading \(level)"
         if style(named: name) != nil {
-            name = "Livello \(level)"
+            name = "Level \(level)"
             var counter = 2
-            while style(named: name) != nil { name = "Livello \(level) (\(counter))"; counter += 1 }
+            while style(named: name) != nil { name = "Level \(level) (\(counter))"; counter += 1 }
         }
         var heading: NamedStyle
         if let above = (1..<level).reversed().lazy.compactMap({ self.headingStyles(forLevel: $0).first }).first {
             heading = NamedStyle(name: name, target: .paragraph, basedOn: above, values: StyleValues())
-        } else if let model = Self.builtIn.style(named: "Titolo \(min(level, 3))") {
+        } else if let model = Self.builtIn.style(named: "Heading \(min(level, 3))") {
             heading = model
             heading.name = name
             // Un documento senza «Testo» (o senza lo stile di base) non lo riceve: il titolo si basa sul testo del documento.
@@ -324,43 +324,53 @@ public struct StyleSheet: Hashable, Sendable {
         var centered = StyleValues()
         centered.alignment = .center
         // «Centrato» fissa solo l'allineamento: applicato da una regola a un paragrafo, il resto non cambia.
-        return builtIn.styles.filter { $0.name.hasPrefix("Maiuscoletto") } + [NamedStyle(name: "Centrato", target: .paragraph, values: centered)]
+        return builtIn.styles.filter { [smallCapsStyle, allSmallCapsStyle].contains($0.name) } + [NamedStyle(name: "Centered", target: .paragraph, values: centered)]
     }
 
     /// Lo stile di paragrafo predefinito dei documenti nuovi.
-    public static let defaultParagraphStyle = "Testo"
+    public static let defaultParagraphStyle = "Body"
+    /// Lo stile di paragrafo predefinito nei documenti di prima.
+    public static let legacyParagraphStyle = "Testo"
+    /// Gli stili di carattere del maiuscoletto che le regole propongono.
+    public static let smallCapsStyle = "Small Caps"
+    public static let allSmallCapsStyle = "All Small Caps"
+
+    /// Lo stile di base del testo di questo documento: «Body», o «Testo» nei documenti di prima; `nil` se non c'è.
+    public var bodyStyleName: String? {
+        [Self.defaultParagraphStyle, Self.legacyParagraphStyle].first { style(named: $0)?.target == .paragraph }
+    }
 
     /// Gli stili con cui nasce un documento nuovo.
     public static let builtIn: StyleSheet = {
         func values(_ build: (inout StyleValues) -> Void) -> StyleValues { var v = StyleValues(); build(&v); return v }
         return StyleSheet(styles: [
-            NamedStyle(name: "Testo", target: .paragraph, values: values {
+            NamedStyle(name: "Body", target: .paragraph, values: values {
                 $0.family = "Hoefler Text"; $0.size = 12; $0.alignment = .justified
             }),
-            NamedStyle(name: "Titolo 1", target: .paragraph, basedOn: "Testo", values: values {
+            NamedStyle(name: "Heading 1", target: .paragraph, basedOn: "Body", values: values {
                 $0.size = 18; $0.bold = true; $0.alignment = .natural; $0.spaceBefore = 18; $0.spaceAfter = 6; $0.opensSection = Section.Role.chapter; $0.outlineLevel = 1
             }),
-            NamedStyle(name: "Titolo 2", target: .paragraph, basedOn: "Testo", values: values {
+            NamedStyle(name: "Heading 2", target: .paragraph, basedOn: "Body", values: values {
                 $0.size = 14; $0.bold = true; $0.alignment = .natural; $0.spaceBefore = 12; $0.spaceAfter = 4; $0.opensSection = Section.Role.section; $0.outlineLevel = 2
             }),
-            NamedStyle(name: "Titolo 3", target: .paragraph, basedOn: "Testo", values: values {
+            NamedStyle(name: "Heading 3", target: .paragraph, basedOn: "Body", values: values {
                 $0.size = 13; $0.bold = true; $0.alignment = .natural; $0.spaceBefore = 10; $0.spaceAfter = 3; $0.opensSection = Section.Role.section; $0.outlineLevel = 3
             }),
-            NamedStyle(name: "Citazione", target: .paragraph, basedOn: "Testo", values: values {
+            NamedStyle(name: "Quotation", target: .paragraph, basedOn: "Body", values: values {
                 $0.size = 11; $0.leftIndent = 24; $0.rightIndent = 24; $0.spaceBefore = 6; $0.spaceAfter = 6
             }),
-            NamedStyle(name: "Esempio", target: .paragraph, basedOn: "Testo", values: values {
-                $0.alignment = .natural; $0.spaceBefore = 6; $0.spaceAfter = 6; $0.listName = "Esempi"
+            NamedStyle(name: "Example", target: .paragraph, basedOn: "Body", values: values {
+                $0.alignment = .natural; $0.spaceBefore = 6; $0.spaceAfter = 6; $0.listName = "Examples"
             }),
-            NamedStyle(name: "Sottoesempio", target: .paragraph, basedOn: "Esempio", values: values {
-                $0.spaceBefore = 0; $0.spaceAfter = 0; $0.listName = "Sottoesempi"
+            NamedStyle(name: "Subexample", target: .paragraph, basedOn: "Example", values: values {
+                $0.spaceBefore = 0; $0.spaceAfter = 0; $0.listName = "Subexamples"
             }),
-            NamedStyle(name: "Latino", target: .word, values: values { $0.language = "la" }),
-            NamedStyle(name: "Greco antico", target: .word, values: values { $0.language = "grc" }),
-            NamedStyle(name: "Enfasi", target: .character, values: values { $0.italic = true }),
-            NamedStyle(name: "Forte", target: .character, values: values { $0.bold = true }),
-            NamedStyle(name: "Maiuscoletto", target: .character, values: values { $0.smallCaps = .lowercase }),
-            NamedStyle(name: "Maiuscoletto delle sigle", target: .character, values: values { $0.smallCaps = .uppercase }),
+            NamedStyle(name: "Latin", target: .word, values: values { $0.language = "la" }),
+            NamedStyle(name: "Ancient Greek", target: .word, values: values { $0.language = "grc" }),
+            NamedStyle(name: "Emphasis", target: .character, values: values { $0.italic = true }),
+            NamedStyle(name: "Strong", target: .character, values: values { $0.bold = true }),
+            NamedStyle(name: smallCapsStyle, target: .character, values: values { $0.smallCaps = .lowercase }),
+            NamedStyle(name: allSmallCapsStyle, target: .character, values: values { $0.smallCaps = .uppercase }),
         ])
     }()
 }

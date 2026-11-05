@@ -585,7 +585,7 @@ extension StyleProperty {
         case .openingDistance: .length(0, .points)
         case .opensSection: .text(Section.Role.chapter)
         case .nextStyle: .styleName(nil)
-        case .applyStyle: .styleName("Forte")
+        case .applyStyle: .styleName("Strong")
         case .outlineLevel: .integer(1)
         case .keepWithNext, .keepTogether: .boolean(true)
         case .orphanLines, .widowLines: .integer(2)

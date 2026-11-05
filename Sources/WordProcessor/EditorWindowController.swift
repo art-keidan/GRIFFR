@@ -162,7 +162,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             // Un documento nuovo nasce con gli stili e le Liste predefiniti; le note si numerano 1, 2, 3.
             settings.styles = .builtIn
             settings.lists = ListDefinition.builtIn + [ListDefinition.figures]
-            settings.noteList = "Note"
+            settings.noteList = "Notes"
             settings.floatStyles.append(.defaultFigure)
             // Un documento nuovo nasce nella lingua del sistema, se è tra quelle che si sanno sillabare.
             let system = Locale.current.language.languageCode?.identifier

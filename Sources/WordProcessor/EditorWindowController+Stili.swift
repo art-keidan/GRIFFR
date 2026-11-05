@@ -1146,9 +1146,10 @@ extension EditorWindowController {
     /// Un documento nuovo è vuoto: il cursore scrive nello stile «Testo».
     func loadEmptyDocument() {
         let sheet = settings.styles
-        let character = sheet.resolveCharacter(paragraphStyle: "Testo", wordStyle: nil, characterStyle: nil, base: settings.formulaBase ?? TextStyling.styleBase)
+        let body = sheet.bodyStyleName
+        let character = sheet.resolveCharacter(paragraphStyle: body, wordStyle: nil, characterStyle: nil, base: settings.formulaBase ?? TextStyling.styleBase)
         let probe = Document(styles: sheet, lists: settings.lists, blocks: [
-            .paragraph(Paragraph(styleName: "Testo", style: sheet.resolveParagraph(styleName: "Testo"), inlines: [.text(TextRun(" ", style: character))]))
+            .paragraph(Paragraph(styleName: body, style: sheet.resolveParagraph(styleName: body), inlines: [.text(TextRun(" ", style: character))]))
         ]).attributedString().text
         show(NSAttributedString())
         if probe.length > 0 { typingAttributes = probe.attributes(at: 0, effectiveRange: nil) }

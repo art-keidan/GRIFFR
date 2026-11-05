@@ -37,7 +37,7 @@ extension EditorWindowController {
             attributes.merge(TextStyling.characterAttributes(for: character).attributes) { $1 }
         } else if floatStyle?.placement.isRunning == true {
             // Intestazioni e piè di pagina: con l'aspetto del testo, non del titolo in cui sono ancorati; cinque sesti del corpo.
-            let body = settings.styles.style(named: "Testo")?.target == .paragraph ? "Testo" : nil
+            let body = settings.styles.bodyStyleName
             var character = settings.styles.resolveCharacter(paragraphStyle: body, wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
             character.size = max((character.size * 5 / 6 * 2).rounded() / 2, 4)
             attributes.merge(TextStyling.characterAttributes(for: character).attributes) { $1 }
@@ -80,9 +80,9 @@ extension EditorWindowController {
         let base = placement == .pageHead ? FloatStyle.headName : FloatStyle.bottomName
         return switch pages {
         case .all: base
-        case .odd: base + " dispari"
-        case .even: base + " pari"
-        case .first: base + " della prima pagina"
+        case .odd: base + " (odd pages)"
+        case .even: base + " (even pages)"
+        case .first: base + " (first page)"
         }
     }
 

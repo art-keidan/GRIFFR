@@ -232,15 +232,15 @@ public struct TableStyle: Equatable, Sendable {
     }
 
     /// Lo stile delle tabelle che non ne indicano uno.
-    public static let defaultName = "Griglia"
+    public static let defaultName = "Grid"
 
     /// Gli stili con cui nasce ogni documento.
     public static let builtIn: [TableStyle] = [
         TableStyle(name: defaultName, values: TableValues(rules: .grid)),
-        TableStyle(name: "Tre filetti", values: TableValues(rules: .threeRules, ruleWidth: 0.75)),
-        TableStyle(name: "Orizzontali", values: TableValues(rules: .horizontal)),
-        TableStyle(name: "Bordo", values: TableValues(rules: .frame)),
-        TableStyle(name: "Senza filetti", values: TableValues(rules: TableRuleScheme.none)),
+        TableStyle(name: "Three Rules", values: TableValues(rules: .threeRules, ruleWidth: 0.75)),
+        TableStyle(name: "Horizontal", values: TableValues(rules: .horizontal)),
+        TableStyle(name: "Frame", values: TableValues(rules: .frame)),
+        TableStyle(name: "No Rules", values: TableValues(rules: TableRuleScheme.none)),
     ]
 
     /// L'aspetto di una tabella: le sue eccezioni sopra il suo stile (o quello predefinito), sopra i valori di partenza.

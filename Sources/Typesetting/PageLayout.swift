@@ -2039,7 +2039,7 @@ public enum PageLayout {
             }
             if let heading = series.heading, !heading.isEmpty {
                 // Il titolo prende l'aspetto dello stile «Titolo 2», se il documento ce l'ha; non fa parte del testo.
-                let headingStyle = options.styles.style(named: "Titolo 2") != nil ? "Titolo 2" : nil
+                let headingStyle = ["Heading 2", "Titolo 2"].first { options.styles.style(named: $0) != nil }
                 let character = options.styles.resolveCharacter(paragraphStyle: headingStyle, wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
                 let line = CTLineCreateWithAttributedString(NSAttributedString(string: heading, attributes: TextStyling.characterAttributes(for: character).attributes))
                 var ascent: CGFloat = 0, descent: CGFloat = 0, leading: CGFloat = 0

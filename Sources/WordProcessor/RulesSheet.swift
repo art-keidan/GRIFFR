@@ -135,7 +135,7 @@ final class RulesSheetModel: ObservableObject {
         missingStyles = missing
         characterStyles = missing.filter { $0.target != .paragraph }.map(\.name) + styles.styles.filter { $0.target != .paragraph }.map(\.name)
         paragraphTargetStyles = missing.filter { $0.target == .paragraph }.map(\.name) + paragraphStyles + characterStyles
-        let after = paragraphStyles.first { $0 == "Titolo 1" } ?? paragraphStyles.first ?? ""
+        let after = paragraphStyles.first { $0 == "Heading 1" || $0 == "Titolo 1" } ?? paragraphStyles.first ?? ""
         let rows = rules.map { rule in
             var draft = RuleDraft(rule, defaultAfter: after)
             if draft.find != .selection, let first = styles.selections.first { draft.selectionID = first.id }
@@ -145,7 +145,7 @@ final class RulesSheetModel: ObservableObject {
         selection = rows.first?.id
     }
 
-    static let smallCaps = "Maiuscoletto"
+    static let smallCaps = StyleSheet.smallCapsStyle
 
     var selectedIndex: Int? { rows.firstIndex { $0.id == selection } }
 
@@ -167,9 +167,9 @@ final class RulesSheetModel: ObservableObject {
     }
 
     func add() {
-        let after = paragraphStyles.first { $0 == "Titolo 1" } ?? paragraphStyles.first ?? ""
+        let after = paragraphStyles.first { $0 == "Heading 1" || $0 == "Titolo 1" } ?? paragraphStyles.first ?? ""
         var row = RuleDraft(styleName: characterStyles.first { $0 == Self.smallCaps } ?? characterStyles.first ?? "", afterStyle: after)
-        if paragraphStyles.contains("Testo") { row.paragraphStyle = "Testo" }
+        if let body = [StyleSheet.defaultParagraphStyle, StyleSheet.legacyParagraphStyle].first(where: paragraphStyles.contains) { row.paragraphStyle = body }
         if let first = selections.first { row.selectionID = first.id }
         rows.append(row)
         selection = row.id
@@ -305,8 +305,8 @@ private struct RuleDetailView: View {
                     Text(model.missingStyles.contains { $0.name == name } ? "\(name) (new)" : name).tag(name)
                 }
             }
-            if row.styleName == "Maiuscoletto", [.capitals, .roman].contains(row.find) {
-                Text("“Maiuscoletto” changes lowercase letters: abbreviations and Roman numerals, all capitals, do not change. For them there is “Maiuscoletto delle sigle”, if the font has the feature (Hoefler Text does not).")
+            if [StyleSheet.smallCapsStyle, "Maiuscoletto"].contains(row.styleName), [.capitals, .roman].contains(row.find) {
+                Text("“Small Caps” changes lowercase letters: abbreviations and Roman numerals, all capitals, do not change. For them there is “All Small Caps”, if the font has the feature (Hoefler Text does not).")
                     .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
             }
             Toggle("Rule on", isOn: field(\.isEnabled, true))
@@ -316,7 +316,7 @@ private struct RuleDetailView: View {
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if row.find == .paragraph {
-                Text("With a paragraph style, alignment, indents and spacing change too; a style that sets only the alignment, such as “Centrato”, changes only that.")
+                Text("With a paragraph style, alignment, indents and spacing change too; a style that sets only the alignment, such as “Centered”, changes only that.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if row.place == .firstOnPage {

@@ -1667,7 +1667,7 @@ public enum DocumentFormat {
                 case ("note", "p"):
                     guard check(attributes, allowed: ["font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "style"], element: name, parser) else { return }
                     var noteAttributes = attributes
-                    let floatStyle = noteAttributes.removeValue(forKey: "style") ?? FloatStyle.footnoteName
+                    let floatStyle = noteAttributes.removeValue(forKey: "style").map { $0 == FloatStyle.legacyFootnoteName ? FloatStyle.footnoteName : $0 } ?? FloatStyle.footnoteName
                     guard settings.floatStyles.contains(where: { $0.name == floatStyle }) else {
                         throw DocumentFormatError.invalidValue(line: line, attribute: "style", value: floatStyle)
                     }
@@ -1876,7 +1876,9 @@ public enum DocumentFormat {
 
         /// Un riferimento a un tipo di pagina: deve esistere (o essere il predefinito).
         private func pageTypeName(_ name: String?, attribute: String, line: Int) throws -> String? {
-            guard let name else { return nil }
+            guard var name else { return nil }
+            // Il tipo predefinito, con il nome che aveva quando l'interfaccia era in italiano.
+            if name == PageType.legacyDefaultName, !settings.pageTypes.contains(where: { $0.name == name }) { name = PageType.defaultName }
             guard name == PageType.defaultName || settings.pageTypes.contains(where: { $0.name == name }) else {
                 throw DocumentFormatError.invalidValue(line: line, attribute: attribute, value: name)
             }
@@ -2233,7 +2235,9 @@ public enum DocumentFormat {
             guard check(attributes, allowed: ["name", "placement", "positions", "caption", "heading", "new-page", "list", "reference", "rule", "rule-length", "space-above",
                                               "space-below", "split", "content", "pages", "edge"],
                         element: "float-style", parser) else { return }
-            guard let name = attributes["name"], !name.isEmpty else { throw DocumentFormatError.missingAttribute(line: line, attribute: "name") }
+            guard var name = attributes["name"], !name.isEmpty else { throw DocumentFormatError.missingAttribute(line: line, attribute: "name") }
+            // Lo stile delle note a piè di pagina, con il nome che aveva quando l'interfaccia era in italiano.
+            if name == FloatStyle.legacyFootnoteName { name = FloatStyle.footnoteName }
             var style = FloatStyle(name: name)
             if let list = attributes["list"] {
                 guard settings.lists.contains(where: { $0.name == list }) else { throw DocumentFormatError.invalidValue(line: line, attribute: "list", value: list) }
