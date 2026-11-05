@@ -214,11 +214,14 @@ public struct NamedStyle: Hashable, Sendable {
     public var formulas: [StyleFormula]
     /// I risultati con un nome che le formule dello stile richiamano (formato 12).
     public var variables: [StyleVariable]
+    /// La testata, per uno stile di titolo (formato 14).
+    public var heading: HeadingComposition?
 
     public init(name: String, target: StyleTarget, basedOn: String? = nil, values: StyleValues = StyleValues(), formulas: [StyleFormula] = [],
-                variables: [StyleVariable] = []) {
+                variables: [StyleVariable] = [], heading: HeadingComposition? = nil) {
         self.formulas = formulas
         self.variables = variables
+        self.heading = heading
         self.name = name
         self.target = target
         self.basedOn = basedOn

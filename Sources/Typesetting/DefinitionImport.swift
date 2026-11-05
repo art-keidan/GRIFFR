@@ -240,6 +240,16 @@ public enum DefinitionImport {
             style.basedOn = renamedStyle(style.basedOn)
             style.values.listName = renamedList(style.values.listName)
             style.values.nextStyle = renamedStyle(style.values.nextStyle)
+            // Le parti della testata seguono gli stili rinominati.
+            style.heading = style.heading.map { heading in
+                HeadingComposition(parts: heading.parts.map { part in
+                    switch part {
+                    case .label(let text, let name, let alignment, let height): .label(text: text, style: renamedStyle(name), alignment: alignment, minHeight: height)
+                    case .number(let prefix, let name, let alignment, let height): .number(prefix: prefix, style: renamedStyle(name), alignment: alignment, minHeight: height)
+                    default: part
+                    }
+                })
+            }
             style.variables = style.variables.map { variable in
                 var changed = variable
                 changed.expression = variable.expression.remapping(formulaRenames)
