@@ -408,7 +408,7 @@ private struct ActionBlock: View {
                 }
                 // Il valore su una riga sua: un calcolo con argomenti può essere lungo.
                 HStack(spacing: 8) {
-                    Text("a").foregroundStyle(.secondary)
+                    Text("to").foregroundStyle(.secondary)
                     valueControl
                 }
                 if target == .paragraph {

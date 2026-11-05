@@ -2,6 +2,12 @@
 
 Aggiornato il 6 novembre 2026.
 
+## Interfaccia in inglese · 6 novembre
+
+Per la diffusione pubblica l'interfaccia è in inglese: menu, fasce e zone, ispettore, schede, compositore, avvisi, messaggi d'errore del formato e diagnosi del motore. L'app dichiara l'inglese come lingua (`CFBundleDevelopmentRegion`), così anche i pannelli di sistema e i nomi degli assi dei font restano in inglese su un Mac in italiano. Le disposizioni delle fasce salvate in italiano passano ai nomi inglesi al caricamento.
+
+Restano in italiano, perché sono dati del documento e non testi dell'interfaccia: i nomi predefiniti degli stili («Testo», «Titolo 1», «Citazione»…), delle Liste («Note», «Figure»…), degli stili di flottante e di tabella, del tipo di pagina predefinito, i ruoli delle sezioni («capitolo») e il testo di prova di Lorem. Passarli all'inglese per i documenti nuovi è un passo a parte: i documenti esistenti devono tenere i loro nomi.
+
 ## Compositore ad azioni · realizzato
 
 Il compositore ispirato ad Automator è nell'app: libreria, flusso per fase con blocchi richiudibili, variabili nominate salvate nello stile (formato 12), anteprima con Applica. Il [resoconto](COMPOSITORE-AD-AZIONI.md) dice che cosa c'è, come è provato e che cosa non è stato verificato a schermo. Le tappe sotto riprendono da qui.
