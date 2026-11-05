@@ -349,6 +349,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     var layoutItemIDs: [ObjectIdentifier: String] = [:]
     /// Durante il trascinamento di un pulsante fuori dalle zone: la fascia e il posto della zona che nascerà.
     var pendingZoneIndex: (BandView, Int)?
+    /// Il problema delle formule dell'ultimo foglio di stili controllato (vedi `formulaProblem`).
+    var formulaProblemCache: (sheet: StyleSheet, problem: String?)?
     lazy var layoutDropMarker: DropMarkerView = {
         let marker = DropMarkerView()
         marker.isHidden = true
@@ -766,12 +768,24 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         guard let layout = pagesView.layout else { return [] }
         var result: [(String, NSRange?)] = layout.marginConflicts.map { ("Nota a margine sovrapposta", $0) }
         result += layout.listsNeedingOverflowChoice.map { ("La Lista «\($0)» ha finito i segni", nil) }
+        // Un foglio con formule non risolvibili si compone senza di esse: lo si dice, invece di tacerlo.
+        if let problem = formulaProblem() { result.append(("Formule degli stili: " + problem, nil)) }
         if layout.graphiteFallbacks > 0 {
             let count = layout.graphiteFallbacks == 1 ? "1 tratto composto" : "\(layout.graphiteFallbacks) tratti composti"
             result.append((Graphite.isAvailable ? "Graphite chiesto su un font senza tabelle Graphite: \(count) con Core Text"
                                                 : "Graphite non è installato: \(count) con Core Text", nil))
         }
         return result
+    }
+
+    /// Il problema delle formule del foglio di stili, calcolato una volta per foglio (gli avvisi si contano a ogni
+    /// movimento del cursore).
+    private func formulaProblem() -> String? {
+        let sheet = settings.styles
+        if let cached = formulaProblemCache, cached.sheet == sheet { return cached.problem }
+        let problem = sheet.formulaReferenceProblem()
+        formulaProblemCache = (sheet, problem)
+        return problem
     }
 
     /// Gli avvisi della barra di stato, come testo (per le prove).

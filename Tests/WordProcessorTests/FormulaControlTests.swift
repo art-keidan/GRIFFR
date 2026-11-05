@@ -5,6 +5,21 @@ import Testing
 
 @Suite("Controlli e bacheca condividono le formule", .serialized) @MainActor
 struct FormulaControlTests {
+    @Test("Una formula con un riferimento rotto non si tace: compare fra gli avvisi, e sparisce annullando")
+    func brokenReferenceIsWarned() throws {
+        let h = EditorHarness(paragraphs: ["Prova"])
+        defer { h.close() }
+        #expect(!h.editor.warningTitles.contains { $0.hasPrefix("Formule degli stili") })
+        var sheet = h.editor.settings.styles
+        let index = try #require(sheet.styles.firstIndex { $0.name == "Testo" })
+        sheet.styles[index].formulas.append(StyleFormula(operation: StylePropertyOperation(.set, .nextStyle, .styleName("Inesistente"))))
+        h.editor.changeStyles(to: sheet, restyle: true, actionName: "Prova")
+        h.step()
+        #expect(h.editor.warningTitles.contains { $0.hasPrefix("Formule degli stili") && $0.contains("Inesistente") }, "\(h.editor.warningTitles)")
+        h.undo()
+        #expect(!h.editor.warningTitles.contains { $0.hasPrefix("Formule degli stili") })
+    }
+
     @Test("Un corpo modificato dal controllo e dalla pill resta sincronizzato con Annulla e il file")
     func sharedDefinition() throws {
         let h = EditorHarness(paragraphs: ["Prova"])
