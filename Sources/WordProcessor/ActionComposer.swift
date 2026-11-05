@@ -771,46 +771,60 @@ struct HeadingBlock: View {
     }
 
     @ViewBuilder private func partRow(_ index: Int, _ part: HeadingPart) -> some View {
-        HStack(spacing: 6) {
-            Text(part.title).frame(width: 62, alignment: .leading).foregroundStyle(.secondary)
-            switch part {
-            case .label(let text, let style, let alignment, let minHeight):
-                TextField("Testo", text: Binding(get: { text }, set: { model.updateHeadingPart(at: index, to: .label(text: $0, style: style, alignment: alignment, minHeight: minHeight)) }))
-                    .textFieldStyle(.roundedBorder).frame(width: 90)
-                styleMenu(style) { model.updateHeadingPart(at: index, to: .label(text: text, style: $0, alignment: alignment, minHeight: minHeight)) }
-                alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .label(text: text, style: style, alignment: $0, minHeight: minHeight)) }
-                heightPill(minHeight) { model.updateHeadingPart(at: index, to: .label(text: text, style: style, alignment: alignment, minHeight: $0)) }
-            case .number(let prefix, let style, let alignment, let minHeight):
-                TextField("Prima del numero", text: Binding(get: { prefix }, set: { model.updateHeadingPart(at: index, to: .number(prefix: $0, style: style, alignment: alignment, minHeight: minHeight)) }))
-                    .textFieldStyle(.roundedBorder).frame(width: 90)
-                styleMenu(style) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: $0, alignment: alignment, minHeight: minHeight)) }
-                alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: style, alignment: $0, minHeight: minHeight)) }
-                heightPill(minHeight) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: style, alignment: alignment, minHeight: $0)) }
-            case .title:
-                Text("le righe del titolo, nel suo stile").foregroundStyle(.secondary)
-            case .rule(let thickness, let length, let alignment):
-                FormulaNumberPill(value: (thickness / mm * 100).rounded() / 100) { if $0 > 0 { model.updateHeadingPart(at: index, to: .rule(thickness: $0 * mm, length: length, alignment: alignment)) } }
-                Text("mm").foregroundStyle(.secondary)
-                Menu {
-                    Button("Quanto lo specchio") { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: nil, alignment: alignment)) }
-                    ForEach([20, 40, 60, 80], id: \.self) { n in
-                        Button("\(n) mm") { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: Double(n) * mm, alignment: alignment)) }
-                    }
-                } label: { ComposerPill(title: length.map { "\(Int(($0 / mm).rounded())) mm" } ?? "Quanto lo specchio") }.fixedSize()
-                if length != nil {
-                    alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: length, alignment: $0)) }
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text(part.title).frame(width: 56, alignment: .leading).foregroundStyle(.secondary)
+                switch part {
+                case .label(let text, let style, let alignment, let minHeight):
+                    TextField("Testo", text: Binding(get: { text }, set: { model.updateHeadingPart(at: index, to: .label(text: $0, style: style, alignment: alignment, minHeight: minHeight)) }))
+                        .textFieldStyle(.roundedBorder).frame(maxWidth: 160)
+                case .number(let prefix, let style, let alignment, let minHeight):
+                    TextField("Prima del numero", text: Binding(get: { prefix }, set: { model.updateHeadingPart(at: index, to: .number(prefix: $0, style: style, alignment: alignment, minHeight: minHeight)) }))
+                        .textFieldStyle(.roundedBorder).frame(maxWidth: 160)
+                case .title:
+                    Text("le righe del titolo").foregroundStyle(.secondary).lineLimit(1)
+                case .rule(let thickness, let length, let alignment):
+                    FormulaNumberPill(value: (thickness / mm * 100).rounded() / 100) { if $0 > 0 { model.updateHeadingPart(at: index, to: .rule(thickness: $0 * mm, length: length, alignment: alignment)) } }
+                        .fixedSize()
+                    Text("mm").foregroundStyle(.secondary)
+                case .space(let length):
+                    FormulaNumberPill(value: (length / mm * 100).rounded() / 100) { model.updateHeadingPart(at: index, to: .space($0 * mm)) }
+                        .fixedSize()
+                    Text("mm").foregroundStyle(.secondary)
                 }
-            case .space(let length):
-                FormulaNumberPill(value: (length / mm * 100).rounded() / 100) { model.updateHeadingPart(at: index, to: .space($0 * mm)) }
-                Text("mm").foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                Button { model.moveHeadingPart(at: index, by: -1) } label: { Image(systemName: "arrow.up") }
+                    .buttonStyle(.borderless).disabled(index == 0).accessibilityLabel("Sposta la parte prima")
+                Button { model.moveHeadingPart(at: index, by: 1) } label: { Image(systemName: "arrow.down") }
+                    .buttonStyle(.borderless).disabled(index + 1 == heading.parts.count).accessibilityLabel("Sposta la parte dopo")
+                Button { model.removeHeadingPart(at: index) } label: { Image(systemName: "xmark") }
+                    .buttonStyle(.borderless).accessibilityLabel("Togli la parte")
             }
-            Spacer(minLength: 4)
-            Button { model.moveHeadingPart(at: index, by: -1) } label: { Image(systemName: "arrow.up") }
-                .buttonStyle(.borderless).disabled(index == 0).accessibilityLabel("Sposta la parte prima")
-            Button { model.moveHeadingPart(at: index, by: 1) } label: { Image(systemName: "arrow.down") }
-                .buttonStyle(.borderless).disabled(index + 1 == heading.parts.count).accessibilityLabel("Sposta la parte dopo")
-            Button { model.removeHeadingPart(at: index) } label: { Image(systemName: "xmark") }
-                .buttonStyle(.borderless).accessibilityLabel("Togli la parte")
+            // I controlli dell'aspetto su una seconda riga, sotto il valore.
+            HStack(spacing: 6) {
+                switch part {
+                case .label(let text, let style, let alignment, let minHeight):
+                    styleMenu(style) { model.updateHeadingPart(at: index, to: .label(text: text, style: $0, alignment: alignment, minHeight: minHeight)) }
+                    alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .label(text: text, style: style, alignment: $0, minHeight: minHeight)) }
+                    heightPill(minHeight) { model.updateHeadingPart(at: index, to: .label(text: text, style: style, alignment: alignment, minHeight: $0)) }
+                case .number(let prefix, let style, let alignment, let minHeight):
+                    styleMenu(style) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: $0, alignment: alignment, minHeight: minHeight)) }
+                    alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: style, alignment: $0, minHeight: minHeight)) }
+                    heightPill(minHeight) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: style, alignment: alignment, minHeight: $0)) }
+                case .rule(let thickness, let length, let alignment):
+                    Menu {
+                        Button("Quanto lo specchio") { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: nil, alignment: alignment)) }
+                        ForEach([20, 40, 60, 80], id: \.self) { n in
+                            Button("\(n) mm") { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: Double(n) * mm, alignment: alignment)) }
+                        }
+                    } label: { ComposerPill(title: length.map { "lungo \(Int(($0 / mm).rounded())) mm" } ?? "Quanto lo specchio") }.fixedSize()
+                    if length != nil {
+                        alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: length, alignment: $0)) }
+                    }
+                default: EmptyView()
+                }
+            }
+            .padding(.leading, 12)
         }
         .accessibilityElement(children: .contain).accessibilityLabel("Parte \(index + 1): " + part.title)
     }

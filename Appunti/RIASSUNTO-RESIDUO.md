@@ -42,9 +42,13 @@ Per scelta dell'autore i campi storici (`page`, `pages`, `section-title`, `secti
 
 Rimandato alla tappa 3: «Scrivi risultato» come azione del compositore, cioè uno stile che genera testo, che è il centro delle testate. Restano da aggiungere risultati come la pagina della sezione e i rimandi a un paragrafo.
 
-### 3. Testate di capitolo nello spirito di `memoir`
+### 3. Testate di capitolo nello spirito di `memoir` · primo nucleo realizzato il 6 novembre
 
-Va introdotta una composizione associata allo stile del titolo, con parti ordinate come numero, filetto, spaziatura e titolo. Servono riferimenti al numero e al titolo della sezione, stili per le singole parti, pagine pari/dispari e aggiornamento quando il titolo cambia altezza o posizione.
+Uno stile di paragrafo può avere una testata (`HeadingComposition`, formato 14): una sequenza verticale di parti, cioè etichetta («Capitolo»), numero della sezione, titolo, filetto e spazio. Ogni parte di testo ha uno stile, un allineamento (anche lato esterno o interno sulle pagine affacciate) e un'altezza minima. Il titolo resta il solo paragrafo del documento; le altre parti si compongono come i segni degli elenchi e i filetti e si posano con lui, contando per il salto pagina, la tenuta e la distanza a inizio pagina. Il numero compare una volta: con una parte «numero» il segno della Lista del titolo non si disegna. La distanza d'apertura vale per il bordo superiore della testata intera. Gli stili derivati ereditano la testata.
+
+Il caso guida è provato (`HeadingCompositionTests`): 12 + 3 + 0,5 + 2,5 mm sopra e 8 mm sotto spostano il corpo di 26 mm; un titolo di tre righe lo abbassa quanto le due righe in più; il numero sta a destra sulle dispari e a sinistra sulle pari; con 30 mm di apertura il filetto cade a 45 mm. Nel compositore: la «Testata pronta», le singole parti, il blocco con le parti in ordine e l'anteprima della sequenza.
+
+Resta da fare: la parte «titolo» con altezza o allineamento propri rispetto alla testata, parti affiancate (numero accanto al titolo), una parte «numero» che scompare quando la sezione non ha numero (oggi la sua fascia resta), l'aggiornamento del campo «titolo corrente» quando il titolo cambia (già garantito dai campi formula), e una prova a schermo con un documento vero.
 
 ### 4. Flottanti derivati e relazioni fra oggetti
 
@@ -78,7 +82,7 @@ Dopo il nucleo delle formule restano anche miglioramenti del motore, da affronta
 
 1. Completato il primo vocabolario di formule nominate, parametri, tipi e diagnosi nel compositore; estendere le operazioni insieme ai casi successivi.
 2. ~~Implementare `Posizione` e `Scrivi risultato` come campi persistenti.~~ Fatto (formato 13).
-3. Realizzare una testata di capitolo completa.
+3. Testata di capitolo: primo nucleo fatto (formato 14); restano parti affiancate e varianti.
 4. Realizzare il flottante derivato della quinta parola e generalizzare le relazioni fra oggetti.
 5. Migrare tabelle e flottanti nella stessa grammatica e chiudere la compatibilità dei documenti.
 6. Fare la verifica d'uso completa nell'app e solo dopo riprendere le estensioni tipografiche indipendenti.
