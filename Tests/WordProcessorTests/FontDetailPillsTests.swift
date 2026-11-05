@@ -62,7 +62,7 @@ struct FontDetailPillsTests {
         h.editor.additionMonitorMenu(at: 1).performActionForItem(at: 1)
         h.step()
         let testo = h.editor.currentDocument().styles.style(named: "Testo")?.values
-        #expect(testo?.smallCaps == .lowercase, "nello stile va la scelta, non le forme tecniche")
+        #expect(h.editor.currentDocument().styles.inspect(style: "Testo", base: TextStyling.styleBase).first { $0.property == .smallCaps }?.value.smallCaps == .lowercase, "nello stile va la scelta, non le forme tecniche")
         #expect(testo?.features == nil)
         #expect(testo?.italic == nil, "il corsivo non va nello stile")
         #expect(h.editor.styleMonitor.additions == ["car. corsivo"])

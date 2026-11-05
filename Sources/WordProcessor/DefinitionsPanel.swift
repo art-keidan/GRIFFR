@@ -177,7 +177,7 @@ final class DefinitionsPanel {
             floats = model
             install(tab, model, FloatStylesSheetView(model: model))
         case .rules:
-            if !force, let rules, rules.result().rules == document.rules { return }
+            if !force, let rules, rules.result().rules == document.rules, rules.selections == document.styles.selections { return }
             let selected = rules?.selectedIndex
             let model = RulesSheetModel(rules: document.rules, styles: document.styles)
             if let selected, model.rows.indices.contains(selected) { model.selection = model.rows[selected].id }
@@ -278,6 +278,7 @@ final class StylesTabModel: ObservableObject {
     var onParent: ((String, String?) -> Void)?
     var onOpensSection: ((String, String?) -> Void)?
     /// Il livello di paragrafazione di uno stile: `nil` come lo stile di base, 0 nessuno.
+    var onPageStart: ((String, PageStartSpacing?) -> Void)?
     var onOutlineLevel: ((String, Int?) -> Void)?
     var onSelect: ((String?) -> Void)?
 
@@ -387,6 +388,7 @@ struct StylesTabView: View {
                         if style.target == .paragraph {
                             outlineLevelRow(style)
                             opensSectionRow(style)
+                            pageStartRow(style)
                         }
                         Divider()
                         InspectorView(model: model.inspector, rowsOnly: true)
@@ -404,9 +406,31 @@ struct StylesTabView: View {
 }
 
 extension StylesTabView {
+    @ViewBuilder func pageStartRow(_ style: NamedStyle) -> some View {
+        let own = style.declaredValues.pageStartSpacing
+        let inherited = model.sheet.values(of: style.basedOn).pageStartSpacing
+        let initial: Double = if case .distance(let points) = inherited { points } else { PageSetup.points(fromMillimetres: 30) }
+        let selectedDistance: PageStartSpacing = if case .distance(let points) = own { .distance(points) } else { .distance(initial) }
+        LabeledContent("Quando apre la pagina") {
+            Picker("Distanza dallo specchio", selection: Binding(get: { own }, set: { model.onPageStart?(style.name, $0) })) {
+                Text("Eredita").tag(PageStartSpacing?.none)
+                Text("Disattivata").tag(Optional(PageStartSpacing.disabled))
+                Text("Distanza").tag(Optional(selectedDistance))
+            }
+            .labelsHidden()
+        }
+        if case .distance(let points) = own {
+            LabeledContent("Dal margine superiore") {
+                LengthField(points: CGFloat(points)) { x in
+                    if x.isFinite && x >= 0 { model.onPageStart?(style.name, .distance(Double(x))) }
+                }
+            }
+        }
+    }
+
     /// «Livello»: la posizione nella paragrafazione dei titoli che hanno questo stile; ereditato, nessuno, o 1–9.
     @ViewBuilder func outlineLevelRow(_ style: NamedStyle) -> some View {
-        let own = style.values.outlineLevel
+        let own = style.declaredValues.outlineLevel
         let inherited = style.basedOn.flatMap { model.sheet.resolveParagraph(styleName: $0).outlineLevel }
         HStack(alignment: .firstTextBaseline) {
             Text("Livello").frame(width: 118, alignment: .leading)
@@ -421,7 +445,7 @@ extension StylesTabView {
 
     /// «Apre una sezione»: il ruolo della sezione che nasce dando lo stile a un paragrafo; ereditato, nessuno, o un ruolo.
     @ViewBuilder func opensSectionRow(_ style: NamedStyle) -> some View {
-        let own = style.values.opensSection
+        let own = style.declaredValues.opensSection
         let inherited = style.basedOn.flatMap { model.sheet.values(of: $0).opensSection }.flatMap { $0.isEmpty ? nil : $0 }
         let roles = Typesetting.Section.Role.builtIn + [own].compactMap { $0 }.filter { !$0.isEmpty && !Typesetting.Section.Role.builtIn.contains($0) }
         HStack(alignment: .firstTextBaseline) {

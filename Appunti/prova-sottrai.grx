@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document version="6" font="HoeflerText-BlackItalic" size="14">
+<styles>
+<style name="Senza grassetto" target="character">
+<formula id="4F6DC1BB-29CF-4AF2-A253-00F000000011" predicate="subtract" property="font" kind="font" value="bold"/>
+</style>
+<style name="Senza corsivo" target="character">
+<formula id="4F6DC1BB-29CF-4AF2-A253-00F000000012" predicate="subtract" property="font" kind="font" value="italic"/>
+</style>
+<style name="Rientro base" target="paragraph" left-indent="24"/>
+<style name="Rientro ridotto" target="paragraph" based-on="Rientro base">
+<formula id="4F6DC1BB-29CF-4AF2-A253-00F000000013" predicate="subtract" property="leftIndent" kind="length" value="6" unit="pt"/>
+</style>
+</styles>
+<page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
+<p>Il carattere di partenza è grassetto corsivo.</p>
+<p><t char-style="Senza grassetto">Sottrai Font Grassetto: resta il corsivo.</t></p>
+<p><t char-style="Senza corsivo">Sottrai Font Corsivo: resta il grassetto.</t></p>
+<p style="Rientro ridotto">Sottrai 6 pt dai 24 pt ereditati: il rientro diventa 18 pt.</p>
+</document>

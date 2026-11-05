@@ -97,6 +97,15 @@ public enum InspectorProperty: String, CaseIterable, Sendable, Identifiable {
 extension StyleValues {
     /// Toglie i campi che esprimono la proprietà: chi li usa la eredita.
     public mutating func clear(_ property: InspectorProperty) {
+        resolutionSteps = resolutionSteps.compactMap { step in
+            switch step {
+            case .formula(let formula):
+                return formula.operation.property.inspectorProperty == property ? nil : step
+            case .values(var values):
+                values.clear(property)
+                return .values(values)
+            }
+        }
         switch property {
         case .family, .face:
             family = nil
@@ -307,7 +316,7 @@ extension TextStyling {
             var seen: Set<String> = []
             while let current = next, !seen.contains(current), let style = sheet.style(named: current) {
                 seen.insert(current)
-                if property.isFixed(in: style.values.limited(to: target)) { return current }
+                if style.declares(property) { return current }
                 next = style.basedOn
             }
         }
@@ -521,27 +530,28 @@ extension TextStyling {
     /// I valori dell'ispettore con quelli che danno le regole che toccano il punto `index` (nell'ordine in cui si
     /// applicano): un valore non dato a mano che una regola cambia viene da lei, con il valore che lei gli dà.
     public static func withRuleSources(_ values: [InspectedValue], rules: [TextRule], in text: NSAttributedString, at index: Int,
-                                       sheet: StyleSheet) -> [InspectedValue] {
+                                       sheet originalSheet: StyleSheet, resolver: FontRoleResolver = FontRoleResolver()) -> [InspectedValue] {
+        let sheet = originalSheet.compilingStyleRules([]).sheet
         guard !rules.isEmpty, text.length > 0 else { return values }
         let index = min(index, text.length - 1)
         let piece = NSMutableAttributedString(attributedString: text.attributedSubstring(from: NSRange(location: index, length: 1)))
         let all = NSRange(location: 0, length: 1)
-        guard var previous = actualAndInherited(in: piece, at: 0, sheet: sheet)?.actual else { return values }
-        var given: [InspectorProperty: (value: StyleValues, rule: String)] = [:]
+        guard var previous = actualAndInherited(in: piece, at: 0, sheet: sheet, resolver: resolver)?.actual else { return values }
+        var given: [InspectorProperty: (value: StyleValues, rule: String, active: Bool)] = [:]
         for rule in rules {
             if rule.target == .paragraph {
-                Rules.applyParagraphStyle(rule.styleName, in: piece, sheet: sheet)
+                Rules.applyParagraphStyle(rule.styleName, in: piece, sheet: sheet, resolver: resolver)
             } else {
-                Rules.applyStyle(rule.styleName, to: all, in: piece, sheet: sheet)
+                Rules.applyStyle(rule.styleName, to: all, in: piece, sheet: sheet, resolver: resolver)
             }
-            guard let now = actualAndInherited(in: piece, at: 0, sheet: sheet)?.actual else { continue }
+            guard let now = actualAndInherited(in: piece, at: 0, sheet: sheet, resolver: resolver)?.actual else { continue }
             for property in InspectorProperty.allCases where differs(property, between: now, and: previous) {
-                given[property] = (property.only(now), rule.summary)
+                given[property] = (property.only(now), rule.summary, rule.formulaOwner != nil)
             }
             previous = now
         }
         return values.map { value in
-            guard value.source != .own, !value.isMixed, let rule = given[value.property] else { return value }
+            guard !value.isMixed, let rule = given[value.property], value.source != .own || rule.active else { return value }
             var copy = value
             copy.value = rule.value
             copy.source = .rule(rule.rule)
@@ -552,11 +562,17 @@ extension TextStyling {
     /// Gli stili con il valore del punto `index` portato nello stile che lo riceve (vedi `receivingStyle`); `nil` se
     /// nessuno stile lo può ricevere. Se il valore coincide con quello che lo stile erediterebbe comunque, lo stile
     /// smette di fissarlo.
-    public static func sheet(_ sheet: StyleSheet, takingValueOf property: InspectorProperty, from text: NSAttributedString, at index: Int) -> StyleSheet? {
+    public static func sheet(_ sheet: StyleSheet, takingValueOf property: InspectorProperty, from text: NSAttributedString, at index: Int, replacingFormula: Bool = false) -> StyleSheet? {
         guard text.length > 0, let receiver = receivingStyle(for: property, in: text, at: index),
               let position = sheet.styles.firstIndex(where: { $0.name == receiver.name }) else { return nil }
         let index = min(index, text.length - 1)
         let style = sheet.styles[position]
+        if !replacingFormula, sheet.formulaDefinition(for: property, inStyle: style.name)?.isCalculated == true { return sheet }
+        if property != .face, let inspected = actualAndInherited(in: text, at: index, sheet: sheet),
+           StylePropertyOperation.constant(property.only(inspected.actual), for: property) != nil {
+            return sheet.setting(property.only(inspected.actual), of: property, inStyle: receiver.name,
+                                 base: styleBase, replacingFormula: replacingFormula)
+        }
         var values = style.values
         if property == .list {
             let list = listItem(in: text, at: index)?.listName ?? ""
@@ -613,6 +629,8 @@ extension TextStyling {
         }
         var result = sheet
         result.styles[position].values = values
+        result.styles[position].formulas.removeAll { $0.operation.property.inspectorProperty == property }
+        result.styles[position] = result.materializingFormulas(of: receiver.name) ?? result.styles[position]
         return result
     }
 }

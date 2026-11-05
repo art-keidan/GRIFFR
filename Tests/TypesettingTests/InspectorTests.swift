@@ -88,7 +88,7 @@ extension TypesettingSuite {
             big.size = 13
             TextStyling.setValue(big, of: .size, in: text, range: NSRange(location: 0, length: 3))
             let updated = try #require(TextStyling.sheet(sheet, takingValueOf: .size, from: text, at: 0))
-            #expect(updated.style(named: "Citazione")?.values.size == 13)
+            #expect(updated.inspect(style: "Citazione", base: TextStyling.styleBase).first { $0.property == .size }?.value.size == 13)
             #expect(TextStyling.receivingStyle(for: .face, in: text, at: 12)?.name == "Enfasi")
             #expect(TextStyling.receivingStyle(for: .language, in: text, at: 12)?.name == "Latino", "la lingua non va in uno stile di carattere")
             #expect(TextStyling.receivingStyle(for: .alignment, in: text, at: 12)?.name == "Citazione")
@@ -113,8 +113,8 @@ extension TypesettingSuite {
             text.addAttribute(.paragraphStyleName, value: "Testo", range: NSRange(location: 0, length: text.length))
             let updated = try #require(TextStyling.sheet(sheet, takingValueOf: .family, from: text, at: 0))
             let values = try #require(updated.style(named: "Testo")?.values)
-            #expect(values.family == "Baskerville")
-            #expect(values.bold == true)
+            #expect(updated.inspect(style: "Testo", base: TextStyling.styleBase).first { $0.property == .family }?.value.family == "Baskerville")
+            #expect(updated.resolveCharacter(paragraphStyle: "Testo", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase).fontName == "Baskerville-Bold")
             #expect(values.fontName == nil)
             #expect(values.italic == nil)
         }

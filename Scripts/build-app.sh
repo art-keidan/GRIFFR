@@ -1,14 +1,19 @@
 #!/bin/zsh
-# Compila l'app e la confeziona come GRIFFR.app in build/ (l'eseguibile interno resta WordProcessor).
+# Compila l'app e la confeziona come GRIFFR Stili.app in build/.
 # Uso: Scripts/build-app.sh [--open]
 set -e
 root=${0:a:h:h}
 cd $root
-swift build -c release --product WordProcessor
-app=$root/build/GRIFFR.app
-rm -rf $app
+build_path=${GRIFFR_BUILD_PATH:-"$root/.build"}
+build_flags=()
+if [[ ${GRIFFR_DISABLE_BUILD_SANDBOX:-0} == 1 ]]; then build_flags+=(--disable-sandbox); fi
+swift build "${build_flags[@]}" --scratch-path "$build_path" -c release --product WordProcessor
+mkdir -p "$root/build"
+destination="$root/build/GRIFFR Stili.app"
+staging=$(mktemp -d "$root/build/.griffr-stage.XXXXXX")
+app="$staging/GRIFFR Stili.app"
 mkdir -p $app/Contents/MacOS
-cp .build/release/WordProcessor $app/Contents/MacOS/WordProcessor
+cp "$build_path/release/WordProcessor" $app/Contents/MacOS/WordProcessor
 # I modelli di sillabazione di TeX, che il programma cerca tra le proprie risorse.
 mkdir -p $app/Contents/Resources
 cp -R Sources/Typesetting/Resources/Hyphenation $app/Contents/Resources/Hyphenation
@@ -20,9 +25,9 @@ cat > $app/Contents/Info.plist <<'PLIST'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>GRIFFR</string>
-    <key>CFBundleDisplayName</key><string>GRIFFR</string>
-    <key>CFBundleIdentifier</key><string>local.wordprocessor.prototype</string>
+    <key>CFBundleName</key><string>GRIFFR Stili</string>
+    <key>CFBundleDisplayName</key><string>GRIFFR Stili</string>
+    <key>CFBundleIdentifier</key><string>local.wordprocessor.stili</string>
     <key>CFBundleExecutable</key><string>WordProcessor</string>
     <key>CFBundleIconFile</key><string>GRIFFR</string>
     <key>CFBundlePackageType</key><string>APPL</string>
@@ -38,7 +43,7 @@ cat > $app/Contents/Info.plist <<'PLIST'
         <dict>
             <key>CFBundleTypeName</key><string>Documento GRIFFR</string>
             <key>CFBundleTypeRole</key><string>Editor</string>
-            <key>LSHandlerRank</key><string>Owner</string>
+            <key>LSHandlerRank</key><string>Alternate</string>
             <key>CFBundleTypeIconFile</key><string>GRIFFR-documento</string>
             <key>LSItemContentTypes</key><array><string>local.wordprocessor.document</string></array>
             <key>NSDocumentClass</key><string>TextDocument</string>
@@ -58,6 +63,27 @@ cat > $app/Contents/Info.plist <<'PLIST'
 </dict>
 </plist>
 PLIST
+# Un eseguibile aperto su SMB può trattenere un file .smbdelete.
+# Si conserva la precedente compilazione senza l'estensione .app: resta
+# recuperabile, ma non è un'altra applicazione da aprire o associare ai file.
+previous=""
+if [[ -e "$destination" ]]; then
+    previous=$(mktemp -d "$root/build/.griffr-previous.XXXXXX")
+    mv "$destination" "$previous/GRIFFR Stili.retired"
+fi
+if ! mv "$app" "$destination"; then
+    if [[ -n "$previous" ]]; then
+        mv "$previous/GRIFFR Stili.retired" "$destination"
+    fi
+    exit 1
+fi
+rmdir "$staging" 2>/dev/null || true
+# Anche le copie lasciate dalle versioni precedenti dello script cessano di
+# essere applicazioni apribili; non si elimina nessuna vecchia compilazione.
+for legacy in "$root"/build/.griffr-{previous,stage}.*/"GRIFFR Stili.app"(N); do
+    mv "$legacy" "${legacy%.app}.retired"
+done
+app="$destination"
 echo "Creata $app"
 if [[ ${1:-} == --open ]]; then
     open "$app"

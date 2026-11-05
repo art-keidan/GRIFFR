@@ -19,6 +19,22 @@ struct ViewStateTests {
         #expect(DocumentViewState.read(from: url)?.zoom == nil, "lo zoom automatico si conserva come tale")
     }
 
+    @Test("Una finestra salvata troppo grande rientra nello schermo alla riapertura")
+    func restoreOversizedWindow() throws {
+        let h = EditorHarness(paragraphs: ["Una prova."])
+        defer { h.close() }
+        let window = try #require(h.editor.window)
+        let screen = try #require(window.screen ?? NSScreen.main).visibleFrame
+        let state = DocumentViewState(zoom: nil, anchor: 0, head: 0, scroll: [0, 0],
+            frame: [screen.midX - screen.width, screen.maxY - screen.height * 2, screen.width * 2, screen.height * 2])
+        h.editor.restoreViewState(state)
+        h.step()
+        #expect(window.frame.width <= screen.width + 1)
+        #expect(window.frame.height <= screen.height + 1)
+        #expect(window.frame.minX >= screen.minX - 1 && window.frame.minY >= screen.minY - 1)
+        #expect(window.frame.maxX <= screen.maxX + 1 && window.frame.maxY <= screen.maxY + 1)
+    }
+
     @Test("Zoom, cursore, finestra e scorrimento si ripristinano")
     func restoreInEditor() throws {
         let h = EditorHarness(paragraphs: Array(repeating: "Un paragrafo abbastanza lungo da riempire più pagine di testo, ripetuto molte volte.", count: 120))

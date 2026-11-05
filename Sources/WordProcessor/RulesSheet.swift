@@ -5,10 +5,11 @@ import Typesetting
 /// Una regola come la si modifica nella finestra delle regole: i campi separati, più comodi da legare ai controlli.
 struct RuleDraft: Identifiable, Equatable {
     enum Find: String, CaseIterable {
-        case paragraph, firstLetter, firstWords, firstSentence, firstLines, lastLine, capitals, roman, numbers, listed
+        case selection, paragraph, firstLetter, firstWords, firstSentence, firstLines, lastLine, capitals, roman, numbers, listed
 
         var title: String {
             switch self {
+            case .selection: "una selezione composta"
             case .paragraph: "il paragrafo intero"
             case .firstLetter: "la prima lettera"
             case .firstWords: "le prime parole"
@@ -29,6 +30,7 @@ struct RuleDraft: Identifiable, Equatable {
 
     let id = UUID()
     var find: Find = .firstWords
+    var selectionID = UUID()
     var count = 1
     var words = ""
     /// Lo stile dei paragrafi; la stringa vuota per tutti.
@@ -49,6 +51,7 @@ struct RuleDraft: Identifiable, Equatable {
 
     init(_ rule: TextRule, defaultAfter: String) {
         switch rule.target {
+        case .selection(let id): find = .selection; selectionID = id
         case .firstLetter: find = .firstLetter
         case .firstWords(let n): find = .firstWords; count = n
         case .firstSentence: find = .firstSentence
@@ -80,6 +83,7 @@ struct RuleDraft: Identifiable, Equatable {
 
     var rule: TextRule {
         let target: TextRule.Target = switch find {
+        case .selection: .selection(selectionID)
         case .firstLetter: .firstLetter
         case .firstWords: .firstWords(max(count, 1))
         case .firstSentence: .firstSentence
@@ -108,6 +112,7 @@ struct RuleDraft: Identifiable, Equatable {
 final class RulesSheetModel: ObservableObject {
     @Published var rows: [RuleDraft]
     @Published var selection: RuleDraft.ID?
+    let selections: [WordSelection]
     let paragraphStyles: [String]
     /// Gli stili di carattere e di parola che una regola può applicare, e quelli di paragrafo (solo per il paragrafo
     /// intero), compresi gli stili predefiniti per le regole che il documento non ha ancora: si aggiungono agli stili
@@ -124,13 +129,18 @@ final class RulesSheetModel: ObservableObject {
 
 
     init(rules: [TextRule], styles: StyleSheet) {
+        selections = styles.selections
         paragraphStyles = styles.styles.filter { $0.target == .paragraph }.map(\.name)
         let missing = StyleSheet.ruleStyles.filter { styles.style(named: $0.name) == nil }
         missingStyles = missing
         characterStyles = missing.filter { $0.target != .paragraph }.map(\.name) + styles.styles.filter { $0.target != .paragraph }.map(\.name)
         paragraphTargetStyles = missing.filter { $0.target == .paragraph }.map(\.name) + paragraphStyles + characterStyles
         let after = paragraphStyles.first { $0 == "Titolo 1" } ?? paragraphStyles.first ?? ""
-        let rows = rules.map { RuleDraft($0, defaultAfter: after) }
+        let rows = rules.map { rule in
+            var draft = RuleDraft(rule, defaultAfter: after)
+            if draft.find != .selection, let first = styles.selections.first { draft.selectionID = first.id }
+            return draft
+        }
         self.rows = rows
         selection = rows.first?.id
     }
@@ -160,6 +170,7 @@ final class RulesSheetModel: ObservableObject {
         let after = paragraphStyles.first { $0 == "Titolo 1" } ?? paragraphStyles.first ?? ""
         var row = RuleDraft(styleName: characterStyles.first { $0 == Self.smallCaps } ?? characterStyles.first ?? "", afterStyle: after)
         if paragraphStyles.contains("Testo") { row.paragraphStyle = "Testo" }
+        if let first = selections.first { row.selectionID = first.id }
         rows.append(row)
         selection = row.id
     }
@@ -188,7 +199,7 @@ struct RulesSheetView: View {
         VStack(alignment: .leading, spacing: 8) {
             List(selection: $model.selection) {
                 ForEach(model.rows) { row in
-                    Text(row.rule.summary)
+                    Text(row.rule.summary(selections: model.selections))
                         .foregroundStyle(row.isEnabled ? .primary : .secondary)
                         .lineLimit(2)
                         .tag(row.id)
@@ -227,7 +238,12 @@ private struct RuleDetailView: View {
         let row = model.rows.first { $0.id == id } ?? RuleDraft(styleName: "", afterStyle: "")
         Form {
             Picker("Cerca:", selection: field(\.find, .firstWords)) {
-                ForEach(RuleDraft.Find.allCases, id: \.self) { Text($0.title).tag($0) }
+                ForEach(RuleDraft.Find.allCases.filter { $0 != .selection || !model.selections.isEmpty }, id: \.self) { Text($0.title).tag($0) }
+            }
+            if row.find == .selection {
+                Picker("Selezione:", selection: field(\.selectionID, row.selectionID)) {
+                    ForEach(model.selections) { Text($0.name).tag($0.id) }
+                }
             }
             if row.find == .firstWords {
                 Stepper("Quante parole: \(row.count)", value: field(\.count, 1), in: 1...99)
@@ -294,7 +310,7 @@ private struct RuleDetailView: View {
                     .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
             }
             Toggle("Regola accesa", isOn: field(\.isEnabled, true))
-            Text(row.rule.summary).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(row.rule.summary(selections: model.selections)).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if row.find == .firstSentence {
                 Text("La frase finisce al primo punto fermo, esclamativo o interrogativo seguito da uno spazio, come la riconosce il sistema.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)

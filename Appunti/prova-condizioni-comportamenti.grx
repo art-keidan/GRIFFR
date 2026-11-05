@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document version="8" font="HoeflerText-Regular" size="14">
+<styles>
+<style name="Testo" target="paragraph">
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000001" predicate="set" property="family" kind="family" value="Hoefler Text"/>
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000002" predicate="set" property="size" kind="length" value="14" unit="pt"/>
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000003" predicate="set" property="firstLineIndent" kind="length" value="18" unit="pt"/>
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000004" predicate="set" property="spaceAfter" kind="length" value="8" unit="pt"/>
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000005" predicate="set" property="firstLineIndent" kind="length" value="0" unit="pt" when="after" after-style="Titolo capitolo"/>
+</style>
+<style name="Titolo capitolo" target="paragraph">
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000011" predicate="set" property="font" kind="font" value="bold"/>
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000012" predicate="set" property="size" kind="length" value="24" unit="pt"/>
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000013" predicate="set" property="spaceAfter" kind="length" value="18" unit="pt"/>
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000014" predicate="set" property="pageStartSpacing" kind="page-start" value="72" when="page-start"/>
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000015" predicate="set" property="keepWithNext" kind="boolean" value="on"/>
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000016" predicate="set" property="opensSection" kind="text" value="Capitolo"/>
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000017" predicate="set" property="outlineLevel" kind="integer" value="1"/>
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000018" predicate="set" property="nextStyle" kind="style" value="Testo"/>
+</style>
+<style name="Citazione breve" target="paragraph" based-on="Testo">
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000021" predicate="set" property="firstLineIndent" kind="length" value="0" unit="pt"/>
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000022" predicate="set" property="alignment" kind="alignment" value="center" if="words" compare="le" threshold="8"/>
+</style>
+<style name="Evidenza" target="character">
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000031" predicate="add" property="font" kind="font" value="bold"/>
+</style>
+<style name="Paragrafo marcato" target="paragraph" based-on="Testo">
+<formula id="5F6DC1BB-29CF-4AF2-A253-00F000000041" predicate="set" property="applyStyle" kind="style" value="Evidenza" find="selection" selection="5F6DC1BB-29CF-4AF2-A253-00F000000051"/>
+</style>
+</styles>
+<rules><selection id="5F6DC1BB-29CF-4AF2-A253-00F000000051" name="Quinta parola" source="words" index="5"/></rules>
+<page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
+<p style="Titolo capitolo">Un capitolo fatto di formule</p>
+<p style="Testo">Questo capoverso segue il titolo: la sua prima riga parte senza rientro. Apri Testo nella bacheca per vedere la condizione.</p>
+<p style="Testo">Questo secondo capoverso conserva il rientro di base. Le formule di resa non modificano il testo sorgente.</p>
+<p style="Citazione breve">Una frase breve viene centrata.</p>
+<p style="Paragrafo marcato">Uno due tre quattro cinque sei.</p>
+</document>

@@ -1,5 +1,27 @@
 import AppKit
 
+/// Selezione condivisa dalle regole del documento. La posizione parte da uno.
+public struct WordSelection: Hashable, Identifiable, Sendable {
+    public enum Source: String, CaseIterable, Sendable { case words, capitals, numbers }
+    public let id: UUID
+    public var name: String
+    public var source: Source
+    public var index: Int
+
+    public init(id: UUID = UUID(), name: String, source: Source = .words, index: Int = 5) {
+        self.id = id
+        self.name = name
+        self.source = source
+        self.index = index
+    }
+
+    public func preview(in sample: String) -> String? {
+        let text = NSAttributedString(string: sample)
+        let body = BodyText(text, paragraph: NSRange(location: 0, length: text.length))
+        return body.selectedWord(self).map { body.string.substring(with: $0) }
+    }
+}
+
 // MARK: - Regole
 
 /// Una regola: trova pezzi di testo che nessuno ha creato (la prima lettera di un paragrafo, le sue prime parole, le
@@ -14,6 +36,7 @@ public struct TextRule: Hashable, Sendable {
         case firstLetter
         /// Le prime N parole, con la punteggiatura che le accompagna.
         case firstWords(Int)
+        case selection(UUID)
         /// La prima frase, come la delimita il sistema (dal principio al primo punto fermo, esclamativo, interrogativo).
         case firstSentence
         /// Ogni parola che corrisponde a un modello.
@@ -149,9 +172,12 @@ public struct TextRule: Hashable, Sendable {
     public var isEnabled: Bool
     /// La condizione su una proprietà dinamica, se c'è.
     public var condition: Condition?
+    /// Presente soltanto nelle regole derivate dalle formule, mai nel file.
+    public var formulaOwner: String?
 
     public init(target: Target, paragraphStyle: String? = nil, position: Position = .any, condition: Condition? = nil, styleName: String,
                 isEnabled: Bool = true) {
+        self.formulaOwner = nil
         self.target = target
         self.paragraphStyle = paragraphStyle
         self.position = position
@@ -183,18 +209,16 @@ public struct TextRule: Hashable, Sendable {
     public func applies(to context: ParagraphContext) -> Bool {
         guard isEnabled else { return false }
         if let paragraphStyle, context.styleName != paragraphStyle { return false }
-        switch position {
-        case .any: return true
-        case .firstAfter(let style): return context.previousStyleName == style && !context.isSequenceStart
-        case .sequenceStart: return context.isSequenceStart
-        case .firstOnPage: return context.isFirstOnPage == true
-        }
+        return StyleCondition(position: position).holds(in: context)
     }
 
     /// Una descrizione di una riga, per gli elenchi: «Prime 2 parole · Testo, primo dopo Titolo 1 → Maiuscoletto».
-    public var summary: String {
+    public var summary: String { summary(selections: []) }
+
+    public func summary(selections: [WordSelection]) -> String {
         let what: String = switch target {
         case .firstLetter: "Prima lettera"
+        case .selection(let id): selections.first { $0.id == id }?.name ?? "Selezione composta"
         case .firstWords(let count): count == 1 ? "Prima parola" : "Prime \(count) parole"
         case .firstSentence: "Prima frase"
         case .words(.capitals): "Parole maiuscole"
@@ -213,7 +237,8 @@ public struct TextRule: Hashable, Sendable {
         case .firstOnPage: whereText = (paragraphStyle.map { "\($0), " } ?? "") + "primo della pagina"
         }
         if let condition { whereText += ", " + condition.summary }
-        return "\(what) · \(whereText) → \(styleName)"
+        let treatment = formulaOwner.map { "formula di «" + $0 + "»" } ?? styleName
+        return "\(what) · \(whereText) → \(treatment)"
     }
 }
 
@@ -222,12 +247,14 @@ public struct TextRule: Hashable, Sendable {
 public enum Rules {
     /// Una copia del testo con le regole applicate, paragrafo per paragrafo. Il testo è quello dell'editor (o
     /// del documento), con i nomi degli stili negli attributi; i testi delle note non si toccano.
-    public static func applied(_ rules: [TextRule], to text: NSAttributedString, sheet: StyleSheet) -> NSAttributedString {
+    public static func applied(_ sourceRules: [TextRule], to text: NSAttributedString, sheet sourceSheet: StyleSheet, resolver: FontRoleResolver = FontRoleResolver()) -> NSAttributedString {
+        let compiled = sourceSheet.compilingStyleRules(sourceRules)
+        let rules = compiled.rules, sheet = compiled.sheet
         // Le regole che dipendono dalla composizione le applica l'impaginazione, paragrafo per paragrafo.
         let active = usable(rules, sheet: sheet).filter { !$0.dependsOnLayout }
         guard !active.isEmpty, text.length > 0 else { return text }
         let result = NSMutableAttributedString(attributedString: text)
-        apply(active, to: result, sheet: sheet)
+        apply(active, to: result, sheet: sheet, resolver: resolver)
         return result
     }
 
@@ -242,11 +269,12 @@ public enum Rules {
 
     /// Applica le regole al testo, sul posto. Il risultato di ogni paragrafo resta in memoria finché non cambiano
     /// le regole o gli stili: a ogni tasto si ricalcola solo il paragrafo toccato.
-    static func apply(_ rules: [TextRule], to text: NSMutableAttributedString, sheet: StyleSheet) {
+    static func apply(_ rules: [TextRule], to text: NSMutableAttributedString, sheet: StyleSheet, resolver: FontRoleResolver = FontRoleResolver()) {
         cacheLock.lock()
-        if cachedRules != rules || cachedSheet != sheet {
+        if cachedRules != rules || cachedSheet != sheet || cachedFontRoles != resolver.table {
             cachedRules = rules
             cachedSheet = sheet
+            cachedFontRoles = resolver.table
             paragraphCache.removeAll()
         }
         cacheLock.unlock()
@@ -273,10 +301,10 @@ public enum Rules {
                     let body = BodyText(piece, paragraph: NSRange(location: 0, length: piece.length))
                     for rule in chosen where !rule.target.isLineTarget {
                         if rule.target == .paragraph {
-                            applyParagraphStyle(rule.styleName, in: piece, sheet: sheet)
+                            applyParagraphStyle(rule.styleName, in: piece, sheet: sheet, resolver: resolver)
                             continue
                         }
-                        for range in body.ranges(of: rule.target) { applyStyle(rule.styleName, to: range, in: piece, sheet: sheet) }
+                        for range in body.ranges(of: rule.target, selections: sheet.selections) { applyStyle(rule.styleName, to: range, in: piece, sheet: sheet, resolver: resolver) }
                     }
                     if let lineRules { piece.addAttribute(.lineRules, value: lineRules, range: NSRange(location: 0, length: piece.length)) }
                     styled = piece.isEqual(to: original) ? nil : piece
@@ -343,11 +371,12 @@ public enum Rules {
     private static let cacheLock = NSLock()
     nonisolated(unsafe) private static var cachedRules: [TextRule] = []
     nonisolated(unsafe) private static var cachedSheet = StyleSheet()
+    nonisolated(unsafe) private static var cachedFontRoles = FontRoleTable()
     nonisolated(unsafe) private static var paragraphCache: [ParagraphKey: CachedParagraph] = [:]
 
     /// Dà a tutto un paragrafo l'aspetto di uno stile: le misure di paragrafo (allineamento, rientri, spazi) e, sul
     /// testo del corpo, i valori di carattere e di parola. Anche qui i valori dati a mano restano.
-    static func applyParagraphStyle(_ name: String, in paragraph: NSMutableAttributedString, sheet: StyleSheet, retracks: Bool = false) {
+    static func applyParagraphStyle(_ name: String, in paragraph: NSMutableAttributedString, sheet: StyleSheet, retracks: Bool = false, resolver: FontRoleResolver = FontRoleResolver()) {
         guard paragraph.length > 0 else { return }
         let all = NSRange(location: 0, length: paragraph.length)
         if let current = paragraph.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle {
@@ -355,12 +384,16 @@ public enum Rules {
                                              with: name, sheet: sheet, except: TextStyling.ruleExceptions(in: paragraph, at: 0))
             if restyled !== current { paragraph.addAttribute(.paragraphStyle, value: restyled, range: all) }
         }
-        applyStyle(name, to: all, in: paragraph, sheet: sheet, retracks: retracks)
+        applyStyle(name, to: all, in: paragraph, sheet: sheet, retracks: retracks, resolver: resolver)
     }
 
     /// Lo stile di paragrafo con le misure dello stile della regola, dove valevano quelle dello stile del paragrafo.
     static func restyledParagraph(_ current: NSParagraphStyle, styleName: String?, with name: String, sheet: StyleSheet,
                                   except exceptions: Set<InspectorProperty> = []) -> NSParagraphStyle {
+        if name.hasPrefix("\u{F000}formula:") {
+            let before = ParagraphStyle(current)
+            return sheet.values(of: name).clearing(exceptions).applied(to: before).nsParagraphStyle
+        }
         let before = sheet.resolveParagraph(styleName: styleName)
         let after = sheet.values(of: name).clearing(exceptions).applied(to: before)
         let value = ParagraphStyle(current)
@@ -374,7 +407,7 @@ public enum Rules {
     ///
     /// Con `retracks` il testo ha già la spaziatura `trak` nel kerning (è passato dalla preparazione alla composizione):
     /// se la regola cambia il font, la spaziatura si corregge per il font nuovo.
-    static func applyStyle(_ name: String, to range: NSRange, in text: NSMutableAttributedString, sheet: StyleSheet, retracks: Bool = false) {
+    static func applyStyle(_ name: String, to range: NSRange, in text: NSMutableAttributedString, sheet: StyleSheet, retracks: Bool = false, resolver: FontRoleResolver = FontRoleResolver()) {
         let values = sheet.values(of: name)
         var pieces: [(range: NSRange, attributes: [NSAttributedString.Key: Any])] = []
         text.enumerateAttributes(in: range) { attributes, subrange, _ in pieces.append((subrange, attributes)) }
@@ -384,11 +417,13 @@ public enum Rules {
             guard attributes[.footnote] == nil, attributes[.inlineImage] == nil, attributes[.missingFont] == nil,
                   let current = TextStyling.characterStyle(in: text, at: piece.range.location) else { continue }
             let before = sheet.resolveCharacter(paragraphStyle: attributes[.paragraphStyleName] as? String, wordStyle: attributes[.wordStyleName] as? String,
-                                                characterStyle: attributes[.characterStyleName] as? String, base: TextStyling.styleBase)
+                                                characterStyle: attributes[.characterStyleName] as? String, base: TextStyling.styleBase, resolver: resolver)
             // Ciò che è stato dato qui a mano contro le regole resta com'è.
             let exceptions = TextStyling.ruleExceptions(attributes[.ruleExceptions] as? String)
-            let after = (exceptions.isEmpty ? values : values.clearing(exceptions)).applied(to: before)
-            var result = TextStyling.restyled(current, from: before, to: after)
+            let after = (exceptions.isEmpty ? values : values.clearing(exceptions)).applied(to: before, resolver: resolver)
+            var result = name.hasPrefix("\u{F000}formula:")
+                ? (exceptions.isEmpty ? values : values.clearing(exceptions)).applied(to: current, resolver: resolver)
+                : TextStyling.restyled(current, from: before, to: after)
             if let features = values.features, result.fontName == current.fontName {
                 result.features = merged(current.features, with: features)
             }
@@ -502,10 +537,12 @@ struct BodyText {
         return result
     }
 
-    func ranges(of target: TextRule.Target) -> [NSRange] {
+    func ranges(of target: TextRule.Target, selections: [WordSelection] = []) -> [NSRange] {
         guard string.length > 0 else { return [] }
         let found: [NSRange]
         switch target {
+        case .selection(let id):
+            found = selections.first { $0.id == id }.flatMap { selectedWord($0) }.map { [$0] } ?? []
         case .firstLetter: found = firstLetter().map { [$0] } ?? []
         case .firstWords(let count): found = firstWords(count).map { [$0] } ?? []
         case .firstSentence: found = firstSentence().map { [$0] } ?? []
@@ -530,6 +567,16 @@ struct BodyText {
             index = NSMaxRange(range)
         }
         return nil
+    }
+
+    func selectedWord(_ selection: WordSelection) -> NSRange? {
+        guard selection.index > 0 else { return nil }
+        let matches = switch selection.source {
+        case .words: wordRanges(limit: selection.index)
+        case .capitals: words(matching: .capitals)
+        case .numbers: words(matching: .numbers)
+        }
+        return selection.index <= matches.count ? matches[selection.index - 1] : nil
     }
 
     /// Quante parole ha il testo.

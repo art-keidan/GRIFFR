@@ -88,7 +88,7 @@ extension TypesettingSuite {
             // Un valore uguale a quello ereditato non si fissa.
             var off = StyleValues()
             off.keeping.withNext = false
-            #expect(sheet.setting(off, of: .keepWithNext, inStyle: "Tenuto", base: base).values(of: "Tenuto").keeping.withNext == nil)
+            #expect(sheet.setting(off, of: .keepWithNext, inStyle: "Tenuto", base: base).values(of: "Tenuto").keeping.withNext == false)
             // Gli stili di carattere non hanno queste voci.
             #expect(!StyleSheet.properties(for: .character).contains { $0.isLineKeeping })
         }

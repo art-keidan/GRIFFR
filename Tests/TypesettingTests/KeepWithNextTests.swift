@@ -52,6 +52,48 @@ extension TypesettingSuite {
             #expect(pages(of: "Riempi", kept) == [0])
         }
 
+        @Test("La variante segue la prima riga accettata dopo un salto naturale o la tenuta del titolo")
+        func pageStartPlacement() throws {
+            let n = perPage
+            let gap = PageSetup.points(fromMillimetres: 30)
+            var values = StyleValues()
+            values.pageStartSpacing = .distance(gap)
+            let sheet = StyleSheet(styles: [NamedStyle(name: "Titolo", target: .paragraph, values: values)])
+            var opts = options
+            opts.styles = sheet
+            func result(_ fill: Int, keep: Bool) -> DocumentLayout {
+                var title = paragraph(1, word: "Titolo", keeping: keep ? withNext : LineKeeping())
+                title.styleName = "Titolo"
+                let document = Document(styles: sheet, blocks: [lines(fill, word: "Prima"), .paragraph(title), lines(3, word: "Dopo")])
+                return PageLayout.layout(document.attributedString().text, setup: setup, options: opts)
+            }
+            for (fill, keep) in [(n, false), (n - 1, true)] {
+                let layout = result(fill, keep: keep)
+                let (index, fact) = try #require(layout.pageStarts.first)
+                let line = try #require(layout.pages[1].lines.first { $0.paragraphLocation == index })
+                #expect(abs(fact.effective - gap) < 0.01)
+                #expect(abs(setup.paperSize.height - line.origin.y - line.ascent - setup.top - gap) < 0.1)
+            }
+            #expect(result(n - 3, keep: true).pageStarts.isEmpty)
+        }
+
+        @Test("Nello specchio corto il distacco cede spazio alla prima riga successiva")
+        func pageStartOnShortPage() throws {
+            var values = StyleValues()
+            values.pageStartSpacing = .distance(190)
+            let sheet = StyleSheet(styles: [NamedStyle(name: "Apertura", target: .paragraph, values: values)])
+            var title = paragraph(1, word: "Titolo", keeping: withNext)
+            title.styleName = "Apertura"
+            var opts = options
+            opts.styles = sheet
+            let doc = Document(styles: sheet, blocks: [.paragraph(title), lines(1, word: "Testo")])
+            let layout = PageLayout.layout(doc.attributedString().text, setup: setup, options: opts)
+            let opening = try #require(layout.pageStarts[0])
+            #expect(layout.pages.count == 1)
+            #expect(opening.requested == 190)
+            #expect(opening.effective < 190 && opening.effective > 0)
+        }
+
         @Test("Il testo che segue conta con le sue righe minime in fondo alla pagina")
         func followerMinimum() {
             let n = perPage

@@ -362,7 +362,15 @@ public struct PlacedImage {
     public internal(set) var rect: CGRect
 }
 
+public struct PageStartPlacement {
+    public let style: String
+    public let requested: Double
+    public let effective: Double
+    let pageIndex: Int
+}
+
 public struct DocumentLayout {
+    public internal(set) var pageStarts: [Int: PageStartPlacement] = [:]
     /// Il tipo di pagina predefinito del documento; ogni pagina ha il suo in `LaidOutPage.setup`.
     public let setup: PageSetup
 
@@ -416,6 +424,7 @@ public struct LayoutOptions: Equatable, Sendable {
     public var styles: StyleSheet
     /// Le regole del documento, applicate a ogni composizione.
     public var rules: [TextRule]
+    public var fontRoles = FontRoleTable()
     /// I tipi di pagina con un nome, che le sezioni scelgono.
     public var pageTypes: [PageType] = []
     /// La Lista che numera le pagine dall'inizio; `nil` per 1, 2, 3.
@@ -488,10 +497,14 @@ public enum PageLayout {
         layout(source, setup: setup, options: LayoutOptions(appliesFontTracking: appliesFontTracking, usesOpticalMargins: false, lineBreaking: .firstFit))
     }
 
-    public static func layout(_ source: NSAttributedString, setup: PageSetup = .a4, options: LayoutOptions) -> DocumentLayout {
+    public static func layout(_ source: NSAttributedString, setup: PageSetup = .a4, options originalOptions: LayoutOptions) -> DocumentLayout {
+        var options = originalOptions
+        let compiled = options.styles.compilingStyleRules(options.rules)
+        options.styles = compiled.sheet
+        options.rules = compiled.rules
         // Le regole danno il loro aspetto a una copia del testo, prima della spaziatura `trak`, che dipende dal corpo.
         var graphite = (graphite: 0, coreText: 0)
-        let text = prepared(Rules.applied(options.rules, to: source, sheet: options.styles), appliesFontTracking: options.appliesFontTracking,
+        let text = prepared(Rules.applied(options.rules, to: source, sheet: options.styles, resolver: FontRoleResolver(table: options.fontRoles)), appliesFontTracking: options.appliesFontTracking,
                             documentLanguage: options.hyphenationLanguage, graphite: &graphite)
         // Le note numerate pagina per pagina: la prima composizione suppone che ogni nota stia nella pagina dove comincia
         // il suo paragrafo; se non è così, si ricompone con le pagine vere. Il numero cambia la larghezza del richiamo,
@@ -594,6 +607,7 @@ public enum PageLayout {
             case .pageCount: pageCount.map(String.init) ?? "?"
             case .sectionTitle(let role): openSections.reversed().first { $0.mark.role == role }?.title ?? ""
             case .sectionNumber(let role): openSections.reversed().first { $0.mark.role == role }?.number ?? ""
+            case .formula(.pageContainingNumber): pages[pages.count - 1].number
             }
         }
         /// Il tipo della pagina `number`: il nome (`nil` per il predefinito) e le misure.
@@ -1478,6 +1492,7 @@ public enum PageLayout {
             y += 6
             return cursor
         }
+        var pageStarts: [Int: PageStartPlacement] = [:]
         var layoutRulesApplied: [Int: [TextRule]] = [:]
 
         /// Fotografa lo stato dell'impaginazione; la funzione restituita lo rimette com'era.
@@ -1486,13 +1501,13 @@ public enum PageLayout {
             let savedText = (y, location, noteNumber, notes, listMarks, noteMarks, numbering, named, noteNumberer, floatLists, overflowing)
             let savedNotes = (assumedNotePages, notePages, pageNotes, carried, marginBoxes, marginConflicts, endNotes)
             let savedFigures = (deferredFigures, hereFigures, bottomFigures, topFigureCount, pageFigureCount)
-            let savedRest = (previousParagraphStyle, finalParagraphPlaced, layoutRulesApplied)
+            let savedRest = (previousParagraphStyle, finalParagraphPlaced, layoutRulesApplied, pageStarts)
             return {
                 (column, pages, openSections, pageNumbering, pageValue, runningActive, runningFirst, pageRunning, pageSections, openingPages) = saved
                 (y, location, noteNumber, notes, listMarks, noteMarks, numbering, named, noteNumberer, floatLists, overflowing) = savedText
                 (assumedNotePages, notePages, pageNotes, carried, marginBoxes, marginConflicts, endNotes) = savedNotes
                 (deferredFigures, hereFigures, bottomFigures, topFigureCount, pageFigureCount) = savedFigures
-                (previousParagraphStyle, finalParagraphPlaced, layoutRulesApplied) = savedRest
+                (previousParagraphStyle, finalParagraphPlaced, layoutRulesApplied, pageStarts) = savedRest
             }
         }
         /// Tieni col seguente: una catena di paragrafi che restano con l'inizio del successivo. Si fotografa lo stato prima
@@ -1507,7 +1522,8 @@ public enum PageLayout {
             /// La catena comincia in una pagina vuota: spostarla non servirebbe.
             var startsOnEmptyPage = false
         }
-        var styleKeepings: [String: LineKeeping] = [:]
+        var styleValues: [String: StyleValues] = [:]
+        var reducedStart: [Int: CGFloat] = [:]
         var keepChain: KeepChain?
         var keepBreakAt: Int?
         var keepMoved: Set<Int> = [], keepGivenUp: Set<Int> = []
@@ -1532,7 +1548,7 @@ public enum PageLayout {
             return true
         }
 
-        while location < string.length {
+        paragraphs: while location < string.length {
             // I paragrafi del corpo: gli a capo dentro una nota non li spezzano.
             let paragraphRange = TextStyling.bodyParagraph(in: text, at: location).range
             let paragraphStyleName = text.attribute(.paragraphStyleName, at: paragraphRange.location, effectiveRange: nil) as? String
@@ -1540,12 +1556,12 @@ public enum PageLayout {
             let isTable = text.attribute(.tableCell, at: paragraphRange.location, effectiveRange: nil) != nil
             // La tenuta delle righe (sotto, vedove e orfane); qui conta «tieni col seguente».
             // La tenuta dello stile si legge una volta per stile: risalire la catena degli stili a ogni paragrafo costa.
-            let styleKeeping = styleKeepings[paragraphStyleName ?? ""] ?? {
-                let found = options.styles.values(of: paragraphStyleName).keeping
-                styleKeepings[paragraphStyleName ?? ""] = found
+            let values = styleValues[paragraphStyleName ?? ""] ?? {
+                let found = options.styles.values(of: paragraphStyleName)
+                styleValues[paragraphStyleName ?? ""] = found
                 return found
             }()
-            let keeping = TextStyling.lineKeeping(in: text, at: paragraphRange.location).over(styleKeeping).resolved
+            let keeping = TextStyling.lineKeeping(in: text, at: paragraphRange.location).over(values.keeping).resolved
             // Il paragrafo precedente voleva restare con questo: lo si controlla dopo averlo posato. Un paragrafo che apre
             // comunque una pagina nuova chiude la catena senza controllo.
             let pendingKeep = sectionStart == .continuous ? keepChain : nil
@@ -1672,14 +1688,14 @@ public enum PageLayout {
                         if rule.target == .paragraph {
                             base = Rules.restyledParagraph(base, styleName: paragraphStyleName, with: rule.styleName, sheet: options.styles,
                                                            except: TextStyling.ruleExceptions(in: text, at: paragraphRange.location))
-                            Rules.applyStyle(rule.styleName, to: whole, in: piece, sheet: options.styles, retracks: retracks)
+                            Rules.applyStyle(rule.styleName, to: whole, in: piece, sheet: options.styles, retracks: retracks, resolver: FontRoleResolver(table: options.fontRoles))
                             continue
                         }
                         // Ciò che la regola trova si cerca nel testo del documento, e si riporta al corpo composto.
-                        for range in BodyText(text, paragraph: paragraphRange).ranges(of: rule.target) {
+                        for range in BodyText(text, paragraph: paragraphRange).ranges(of: rule.target, selections: options.styles.selections) {
                             guard let start = body.map.composedIndex(forDocument: range.location),
                                   let end = body.map.composedIndex(forDocument: NSMaxRange(range)), end > start else { continue }
-                            Rules.applyStyle(rule.styleName, to: NSRange(location: start, length: end - start), in: piece, sheet: options.styles, retracks: retracks)
+                            Rules.applyStyle(rule.styleName, to: NSRange(location: start, length: end - start), in: piece, sheet: options.styles, retracks: retracks, resolver: FontRoleResolver(table: options.fontRoles))
                         }
                     }
                     if let merged = LineRuleSpec(holding.filter(\.target.isLineTarget), over: lineRules), merged != lineRules {
@@ -1720,6 +1736,20 @@ public enum PageLayout {
             // La tenuta delle righe: se è accesa, all'inizio del paragrafo e a ogni pagina nuova si decide dove spezzare.
             var plannedBreak: Int?
             let hasFootNotes = body.notes.contains { $0.style.placement == .pageFoot }
+            // Una variante vale soltanto per la prima riga del corpo. Una figura già
+            // posata occupa lo specchio, le note riportate al piede lasciano libero il sommo.
+            func applyPageStart() {
+                pageStarts.removeValue(forKey: paragraphRange.location)
+                guard case .distance(let requested) = values.pageStartSpacing,
+                      let name = paragraphStyleName, let first = paragraphLines.first,
+                      pages[pages.count - 1].lines.isEmpty, pages[pages.count - 1].images.isEmpty,
+                      !(SectionEditing.opensSequence(in: text, atParagraph: paragraphRange.location)
+                        && TextStyling.openingDistance(in: text, at: paragraphRange.location) != nil) else { return }
+                let room = max(0, column.height - first.height - pageNotesHeight - bottomFiguresHeight)
+                y = min(requested, room, reducedStart[paragraphRange.location] ?? requested)
+                pageStarts[paragraphRange.location] = PageStartPlacement(style: name, requested: requested, effective: y, pageIndex: pages.count - 1)
+            }
+            applyPageStart()
             /// Quante righe del paragrafo, da `start`, entrano ancora nella pagina in corso: lo stesso conto della posa
             /// (la riga con la prima riga della sua prima nota, poi le note che entrano), senza posare niente.
             func linesFitting(from start: Int) -> Int {
@@ -1785,6 +1815,7 @@ public enum PageLayout {
                         paragraphLines = composedLines(bodyText, style: style, width: column.width, options: options, lineRules: lineRules)
                         composedWidth = column.width
                     }
+                    applyPageStart()
                 }
                 // In cima a una pagina (anche dopo le note portate dalla precedente) contano solo le righe in cima alla seguente.
                 if plannedBreak == nil, pages[pages.count - 1].lines.isEmpty || y == 0 {
@@ -1807,6 +1838,17 @@ public enum PageLayout {
                     }
                     return line.height + addedHeight(required)
                 }
+                if lineNumber == 0, let pendingKeep, let start = pageStarts[pendingKeep.start],
+                   start.pageIndex == pages.count - 1, reducedStart[pendingKeep.start] == nil {
+                    let excess = y + minimumHeight() + pageNotesHeight + bottomFiguresHeight - column.height
+                    if excess > 0, start.effective > 0 {
+                        reducedStart[pendingKeep.start] = max(0, start.effective - excess - 0.000001)
+                        pendingKeep.restore()
+                        keepBreakAt = pendingKeep.start
+                        keepChain = nil
+                        continue paragraphs
+                    }
+                }
                 if lineNumber == plannedBreak || y + minimumHeight() + pageNotesHeight + bottomFiguresHeight > column.height, !pageIsEmpty {
                     startNewPage()
                     plannedBreak = nil
@@ -1819,6 +1861,7 @@ public enum PageLayout {
                         line = paragraphLines[lineNumber]
                         lineNotes = footNotes(of: line)
                     }
+                    if lineNumber == 0 { applyPageStart() }
                     // Il seguito, in cima alla pagina nuova: se continua ancora, che nella pagina dopo restino le righe minime.
                     if !keeping.isNone { plannedBreak = widowBreak(from: lineNumber, fitting: linesFitting(from: lineNumber)) }
                 }
@@ -1981,6 +2024,7 @@ public enum PageLayout {
                     case .pageCount: pageCount.map(String.init) ?? String(pages.count)
                     case .sectionTitle(let role): sections.last { $0.role == role }?.title ?? ""
                     case .sectionNumber(let role): sections.last { $0.role == role }?.number ?? ""
+                    case .formula(.pageContainingNumber): pages[index].number
                     }
                 }
                 var note = entry.note
@@ -2030,6 +2074,7 @@ public enum PageLayout {
         }
         var layout = DocumentLayout(setup: setup, text: text, pages: pages, notes: notes)
         layout.listsNeedingOverflowChoice = overflowing
+        layout.pageStarts = pageStarts
         layout.marginConflicts = marginConflicts
         layout.layoutRulesApplied = layoutRulesApplied
         layout.listMarks = listMarks
@@ -2146,7 +2191,7 @@ public enum PageLayout {
         let length = paragraph.length
         func styled(_ text: NSAttributedString, _ name: String) -> NSAttributedString {
             let copy = NSMutableAttributedString(attributedString: text)
-            Rules.applyStyle(name, to: NSRange(location: 0, length: copy.length), in: copy, sheet: options.styles, retracks: options.appliesFontTracking)
+            Rules.applyStyle(name, to: NSRange(location: 0, length: copy.length), in: copy, sheet: options.styles, retracks: options.appliesFontTracking, resolver: FontRoleResolver(table: options.fontRoles))
             return copy
         }
         // Il seguito di un paragrafo: senza il rientro della prima riga, con le posizioni riportate al paragrafo.

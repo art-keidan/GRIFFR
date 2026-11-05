@@ -120,6 +120,7 @@ enum MainMenu {
         // Gli stili si scelgono nel righello (paragrafo) e nel Ribbon (parola e carattere); Liste, stili di flottante e
         // regole si definiscono nelle schede dell'avanzata; le misure di un'immagine con un doppio clic su di lei.
         format.addItem(.separator())
+        format.addItem(withTitle: "Compositore di stili…", action: #selector(EditorWindowController.openStyleComposer(_:)), keyEquivalent: "")
         format.addItem(withTitle: "Nuovo stile dalla selezione…", action: #selector(EditorWindowController.newStyleFromSelection(_:)), keyEquivalent: "")
         for target in StyleTarget.allCases {
             format.addItem(withTitle: "Aggiorna lo stile dalla selezione", action: #selector(EditorWindowController.updateStyleFromSelection(_:)), keyEquivalent: "")
@@ -201,7 +202,7 @@ final class FieldMenuFiller: NSObject, NSMenuDelegate {
         func add(_ title: String, _ field: Field) {
             menu.addItem(withTitle: title, action: #selector(EditorWindowController.insertField(_:)), keyEquivalent: "").representedObject = field.encoded
         }
-        add("Numero di pagina", .page)
+        add("Pagina contenente → Numero", .formula(.pageContainingNumber))
         add("Numero delle pagine", .pageCount)
         let roles = (NSApp.mainWindow?.windowController as? EditorWindowController)?.fieldRoles() ?? Section.Role.builtIn
         menu.addItem(.separator())

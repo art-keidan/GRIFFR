@@ -1,0 +1,5 @@
+Continua lo sviluppo di GRIFFR da questo working tree. L'utente ha approvato il prototipo del compositore di stili ispirato ad Automator e vuole adottarlo nell'app nativa.
+
+Leggi CLAUDE.md e Appunti/CONSEGNA-CLAUDE.md. Apri il prototipo Appunti/Interfaccia-formule/prototipo-automator.html e confrontalo con StyleComposer.swift e ReusableFormulaEditor.swift. Il materiale e le decisioni sono già pronti: realizza il revamp completo preservando formule, condizioni, fasi, tipi, eredità, Annulla, salvataggio, importazione e bozze concorrenti. Il working tree contiene molto lavoro valido non committato: è la sorgente autorevole e va preservato.
+
+Procedi con l'implementazione, le prove appropriate, la verifica visiva quando disponibile, l'aggiornamento degli appunti e la ricompilazione di build/GRIFFR Stili.app. Non fermarti a un piano o a componenti scollegati. Se emerge un limite reale, spiega precisamente cosa blocca il percorso. Usa i normali controlli dei permessi. Le tappe funzionali successive restano nel piano e non fanno parte di questo revamp. Comunica in italiano.

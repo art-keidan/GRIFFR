@@ -189,7 +189,9 @@ extension TextStyling {
     ///
     /// Per gli stili di paragrafo l'intervallo va dato già esteso ai paragrafi interi.
     public static func restyle(_ text: NSMutableAttributedString, range: NSRange, from oldSheet: StyleSheet, to newSheet: StyleSheet,
-                               resolver: FontRoleResolver = FontRoleResolver(), rename: (inout StyleNames) -> Void = { _ in }) {
+                               resolver: FontRoleResolver = FontRoleResolver(), base: CharacterStyle = TextStyling.styleBase,
+                               assigning target: StyleTarget? = nil,
+                               rename: (inout StyleNames) -> Void = { _ in }) {
         let range = NSIntersectionRange(range, NSRange(location: 0, length: text.length))
         guard range.length > 0 else { return }
         // Prima si raccoglie tutto, poi si modifica: i nomi vecchi vanno letti prima di cambiarli.
@@ -222,9 +224,24 @@ extension TextStyling {
             if piece.new.character != piece.old.character { setName(.characterStyleName, piece.new.character) }
             // Il testo in un font non installato conserva il suo stile originale: non lo si tocca.
             guard let current = piece.style, !piece.missing else { continue }
-            let before = oldSheet.resolveCharacter(paragraphStyle: piece.old.paragraph, wordStyle: piece.old.word, characterStyle: piece.old.character, base: styleBase, resolver: resolver)
-            let after = newSheet.resolveCharacter(paragraphStyle: piece.new.paragraph, wordStyle: piece.new.word, characterStyle: piece.new.character, base: styleBase, resolver: resolver)
-            let result = restyled(current, from: before, to: after)
+            let before = oldSheet.resolveCharacter(paragraphStyle: piece.old.paragraph, wordStyle: piece.old.word, characterStyle: piece.old.character, base: base, resolver: resolver)
+            let after = newSheet.resolveCharacter(paragraphStyle: piece.new.paragraph, wordStyle: piece.new.word, characterStyle: piece.new.character, base: base, resolver: resolver)
+            var result = restyled(current, from: before, to: after)
+            let assignedName: String? = switch target {
+            case .paragraph: piece.new.paragraph
+            case .word: piece.new.word
+            case .character: piece.new.character
+            case .none: nil
+            }
+            if let assignedName,
+               let font = try? newSheet.values(of: assignedName).fontFormulaResult(from: current, resolver: resolver) {
+                result.fontName = font.fontName
+                result.features = font.features
+                result.variations = font.variations
+                result.prefersVariableFont = font.prefersVariableFont
+                result.fontRole = font.fontRole
+                result.opticalSize = font.opticalSize
+            }
             guard result != current else { continue }
             let rendered = characterAttributes(for: result).attributes
             TextStyling.writeFont(rendered[.font]!, in: text, range: piece.range)

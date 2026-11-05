@@ -44,6 +44,40 @@ final class InspectorModel: ObservableObject {
     @Published var values: [InspectedValue] = []
     /// Per ogni proprietà, lo stile che riceverebbe il valore «nello stile».
     @Published var receivers: [InspectorProperty: String] = [:]
+    @Published var formulaDefinitions: [InspectorProperty: StyleFormulaDefinition] = [:]
+    var openFormula: ((String) -> Void)?
+    var replaceFormula: ((InspectorProperty) -> Void)?
+
+    func formulaIsLocked(_ property: InspectorProperty) -> Bool {
+        (editsStyle || mode(property) == .style) && formulaDefinitions[property]?.isCalculated == true
+    }
+
+    func formulaSummary(_ property: InspectorProperty) -> String? {
+        formulaDefinitions[property].map { definition in
+            if let calculation = definition.calculation { return calculation }
+            return definition.formulas.map { formula in
+                let op = formula.operation
+                let argument: String
+                switch op.argument {
+                case .boolean(let enabled): argument = enabled ? "Sì" : "No"
+                case .integer(let count): argument = String(count)
+                case .text(let value): argument = value.isEmpty ? "Nessuna" : value
+                case .styleName(let name): argument = name ?? "Stesso stile"
+                case .pageStart(let spacing):
+                    switch spacing { case .disabled: argument = "Disattivata"; case .distance(let points): argument = points.formatted() + " pt" }
+                case .font(let role): argument = roleTitle(role)
+                case .face(let name), .family(let name): argument = name
+                case .length(let value, let unit): argument = value.formatted() + " " + unit.rawValue
+                case .language(let value): argument = value ?? "Lingua documento"
+                case .color(let value): argument = value ?? "Automatico"
+                case .smallCaps(let mode): argument = mode.rawValue
+                case .hyphenates(let enabled): argument = enabled ? "Attiva" : "Disattivata"
+                case .alignment(let alignment): argument = alignment.rawValue
+                }
+                return op.predicate.title + " · " + op.property.title + " · " + argument + (formula.when.isAlways ? "" : " · " + formula.when.summary)
+            }.joined(separator: "; ")
+        }
+    }
     /// Lo stile dell'oggetto scelto, se ne ha uno.
     @Published var styleName: String?
     @Published var modes: [InspectorProperty: InspectorEditMode] = [:]
@@ -230,6 +264,7 @@ final class InspectorModel: ObservableObject {
     }
 
     func change(_ property: InspectorProperty, _ build: (inout StyleValues) -> Void) {
+        guard !formulaIsLocked(property) else { return }
         var values = StyleValues()
         build(&values)
         set?(property, values)
@@ -525,13 +560,19 @@ struct InspectorView: View {
                     Spacer()
                     menu(value)
                 }
-                control(value)
+                control(value).disabled(model.formulaIsLocked(value.property))
             } else {
                 HStack(alignment: .firstTextBaseline) {
                     Text(value.property.title).frame(width: 118, alignment: .leading)
-                    control(value).frame(maxWidth: .infinity, alignment: .leading)
+                    control(value).disabled(model.formulaIsLocked(value.property)).frame(maxWidth: .infinity, alignment: .leading)
                     menu(value)
                 }
+            }
+            if let summary = model.formulaSummary(value.property), let definition = model.formulaDefinitions[value.property] {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(summary).font(.caption).foregroundStyle(Color(nsColor: Theme.accent))
+                    Button("Bacheca") { model.openFormula?(definition.owner) }.font(.caption)
+                }.padding(.leading, wide ? 0 : 122)
             }
             Text(model.sourceText(value)).font(.caption)
                 .foregroundStyle(sourceColor(value.source))
@@ -556,6 +597,13 @@ struct InspectorView: View {
     /// Nel modulo di uno stile: togliere il valore dallo stile, che torna a ereditarlo.
     private func styleMenu(_ value: InspectedValue) -> some View {
         Menu {
+            if let definition = model.formulaDefinitions[value.property] {
+                Button("Apri la formula nella bacheca") { model.openFormula?(definition.owner) }
+                if definition.isCalculated {
+                    Button("Usa il risultato come valore fisso") { model.replaceFormula?(value.property) }
+                }
+                Divider()
+            }
             Button("Togli da questo stile (lo eredita)") { model.reset?(value.property) }
                 .disabled(value.source != .own)
         } label: {
@@ -576,7 +624,14 @@ struct InspectorView: View {
                    isOn: Binding(get: { model.mode(property) == .style }, set: { if $0 { model.modes[property] = .style } }))
                 .disabled(receiver == nil)
             Divider()
-            Button(receiver.map { "Porta questo valore nello stile «\($0)»" } ?? "Porta questo valore nello stile") { model.moveToStyle?(property) }
+            if let definition = model.formulaDefinitions[property] {
+                Button("Apri la formula nella bacheca") { model.openFormula?(definition.owner) }
+                if definition.isCalculated {
+                    Button("Sostituisci la formula nello stile con il valore qui") { model.replaceFormula?(property) }
+                }
+                Divider()
+            }
+            Button(receiver.map { (model.formulaDefinitions[property]?.isCalculated == true ? "Sostituisci la formula con questo valore in «\($0)»" : "Porta questo valore nello stile «\($0)»") } ?? "Porta questo valore nello stile") { model.moveToStyle?(property) }
                 .disabled(receiver == nil || value.source != .own)
             Button("Torna al valore ereditato") { model.reset?(property) }
                 .disabled(value.source != .own)

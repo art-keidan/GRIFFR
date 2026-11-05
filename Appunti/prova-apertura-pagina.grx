@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document version="2" font="HoeflerText-Regular" size="12">
+<styles>
+<style name="Corpo" target="paragraph" size="12" space-after="8"/>
+<style name="Titolo di capitolo" target="paragraph" size="22" space-before="12" space-after="8" page-start-spacing="30mm" keep-with-next="on"/>
+</styles>
+<page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
+<p style="Titolo di capitolo">I. Le prime pagine</p>
+<p style="Corpo">Questo titolo apre il flusso del testo. Il suo blocco inizia 30 mm sotto il margine superiore dello specchio, a 55 mm dal bordo del foglio.</p>
+<p style="Titolo di capitolo">II. Un titolo di seguito</p>
+<p style="Corpo">Qui lo stesso stile usa lo spazio prima ordinario. Nella scheda Stili puoi variare la distanza a inizio pagina e confrontare i due titoli.</p>
+</document>

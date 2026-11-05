@@ -7,6 +7,9 @@ extension EditorWindowController {
     // MARK: Stato della vista conservato nel file
 
     @objc func windowWillCloseForViewState(_ notification: Notification) {
+        composerController?.close()
+        composerController = nil
+        composerModel = nil
         stopObserving()
         guard let url = (document as? NSDocument)?.fileURL else { return }
         currentViewState().write(to: url)
@@ -31,8 +34,10 @@ extension EditorWindowController {
             var frame = NSRect(x: state.frame[0], y: state.frame[1], width: state.frame[2], height: state.frame[3])
             frame.size.width = max(frame.width, window.minSize.width)
             frame.size.height = max(frame.height, window.minSize.height)
-            if NSScreen.screens.contains(where: { $0.visibleFrame.contains(NSPoint(x: frame.midX, y: frame.maxY - 10)) }) {
-                window.setFrame(frame, display: true)
+            if let screen = NSScreen.screens.first(where: { $0.visibleFrame.contains(NSPoint(x: frame.midX, y: frame.maxY - 10)) }) {
+                // Anche un vecchio stato salvato dal difetto del percorso deve
+                // riaprire una finestra interamente raggiungibile sullo schermo.
+                window.setFrame(Self.clamped(frame, to: screen.visibleFrame), display: true)
                 frameBeforeZoom = nil
                 frameSetByZoom = nil
             }

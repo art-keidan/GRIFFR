@@ -31,6 +31,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         model.editsStyle = true
         return model
     }()
+    var composerController: NSWindowController?
+    var composerModel: ComposerBoardModel?
     private(set) lazy var stylesTab = StylesTabModel(inspector: styleInspector)
     /// L'albero degli oggetti, a sinistra della pagina nell'interfaccia avanzata.
     private(set) var objectTree = ObjectTreeModel()
@@ -115,6 +117,11 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     /// La tabella globale viene riletta a ogni comando, così le impostazioni valgono subito per tutte le finestre.
     /// Le facce dei ruoli: quelle del documento prevalgono su quelle delle impostazioni del programma.
     var fontRoleResolver: FontRoleResolver { FontRoleResolver(table: FontRolePreferences.table().overlaid(by: settings.fontRoles)) }
+    var documentLayoutOptions: LayoutOptions {
+        var options = settings.layoutOptions
+        options.fontRoles = fontRoleResolver.table
+        return options
+    }
     /// Le lingue offerte: quelle che si sanno sillabare, con il dizionario del sistema o con i modelli di TeX
     /// (latino, greco antico, sanscrito).
     static let languages = LayoutOptions.hyphenationLanguages(among: [
@@ -278,7 +285,20 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
         // Dall'alto: gli strumenti, il carattere, il paragrafo con il righello, il percorso e i pannelli dettagliati,
         // il testo, la barra di stato.
-        pathBand = Bands.band([pathBar], height: 30)
+        // Un percorso lungo scorre nella fascia: la sua larghezza non deve diventare
+        // la larghezza minima della finestra (per esempio con sezioni molto annidate).
+        let pathScroll = NSScrollView()
+        pathScroll.drawsBackground = false
+        pathScroll.borderType = .noBorder
+        pathScroll.hasHorizontalScroller = true
+        pathScroll.autohidesScrollers = true
+        pathScroll.scrollerStyle = .overlay
+        pathScroll.documentView = pathBar
+        pathBar.translatesAutoresizingMaskIntoConstraints = false
+        pathBar.heightAnchor.constraint(equalToConstant: 30).isActive = true
+        pathScroll.heightAnchor.constraint(equalToConstant: 30).isActive = true
+        pathBand = Bands.band([pathScroll], height: 30, spacing: 0)
+        pathScroll.widthAnchor.constraint(equalTo: pathBand.widthAnchor, constant: -24).isActive = true
         rulerView.translatesAutoresizingMaskIntoConstraints = false
         rulerView.heightAnchor.constraint(equalToConstant: 26).isActive = true
         let toolbar = buildToolbarBand()
@@ -904,6 +924,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     var inspectorForTests: InspectorModel { inspector }
     /// Per le prove: il nome che si scriverebbe nel foglio che chiede il nome di uno stile nuovo (il foglio non si apre).
     var styleNameAnswerForTests: String?
+    var replaceFormulaAnswerForTests: Bool?
 
     /// L'albero si ricostruisce dopo una breve pausa: mentre si scrive, un tasto dopo l'altro, una volta sola.
     private func scheduleObjectTree() {
@@ -1540,8 +1561,9 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
     /// Ricompone tutto il documento e aggiorna le pagine mostrate.
     func layoutPages() {
+        composerModel?.documentChanged(sheet: settings.styles, rules: settings.rules)
         pendingLayout = nil
-        pagesView.layout = PageLayout.layout(documentText, setup: settings.pageSetup, options: settings.layoutOptions)
+        pagesView.layout = PageLayout.layout(documentText, setup: settings.pageSetup, options: documentLayoutOptions)
         // Il conto delle parole del documento intero si rifà solo a richiesta (scegliendo «Documento» nel percorso).
         // Ciò che danno le regole si sa solo componendo: con un oggetto che ha proprietà, si rilegge tutto l'ispettore.
         if inspector.object.level != nil { refreshInspector() } else if inspector.object != .document { refreshFacts() }
@@ -2139,7 +2161,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         panel.isExtensionHidden = false
         let text = NSAttributedString(attributedString: documentText)
         let setup = settings.pageSetup
-        let options = settings.layoutOptions
+        let options = documentLayoutOptions
         panel.beginSheetModal(for: window) { response in
             guard response == .OK, let url = panel.url else { return }
             let data = PDFRenderer.pdfData(for: PageLayout.layout(text, setup: setup, options: options), title: title)
@@ -2156,7 +2178,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     /// Il documento come lo si stampa: le stesse pagine del PDF esportato, e il formato del foglio.
     func printablePDF(title: String?) -> (data: Data, paperSize: CGSize) {
         let setup = settings.pageSetup
-        let layout = PageLayout.layout(NSAttributedString(attributedString: documentText), setup: setup, options: settings.layoutOptions)
+        let layout = PageLayout.layout(NSAttributedString(attributedString: documentText), setup: setup, options: documentLayoutOptions)
         return (PDFRenderer.pdfData(for: layout, title: title), setup.paperSize)
     }
 

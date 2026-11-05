@@ -12,6 +12,8 @@ final class TextDocument: NSDocument {
     /// (che non abilitiamo) le chiama da lì: l'accesso resta di fatto seriale.
     nonisolated(unsafe) private var loaded: Document?
 
+    nonisolated(unsafe) private var backingVersion = 1
+
     private var editor: EditorWindowController? {
         MainActor.assumeIsolated { windowControllers.first as? EditorWindowController }
     }
@@ -30,6 +32,7 @@ final class TextDocument: NSDocument {
 
     override func read(from data: Data, ofType typeName: String) throws {
         let document = try DocumentFormat.document(from: data)
+        backingVersion = document.sourceVersion
         loaded = document
         // «Ripristina»: la finestra esiste già e va riportata al contenuto del file.
         MainActor.assumeIsolated {
@@ -59,10 +62,41 @@ final class TextDocument: NSDocument {
         }
     }
 
-    override func data(ofType typeName: String) throws -> Data {
-        let document = MainActor.assumeIsolated { editor?.currentDocument() } ?? loaded ?? Document()
-        return DocumentFormat.data(for: document)
+    nonisolated private var snapshot: Document {
+        MainActor.assumeIsolated { editor?.currentDocument() ?? loaded ?? Document() }
     }
+
+    override func save(_ sender: Any?) {
+        if fileURL != nil, DocumentFormat.writingVersion(for: snapshot) > backingVersion {
+            saveAs(sender)
+        } else {
+            super.save(sender)
+        }
+    }
+
+    override func prepareSavePanel(_ savePanel: NSSavePanel) -> Bool {
+        let accepted = super.prepareSavePanel(savePanel)
+        if let fileURL, DocumentFormat.writingVersion(for: snapshot) > backingVersion {
+            savePanel.message = "Le definizioni di stile richiedono il formato \(DocumentFormat.writingVersion(for: snapshot)). Scegli un nome per la copia."
+            savePanel.nameFieldStringValue = fileURL.deletingPathExtension().lastPathComponent + " (stili).grx"
+        }
+        return accepted
+    }
+
+    override func writeSafely(to url: URL, ofType typeName: String, for saveOperation: NSDocument.SaveOperationType) throws {
+        let version = max(backingVersion, DocumentFormat.writingVersion(for: snapshot))
+        if version > backingVersion, url.standardizedFileURL.resolvingSymlinksInPath() == fileURL?.standardizedFileURL.resolvingSymlinksInPath() {
+            throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteNoPermissionError,
+                          userInfo: [NSLocalizedDescriptionKey: "Per conservare il documento originale, usa Salva con nome per creare una copia in formato \(version)."])
+        }
+        try super.writeSafely(to: url, ofType: typeName, for: saveOperation)
+        if saveOperation == .saveOperation || saveOperation == .saveAsOperation { backingVersion = version }
+    }
+
+    override func data(ofType typeName: String) throws -> Data {
+        DocumentFormat.data(for: snapshot, minimumVersion: backingVersion)
+    }
+
 }
 
 /// Riconosce i file `.grx` e `.wpx` dall'estensione anche se il sistema non ha ancora registrato il tipo dell'app.

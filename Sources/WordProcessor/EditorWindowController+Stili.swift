@@ -68,7 +68,7 @@ extension EditorWindowController {
             let probe = NSMutableAttributedString(string: " ", attributes: typingAttributes)
             let currentList = selectionListItem()
             if let currentList { probe.addAttribute(.listItem, value: currentList.encoded, range: NSRange(location: 0, length: 1)) } else { probe.removeAttribute(.listItem, range: NSRange(location: 0, length: 1)) }
-            TextStyling.restyle(probe, range: NSRange(location: 0, length: 1), from: settings.styles, to: settings.styles, resolver: fontRoleResolver, rename: rename)
+            TextStyling.restyle(probe, range: NSRange(location: 0, length: 1), from: settings.styles, to: settings.styles, resolver: fontRoleResolver, base: settings.formulaBase ?? TextStyling.styleBase, assigning: target, rename: rename)
             typingAttributes = probe.attributes(at: 0, effectiveRange: nil)
             // Lo stile di paragrafo può dare una Lista anche al paragrafo vuoto in fondo.
             let newList = (probe.attribute(.listItem, at: 0, effectiveRange: nil) as? String).flatMap(ListItem.init(encoded:))
@@ -89,7 +89,7 @@ extension EditorWindowController {
         case .none: level > 0 ? SectionEditing.defaultRole(forLevel: level) : nil
         }
         writeStore(actionName: name == nil ? "Togli stile" : "Stile «\(name!)»") {
-            TextStyling.restyle($0, range: range, from: sheet, to: sheet, resolver: fontRoleResolver, rename: rename)
+            TextStyling.restyle($0, range: range, from: sheet, to: sheet, resolver: fontRoleResolver, base: settings.formulaBase ?? TextStyling.styleBase, assigning: target, rename: rename)
             if let opens {
                 // Prima i paragrafi diventano titoli, poi i titoli vanno al loro livello: dopo uno spostamento
                 // l'intervallo contiene altro testo.
@@ -114,13 +114,15 @@ extension EditorWindowController {
         }
         settings.styles = newSheet
         if restyle, store.length > 0 {
-            writeStore(actionName: nil) { TextStyling.restyle($0, range: NSRange(location: 0, length: $0.length), from: oldSheet, to: newSheet, resolver: fontRoleResolver) }
+            writeStore(actionName: nil) { TextStyling.restyle($0, range: NSRange(location: 0, length: $0.length), from: oldSheet, to: newSheet, resolver: fontRoleResolver, base: settings.formulaBase ?? TextStyling.styleBase) }
         }
         document?.undoManager?.setActionName(actionName)
         reloadStylePopup()
         refreshFromSelection()
         layoutPages()
         definitionsPanel?.documentChanged()
+        refreshStylesTab()
+        composerModel?.documentChanged(sheet: settings.styles, rules: settings.rules)
     }
 
     /// Crea uno stile con ciò che la selezione ha di diverso dallo stile su cui si basa, e lo dà alla selezione.
@@ -184,6 +186,7 @@ extension EditorWindowController {
         }
         var sheet = settings.styles
         sheet.styles.append(NamedStyle(name: styleName, target: property.level, basedOn: basedOn, values: values))
+        sheet.styles[sheet.styles.count - 1] = sheet.materializingFormulas(of: styleName) ?? sheet.styles[sheet.styles.count - 1]
         endUndoStep(next: .none)
         document?.undoManager?.beginUndoGrouping()
         removeStyleAdditions([index])
@@ -202,6 +205,7 @@ extension EditorWindowController {
         let values = TextStyling.styleValues(from: storage, at: at, target: target, sheet: settings.styles, basedOn: basedOn)
         var sheet = settings.styles
         sheet.styles.append(NamedStyle(name: styleName, target: target, basedOn: basedOn, values: values))
+        sheet.styles[sheet.styles.count - 1] = sheet.materializingFormulas(of: styleName) ?? sheet.styles[sheet.styles.count - 1]
         document?.undoManager?.beginUndoGrouping()
         changeStyles(to: sheet, restyle: false, actionName: "Nuovo stile")
         applyNamedStyle(target, name: styleName)
@@ -257,6 +261,7 @@ extension EditorWindowController {
             guard let self else { return }
             var sheet = self.settings.styles
             sheet.styles.append(NamedStyle(name: name, target: styleTarget, basedOn: nil, values: values))
+            sheet.styles[sheet.styles.count - 1] = sheet.materializingFormulas(of: name) ?? sheet.styles[sheet.styles.count - 1]
             var named = rule
             named.styleName = name
             self.addRule(named, styles: sheet, clearing: range)
@@ -279,7 +284,9 @@ extension EditorWindowController {
         document?.undoManager?.beginUndoGrouping()
         changeRules(settings.rules + [rule], styles: styles)
         if let range, let style = styles.style(named: rule.styleName), store.length > 0 {
-            let fixed = StyleSheet.properties(for: style.target).filter { $0.isFixed(in: style.values) }
+            let fixed = StyleSheet.properties(for: style.target).filter {
+                $0.isFixed(in: style.values) || styles.formulaDefinition(for: $0, inStyle: style.name) != nil
+            }
             let sheet = settings.styles
             if !fixed.isEmpty {
                 writeStore(actionName: nil) { text in
@@ -298,17 +305,37 @@ extension EditorWindowController {
     /// Ridefinisce lo stile della selezione (di paragrafo, di parola o di carattere) con l'aspetto che ha lì:
     /// tutto il testo con quello stile si aggiorna, tranne i valori dati a mano.
     @objc func updateStyleFromSelection(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String, let target = StyleTarget(rawValue: raw), let storage = textStorage, storage.length > 0,
-              let name = selectionStyleName(target), let style = settings.styles.style(named: name),
-              let index = settings.styles.styles.firstIndex(where: { $0.name == name }) else { return }
-        endUndoStep(next: .none)
+        guard let raw = sender.representedObject as? String, let target = StyleTarget(rawValue: raw),
+              let storage = textStorage, storage.length > 0, let name = selectionStyleName(target) else { return }
+        flushStyleChanges()
+        let base = settings.styles
         let at = min(selection.range.location, storage.length - 1)
-        var sheet = settings.styles
-        sheet.styles[index].values = TextStyling.styleValues(from: storage, at: at, target: target, sheet: settings.styles, basedOn: style.basedOn)
-        document?.undoManager?.beginUndoGrouping()
-        changeStyles(to: sheet, restyle: true, actionName: "Aggiorna stile")
-        document?.undoManager?.endUndoGrouping()
-        document?.undoManager?.setActionName("Aggiorna stile «\(name)»")
+        let changes = TextStyling.styleChanges(from: storage, at: at, style: name, sheet: base,
+                                               base: settings.formulaBase ?? TextStyling.styleBase, resolver: fontRoleResolver)
+        let calculated = changes.filter { base.formulaDefinition(for: $0.property, inStyle: name)?.isCalculated == true }
+        let apply: () -> Void = { [weak self] in
+            guard let self, self.settings.styles == base else { return }
+            var updated = base
+            for change in changes {
+                updated = updated.setting(change.value, of: change.property, inStyle: name,
+                    base: self.settings.formulaBase ?? TextStyling.styleBase, replacingFormula: true)
+            }
+            updated = TextStyling.updatingStyleFontDetails(updated, style: name, from: storage, at: at,
+                base: self.settings.formulaBase ?? TextStyling.styleBase, resolver: self.fontRoleResolver)
+            self.endUndoStep(next: .none)
+            self.changeStyles(to: updated, restyle: true, actionName: "Aggiorna stile «" + name + "»")
+        }
+        if calculated.isEmpty { apply(); return }
+        if let answer = replaceFormulaAnswerForTests { if answer { apply() }; return }
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.messageText = "Sostituire le formule modificate con valori fissi?"
+        alert.informativeText = "Nello stile «" + name + "» cambiano: " + calculated.map { $0.property.title }.joined(separator: ", ") + ". Le altre formule vengono conservate."
+        alert.addButton(withTitle: "Sostituisci con valori fissi")
+        alert.addButton(withTitle: "Annulla")
+        alert.beginSheetModal(for: window) { response in
+            MainActor.assumeIsolated { if response == .alertFirstButtonReturn { apply() } }
+        }
     }
 
     // MARK: Elenchi (menu Formato)
@@ -426,6 +453,8 @@ extension EditorWindowController {
         styleInspector.languages = Self.languages.map { InspectorModel.LanguageChoice(code: $0, name: Self.languageName($0)) }
         styleInspector.set = { [unowned self] property, values in self.setStyleValue(property, values) }
         styleInspector.reset = { [unowned self] property in self.resetStyleValue(property) }
+        styleInspector.openFormula = { [unowned self] name in self.showStyleComposer(style: name) }
+        styleInspector.replaceFormula = { [unowned self] property in self.replaceStyleFormula(property) }
         stylesTab.onSelect = { [unowned self] _ in self.refreshStylesTab() }
         stylesTab.onNew = { [unowned self] target in self.newStyle(target) }
         stylesTab.onDuplicate = { [unowned self] name in self.duplicateStyle(name) }
@@ -433,6 +462,12 @@ extension EditorWindowController {
         stylesTab.onRename = { [unowned self] old, new in self.renameStyle(old, to: new) }
         stylesTab.onParent = { [unowned self] name, parent in self.setStyleParent(name, parent) }
         stylesTab.onOpensSection = { [unowned self] name, role in self.setStyleOpensSection(name, role) }
+        stylesTab.onPageStart = { [unowned self] name, value in
+            self.flushStyleChanges()
+            let sheet = self.settings.styles.settingDirective(.pageStartSpacing, argument: value.map(StyleArgument.pageStart), inStyle: name)
+            self.endUndoStep(next: .none)
+            self.changeStyles(to: sheet, restyle: false, actionName: "Distanza a inizio pagina")
+        }
         stylesTab.onOutlineLevel = { [unowned self] name, level in self.setStyleOutlineLevel(name, level) }
         definitionsPanel.settings = { [unowned self] in self.settings }
         definitionsPanel.sectionRoles = { [unowned self] in
@@ -457,9 +492,10 @@ extension EditorWindowController {
         }
         guard let name = stylesTab.selection else {
             styleInspector.values = []
+            styleInspector.formulaDefinitions = [:]
             return
         }
-        let values = (pendingStyles?.sheet ?? sheet).inspect(style: name, base: TextStyling.styleBase)
+        let values = (pendingStyles?.sheet ?? sheet).inspect(style: name, base: settings.formulaBase ?? TextStyling.styleBase, resolver: fontRoleResolver)
         styleInspector.lists = settings.lists.map(\.name)
         if let family = values.first(where: { $0.property == .family })?.value.family {
             styleInspector.faces = OpticalFonts.members(ofFamily: family).compactMap { member in
@@ -468,6 +504,22 @@ extension EditorWindowController {
             }
         }
         styleInspector.values = values
+        refreshStyleFormulaDefinitions(pendingStyles?.sheet ?? sheet, name: name)
+    }
+
+    func refreshStyleFormulaDefinitions(_ sheet: StyleSheet, name: String) {
+        styleInspector.formulaDefinitions = Dictionary(uniqueKeysWithValues: styleInspector.values.compactMap { value in
+            sheet.formulaDefinition(for: value.property, inStyle: name).map { (value.property, $0) }
+        })
+    }
+
+    /// Scelta esplicita dal menu del controllo: la formula viene sostituita con il risultato attuale.
+    func replaceStyleFormula(_ property: InspectorProperty) {
+        guard let name = stylesTab.selection, let value = styleInspector.values.first(where: { $0.property == property }) else { return }
+        let sheet = pendingStyles?.sheet ?? settings.styles
+        queueStyleChange(sheet.setting(value.value, of: property, inStyle: name,
+            base: settings.formulaBase ?? TextStyling.styleBase, replacingFormula: true), name: name, property: property)
+        flushStyleChanges()
     }
 
     static let stylePause: TimeInterval = 0.3
@@ -476,7 +528,7 @@ extension EditorWindowController {
     func setStyleValue(_ property: InspectorProperty, _ values: StyleValues) {
         guard let name = stylesTab.selection else { return }
         let base = pendingStyles?.sheet ?? settings.styles
-        queueStyleChange(base.setting(values, of: property, inStyle: name, base: TextStyling.styleBase), name: name, property: property)
+        queueStyleChange(base.setting(values, of: property, inStyle: name, base: settings.formulaBase ?? TextStyling.styleBase), name: name, property: property)
     }
 
     /// Un valore tolto dallo stile scelto, che torna a ereditarlo.
@@ -488,7 +540,8 @@ extension EditorWindowController {
 
     func queueStyleChange(_ sheet: StyleSheet, name: String, property: InspectorProperty) {
         pendingStyles = (sheet, name, property)
-        styleInspector.values = sheet.inspect(style: name, base: TextStyling.styleBase)
+        styleInspector.values = sheet.inspect(style: name, base: settings.formulaBase ?? TextStyling.styleBase, resolver: fontRoleResolver)
+        refreshStyleFormulaDefinitions(sheet, name: name)
         pendingStyleTimer?.invalidate()
         // Un timer del ciclo degli eventi: scatta anche durante un trascinamento nel pannello dei colori.
         let timer = Timer(timeInterval: Self.stylePause, repeats: false) { [weak self] _ in
@@ -566,10 +619,7 @@ extension EditorWindowController {
     /// Scheda Stili › Apre una sezione: il ruolo che lo stile apre (`nil` lo eredita, la stringa vuota: nessuno).
     func setStyleOpensSection(_ name: String, _ role: String?) {
         flushStyleChanges()
-        var sheet = settings.styles
-        guard let index = sheet.styles.firstIndex(where: { $0.name == name }), sheet.styles[index].target == .paragraph,
-              sheet.styles[index].values.opensSection != role else { return }
-        sheet.styles[index].values.opensSection = role
+        let sheet = settings.styles.settingDirective(.opensSection, argument: role.map(StyleArgument.text), inStyle: name)
         endUndoStep(next: .none)
         changeStyles(to: sheet, restyle: false, actionName: "Stile «\(name)»: apre una sezione")
     }
@@ -578,16 +628,16 @@ extension EditorWindowController {
     /// usano vanno al livello nuovo con il loro contenuto, nello stesso passo di «Annulla».
     func setStyleOutlineLevel(_ name: String, _ level: Int?) {
         flushStyleChanges()
-        var sheet = settings.styles
-        guard let index = sheet.styles.firstIndex(where: { $0.name == name }), sheet.styles[index].target == .paragraph,
-              sheet.styles[index].values.outlineLevel != level else { return }
-        sheet.styles[index].values.outlineLevel = level
+        let sheet = settings.styles.settingDirective(.outlineLevel, argument: level.map(StyleArgument.integer), inStyle: name)
+        guard sheet != settings.styles else { return }
         endUndoStep(next: .none)
         writeStore(actionName: "Stile «\(name)»: livello") { store in
             store.replaceStyles(sheet)
             SectionEditing.moveTitlesToStyleLevels(in: store)
         }
         refreshFromSelection()
+        refreshStylesTab()
+        composerModel?.documentChanged(sheet: settings.styles, rules: settings.rules)
         layoutPages()
     }
 
@@ -659,6 +709,8 @@ extension EditorWindowController {
         }
         layoutPages()
         definitionsPanel?.documentChanged()
+        refreshStylesTab()
+        composerModel?.documentChanged(sheet: settings.styles, rules: settings.rules)
     }
 
     /// Applica gli stili di flottante usciti dalla finestra: le note seguono gli stili rinominati o tolti.
@@ -839,7 +891,10 @@ extension EditorWindowController {
         let remove = menu.addItem(withTitle: "Togli", action: #selector(removeAdditionFromMenu(_:)), keyEquivalent: "")
         remove.target = self
         remove.tag = index
-        let move = menu.addItem(withTitle: "Metti nello stile", action: #selector(moveAdditionToStyle(_:)), keyEquivalent: "")
+        let replacesFormula = styleAdditions[index].property.map { property in
+            additionReceivers([index]).contains { settings.styles.formulaDefinition(for: property, inStyle: $0)?.isCalculated == true }
+        } ?? false
+        let move = menu.addItem(withTitle: replacesFormula ? "Metti nello stile sostituendo la formula" : "Metti nello stile", action: #selector(moveAdditionToStyle(_:)), keyEquivalent: "")
         move.target = self
         move.tag = index
         move.isEnabled = !additionReceivers([index]).isEmpty
@@ -875,7 +930,11 @@ extension EditorWindowController {
         case 1: "Porta le aggiunte nello stile \(quoted[0])"
         default: "Porta le aggiunte negli stili " + quoted.dropLast().joined(separator: ", ") + " e " + quoted.last!
         }
-        let move = menu.addItem(withTitle: title, action: #selector(moveStyleAdditionsToStyles(_:)), keyEquivalent: "")
+        let replacesFormula = styleAdditions.contains { addition in
+            guard let property = addition.property else { return false }
+            return receivers.contains { settings.styles.formulaDefinition(for: property, inStyle: $0)?.isCalculated == true }
+        }
+        let move = menu.addItem(withTitle: title + (replacesFormula ? " (sostituisce le formule modificate)" : ""), action: #selector(moveStyleAdditionsToStyles(_:)), keyEquivalent: "")
         move.target = self
         move.isEnabled = !receivers.isEmpty
         menu.addItem(.separator())
@@ -897,7 +956,7 @@ extension EditorWindowController {
             let addition = styleAdditions[index]
             let target = inspectionTarget(addition.level)
             if let property = addition.property {
-                if let next = TextStyling.sheet(sheet, takingValueOf: property, from: target.text, at: target.range.location) { sheet = next }
+                if let next = TextStyling.sheet(sheet, takingValueOf: property, from: target.text, at: target.range.location, replacingFormula: true) { sheet = next }
             } else if let detail = addition.detail,
                       let next = TextStyling.sheet(sheet, takingDetail: detail, from: target.text, at: target.range.location, resolver: fontRoleResolver) {
                 sheet = next
@@ -1087,7 +1146,7 @@ extension EditorWindowController {
     /// Un documento nuovo è vuoto: il cursore scrive nello stile «Testo».
     func loadEmptyDocument() {
         let sheet = settings.styles
-        let character = sheet.resolveCharacter(paragraphStyle: "Testo", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
+        let character = sheet.resolveCharacter(paragraphStyle: "Testo", wordStyle: nil, characterStyle: nil, base: settings.formulaBase ?? TextStyling.styleBase)
         let probe = Document(styles: sheet, lists: settings.lists, blocks: [
             .paragraph(Paragraph(styleName: "Testo", style: sheet.resolveParagraph(styleName: "Testo"), inlines: [.text(TextRun(" ", style: character))]))
         ]).attributedString().text

@@ -35,6 +35,7 @@ public enum DefinitionImport {
         var styles: [String] = []
         var lists: [String] = []
         var floatStyles: [String] = []
+        var selections: [UUID] = []
     }
 
     static func used(in text: NSAttributedString, source: Document) -> Used {
@@ -49,6 +50,12 @@ public enum DefinitionImport {
             used.styles.append(name)
             addStyle(style.basedOn)
             addList(style.values.listName)
+            addStyle(style.values.nextStyle)
+            for formula in style.formulas {
+                if case .styleName(let reference) = formula.operation.argument { addStyle(reference) }
+                if case .firstAfter(let previous) = formula.when.position { addStyle(previous) }
+                if case .selection(let id) = formula.target, !used.selections.contains(id) { used.selections.append(id) }
+            }
         }
         // La serie delle note a piè di pagina c'è in ogni documento e non si copia: nemmeno ciò da cui dipende.
         func addFloatStyle(_ name: String?) {
@@ -76,7 +83,23 @@ public enum DefinitionImport {
         var result: [Conflict] = []
         for name in used.styles {
             guard let theirs = destination.styles.style(named: name) else { continue }
-            if theirs != source.styles.style(named: name) { result.append(Conflict(kind: .style, name: name)) }
+            let selectionConflict = source.styles.style(named: name)?.formulas.contains { formula in
+                if case .selection(let id) = formula.target {
+                    return source.styles.selections.first { $0.id == id } != destination.styles.selections.first { $0.id == id }
+                }
+                return false
+            } ?? false
+            func dependencies(_ sheet: StyleSheet) -> [ReusableFormula] {
+                var ids = Set(sheet.style(named: name)?.formulas.flatMap { Array($0.binding?.references ?? []) } ?? [])
+                var previous = Set<UUID>()
+                while previous != ids {
+                    previous = ids
+                    for item in sheet.reusableFormulas where ids.contains(item.id) { ids.formUnion(item.expression.references) }
+                }
+                return sheet.reusableFormulas.filter { ids.contains($0.id) }.sorted { $0.id.uuidString < $1.id.uuidString }
+            }
+            let definitionConflict = dependencies(source.styles) != dependencies(destination.styles)
+            if definitionConflict || theirs != source.styles.style(named: name) || selectionConflict { result.append(Conflict(kind: .style, name: name)) }
         }
         for name in used.lists {
             guard let theirs = destination.lists.first(where: { $0.name == name }) else { continue }
@@ -99,7 +122,12 @@ public enum DefinitionImport {
             }
             for name in used.styles where destination.styles.style(named: name) != nil {
                 guard let style = source.styles.style(named: name) else { continue }
-                if depends(.style, style.basedOn) || depends(.list, style.values.listName) { add(Conflict(kind: .style, name: name)) }
+                let formulaDependency = style.formulas.contains { formula in
+                    if case .styleName(let reference) = formula.operation.argument, depends(.style, reference) { return true }
+                    if case .firstAfter(let previous) = formula.when.position, depends(.style, previous) { return true }
+                    return false
+                }
+                if depends(.style, style.basedOn) || depends(.list, style.values.listName) || depends(.style, style.values.nextStyle) || formulaDependency { add(Conflict(kind: .style, name: name)) }
             }
             for name in used.lists where destination.lists.contains(where: { $0.name == name }) {
                 guard case .list(let parent) = source.lists.first(where: { $0.name == name })?.parent else { continue }
@@ -166,11 +194,62 @@ public enum DefinitionImport {
         func renamedStyle(_ name: String?) -> String? { name.map { styleRenames[$0] ?? $0 } }
         func renamedList(_ name: String?) -> String? { name.map { listRenames[$0] ?? $0 } }
         var styles = destination.styles
+        var required = Set(importedStyles.flatMap { name in source.styles.style(named: name)?.formulas.flatMap { Array($0.binding?.references ?? []) } ?? [] })
+        var previous = Set<UUID>()
+        while previous != required {
+            previous = required
+            for item in source.styles.reusableFormulas where required.contains(item.id) { required.formUnion(item.expression.references) }
+        }
+        var formulaRenames: [UUID: UUID] = [:]
+        var changing = true
+        while changing {
+            changing = false
+            for item in source.styles.reusableFormulas where required.contains(item.id) && formulaRenames[item.id] == nil {
+                if let existing = styles.reusableFormulas.first(where: { $0.id == item.id }),
+                   existing != item || !item.expression.references.isDisjoint(with: Set(formulaRenames.keys)) {
+                    formulaRenames[item.id] = UUID(); changing = true
+                }
+            }
+        }
+        for item in source.styles.reusableFormulas where required.contains(item.id) {
+            let id = formulaRenames[item.id] ?? item.id
+            guard !styles.reusableFormulas.contains(where: { $0.id == id }) else { continue }
+            var name = item.name; var suffix = 2
+            while styles.reusableFormulas.contains(where: { $0.name == name }) { name = item.name + " (" + String(suffix) + ")"; suffix += 1 }
+            styles.reusableFormulas.append(ReusableFormula(id: id, name: name, parameters: item.parameters, resultType: item.resultType, expression: item.expression.remapping(formulaRenames)))
+        }
+        var selectionRenames: [UUID: UUID] = [:]
+        for id in used.selections where importedStyles.contains(where: { name in
+            source.styles.style(named: name)?.formulas.contains { $0.target == .selection(id) } == true
+        }) {
+            guard var selection = source.styles.selections.first(where: { $0.id == id }) else { continue }
+            if let existing = styles.selections.first(where: { $0.id == id }), existing != selection {
+                let newID = UUID(); selectionRenames[id] = newID
+                selection = WordSelection(id: newID, name: selection.name, source: selection.source, index: selection.index)
+            }
+            if !styles.selections.contains(where: { $0.id == selection.id }) {
+                var candidate = selection.name; var suffix = 2
+                while styles.selections.contains(where: { $0.name == candidate }) { candidate = selection.name + " " + String(suffix); suffix += 1 }
+                selection.name = candidate
+                styles.selections.append(selection)
+            }
+        }
         for name in importedStyles {
             guard var style = source.styles.style(named: name) else { continue }
             style.name = styleRenames[name] ?? name
             style.basedOn = renamedStyle(style.basedOn)
             style.values.listName = renamedList(style.values.listName)
+            style.values.nextStyle = renamedStyle(style.values.nextStyle)
+            style.formulas = style.formulas.map { formula in
+                var changed = formula
+                changed.binding = formula.binding?.remapping(formulaRenames)
+                if case .styleName(let reference) = changed.operation.argument {
+                    changed.operation = StylePropertyOperation(changed.operation.predicate, changed.operation.property, .styleName(renamedStyle(reference)))
+                }
+                if case .firstAfter(let previous) = changed.when.position { changed.when.position = .firstAfter(renamedStyle(previous) ?? previous) }
+                if case .selection(let id) = changed.target { changed.target = .selection(selectionRenames[id] ?? id) }
+                return changed
+            }
             styles.styles.append(style)
         }
         var lists = destination.lists

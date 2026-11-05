@@ -105,14 +105,15 @@ extension DocumentLayout {
             lastLineWidth: Double(last.line.naturalWidth),
             lastLineFill: last.line.availableWidth > 0 ? Double(min(last.line.width / last.line.availableWidth, 1)) : 0,
             isDocumentStart: location == 0, previousStyle: context.previousStyleName,
-            rules: applicableRules(at: location, rules: rules, sheet: sheet).map(\.summary))
+            rules: applicableRules(at: location, rules: rules, sheet: sheet).map { $0.summary(selections: sheet.selections) })
     }
 
     /// Le regole che valgono per il paragrafo: quelle decise dal testo, e quelle che la composizione gli ha applicato.
     func applicableRules(at location: Int, rules: [TextRule], sheet: StyleSheet) -> [TextRule] {
+        let compiled = sheet.compilingStyleRules(rules)
         let applied = layoutRulesApplied[location] ?? []
         let context = context(ofParagraphAt: location)
-        return Rules.usable(rules, sheet: sheet).filter { rule in
+        return Rules.usable(compiled.rules, sheet: compiled.sheet).filter { rule in
             rule.dependsOnLayout ? applied.contains(rule) : rule.applies(to: context)
         }
     }
@@ -146,7 +147,7 @@ extension DocumentLayout {
 
     /// Le regole che toccano il carattere nella posizione, descritte.
     public func rules(touching index: Int, rules: [TextRule], sheet: StyleSheet, affinity: NSSelectionAffinity = .downstream) -> [String] {
-        touchingRules(at: index, rules: rules, sheet: sheet, affinity: affinity).map(\.summary)
+        touchingRules(at: index, rules: rules, sheet: sheet, affinity: affinity).map { $0.summary(selections: sheet.selections) }
     }
 
     /// Le regole che toccano il carattere nella posizione, nell'ordine in cui si applicano.
@@ -162,7 +163,7 @@ extension DocumentLayout {
             case .firstLines(let count): (line?.number ?? .max) <= count
             case .lastLine: line.map { $0.number == $0.count } ?? false
             case .paragraph: true
-            default: body.ranges(of: rule.target).contains { NSLocationInRange(index, $0) }
+            default: body.ranges(of: rule.target, selections: sheet.selections).contains { NSLocationInRange(index, $0) }
             }
         }
     }
@@ -170,7 +171,7 @@ extension DocumentLayout {
     /// I tratti del corpo a cui le regole danno l'aspetto, in tutto il documento: ciò che trovano, le righe per le regole
     /// di riga, il corpo intero per quelle di paragrafo. Per i segni della provenienza.
     public func ruleRanges(rules: [TextRule], sheet: StyleSheet) -> [NSRange] {
-        guard !Rules.usable(rules, sheet: sheet).isEmpty, text.length > 0 else { return [] }
+        guard !sheet.compilingStyleRules(rules).rules.isEmpty, text.length > 0 else { return [] }
         var linesByParagraph: [Int: [PlacedLine]] = [:]
         for page in pages {
             for line in page.lines where !line.isNote { linesByParagraph[line.paragraphLocation, default: []].append(line) }
@@ -189,7 +190,7 @@ extension DocumentLayout {
                 case .paragraph: result += body.documentRanges(for: NSRange(location: 0, length: body.string.length))
                 case .firstLines(let count): result += lines.prefix(count).map(\.range)
                 case .lastLine: result += lines.last.map { [$0.range] } ?? []
-                default: result += body.ranges(of: rule.target)
+                default: result += body.ranges(of: rule.target, selections: sheet.selections)
                 }
             }
         }

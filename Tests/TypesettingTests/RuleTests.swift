@@ -36,6 +36,30 @@ extension TypesettingSuite {
             return body.ranges(of: target).map { (string as NSString).substring(with: $0) }
         }
 
+        @Test("Due regole condividono una selezione composta anche dopo la riapertura")
+        func sharedSelection() throws {
+            let selection = WordSelection(name: "Richiamo", source: .words, index: 2)
+            var doc = document([paragraph("uno due tre"), paragraph("alfa beta gamma", style: "Titolo 1")], rules: [
+                TextRule(target: .selection(selection.id), paragraphStyle: "Testo", styleName: "Maiuscoletto"),
+                TextRule(target: .selection(selection.id), paragraphStyle: "Titolo 1", styleName: "Maiuscoletto")
+            ])
+            doc.styles.selections = [selection]
+            let xml = DocumentFormat.string(for: doc)
+            var loaded = try DocumentFormat.document(from: xml)
+            #expect(loaded.sourceVersion == 3 && loaded.rules == doc.rules)
+            #expect(loaded.styles.selections == [selection])
+            #expect(smallCapsPieces(loaded) == ["due", "beta"])
+            loaded.styles.selections[0].index = 3
+            #expect(smallCapsPieces(loaded) == ["tre", "gamma"])
+            loaded.styles.selections[0].index = 4
+            #expect(smallCapsPieces(loaded).isEmpty)
+            let sigla = WordSelection(name: "Seconda sigla", source: .capitals, index: 2)
+            #expect(sigla.preview(in: "L'ONU e l'UNESCO") == "UNESCO")
+            #expect(throws: DocumentFormatError.self) {
+                try DocumentFormat.document(from: xml.replacingOccurrences(of: "ref=\"" + selection.id.uuidString, with: "ref=\"bad"))
+            }
+        }
+
         @Test("Che cosa trova ciascun tipo di regola")
         func targets() {
             #expect(found(.firstLetter, in: "«Nel mezzo del cammin»\n") == ["«N"])

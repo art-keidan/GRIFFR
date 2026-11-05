@@ -14,22 +14,22 @@ extension StyleSheet {
     }
 
     /// I valori che uno stile dà, con quelli degli stili su cui si basa e del documento (`base`).
-    private func resolvedValues(of name: String?, target: StyleTarget, base: CharacterStyle) -> StyleValues {
+    private func resolvedValues(of name: String?, target: StyleTarget, base: CharacterStyle, resolver: FontRoleResolver = FontRoleResolver()) -> StyleValues {
         let character = resolveCharacter(paragraphStyle: target == .paragraph ? name : nil, wordStyle: target == .word ? name : nil,
-                                         characterStyle: target == .character ? name : nil, base: base)
+                                         characterStyle: target == .character ? name : nil, base: base, resolver: resolver)
         let paragraph = resolveParagraph(styleName: target == .paragraph ? name : nil)
         return TextStyling.fullValues(character: character, paragraph: paragraph, list: values(of: name).list,
                                       openingDistance: target == .paragraph ? values(of: name).openingDistance ?? 0 : 0,
-                                      keeping: target == .paragraph ? lineKeeping(styleName: name) : LineKeeping().resolved)
+                                      keeping: target == .paragraph ? lineKeeping(styleName: name) : LineKeeping().resolved, resolver: resolver)
     }
 
     /// Le proprietà di uno stile come le mostra il gestore: il valore che dà e da dove viene (`.own` se lo fissa lui,
     /// `.style(nome)` se lo fissa uno stile su cui si basa, `.document` se nessuno); `inherited` è ciò che darebbe
     /// senza i suoi valori propri.
-    public func inspect(style name: String, base: CharacterStyle) -> [InspectedValue] {
+    public func inspect(style name: String, base: CharacterStyle, resolver: FontRoleResolver = FontRoleResolver()) -> [InspectedValue] {
         guard let style = style(named: name) else { return [] }
-        let actual = resolvedValues(of: name, target: style.target, base: base)
-        let inherited = resolvedValues(of: style.basedOn, target: style.target, base: base)
+        let actual = resolvedValues(of: name, target: style.target, base: base, resolver: resolver)
+        let inherited = resolvedValues(of: style.basedOn, target: style.target, base: base, resolver: resolver)
         return Self.properties(for: style.target).map { property in
             InspectedValue(property: property, value: property.only(actual), inherited: property.only(inherited),
                            source: source(of: property, in: style), isMixed: false)
@@ -38,22 +38,52 @@ extension StyleSheet {
 
     /// Da dove viene il valore di una proprietà in uno stile.
     private func source(of property: InspectorProperty, in style: NamedStyle) -> ValueSource {
-        if property.isFixed(in: style.values.limited(to: style.target)) { return .own }
+        if style.declares(property) { return .own }
         var next = style.basedOn
         var seen: Set<String> = [style.name]
         while let name = next, !seen.contains(name), let parent = self.style(named: name) {
-            if property.isFixed(in: parent.values.limited(to: style.target)) { return .style(parent.name) }
+            if parent.declares(property) { return .style(parent.name) }
             seen.insert(name)
             next = parent.basedOn
         }
         return .document
     }
 
-    /// Lo stile con il valore della proprietà (i suoi campi in `values`) fissato. Se coincide con quello che lo stile
-    /// erediterebbe comunque, lo stile smette di fissarlo.
-    public func setting(_ values: StyleValues, of property: InspectorProperty, inStyle name: String, base: CharacterStyle) -> StyleSheet {
+    /// I controlli supportati scrivono Imposta, conservando l'identità del nodo.
+    /// Un calcolo richiede replacingFormula; il valore fisso resta esplicito anche
+    /// quando coincide con quello ereditato. Gli altri campi usano l'adattatore storico.
+    public func setting(_ values: StyleValues, of property: InspectorProperty, inStyle name: String, base: CharacterStyle, replacingFormula: Bool = false) -> StyleSheet {
         guard let position = styles.firstIndex(where: { $0.name == name }) else { return self }
+        if !replacingFormula, formulaDefinition(for: property, inStyle: name)?.isCalculated == true { return self }
+        if let operation = StylePropertyOperation.constant(values, for: property) {
+            let formula = StyleFormula(operation: operation)
+            guard (try? formula.validate(for: styles[position].target)) != nil else { return self }
+            var result = self
+            var style = result.styles[position]
+            if property == .family {
+                style.values.family = nil
+                style.values.fontName = nil
+            } else { style.values.clear(property) }
+            if property == .face {
+                style.values.family = nil; style.values.fontName = nil; style.values.italic = nil; style.values.bold = nil
+                style.formulas.removeAll { $0.operation.property == .family }
+            } else if property == .family {
+                style.values.fontName = nil
+                style.formulas.removeAll { $0.operation.property == .face }
+            }
+            let matching = style.formulas.indices.filter { style.formulas[$0].operation.property.inspectorProperty == property }
+            if let last = matching.last {
+                let id = style.formulas[matching[0]].id
+                style.formulas = style.formulas.enumerated().compactMap { index, item in
+                    if index == last { return StyleFormula(id: id, operation: operation) }
+                    return matching.contains(index) ? nil : item
+                }
+            } else { style.formulas.append(formula) }
+            result.styles[position] = style
+            return result
+        }
         var result = self
+        result.styles[position].formulas.removeAll { $0.operation.property.inspectorProperty == property }
         var own = styles[position].values
         switch property {
         case .family:
@@ -101,6 +131,7 @@ extension StyleSheet {
     public func resetting(_ property: InspectorProperty, inStyle name: String) -> StyleSheet {
         guard let position = styles.firstIndex(where: { $0.name == name }) else { return self }
         var result = self
+        result.styles[position].formulas.removeAll { $0.operation.property.inspectorProperty == property }
         result.styles[position].values.clear(property)
         return result
     }
@@ -142,6 +173,15 @@ extension Document {
         for index in result.styles.styles.indices {
             if result.styles.styles[index].name == old { result.styles.styles[index].name = new }
             if result.styles.styles[index].basedOn == old { result.styles.styles[index].basedOn = new }
+            result.styles.styles[index].formulas = result.styles.styles[index].formulas.map { formula in
+                var changed = formula
+                if case .firstAfter(old) = changed.when.position { changed.when.position = .firstAfter(new) }
+                if case .styleName(old) = changed.operation.argument {
+                    changed.operation = StylePropertyOperation(changed.operation.predicate, changed.operation.property, .styleName(new))
+                }
+                return changed
+            }
+            if result.styles.styles[index].values.nextStyle == old { result.styles.styles[index].values.nextStyle = new }
         }
         result.rules = rules.map { rule in
             var rule = rule
@@ -167,6 +207,20 @@ extension Document {
         result.styles.styles.removeAll { $0.name == name }
         for index in result.styles.styles.indices where result.styles.styles[index].basedOn == name {
             result.styles.styles[index].basedOn = parent
+        }
+        for index in result.styles.styles.indices {
+            result.styles.styles[index].formulas = result.styles.styles[index].formulas.compactMap { formula in
+                var changed = formula
+                if case .firstAfter(name) = changed.when.position {
+                    guard let parent else { return nil }; changed.when.position = .firstAfter(parent)
+                }
+                if case .styleName(name) = changed.operation.argument {
+                    if changed.operation.property == .applyStyle && parent == nil { return nil }
+                    changed.operation = StylePropertyOperation(changed.operation.predicate, changed.operation.property, .styleName(parent))
+                }
+                return changed
+            }
+            if result.styles.styles[index].values.nextStyle == name { result.styles.styles[index].values.nextStyle = parent ?? "" }
         }
         result.rules = rules.compactMap { rule in
             var rule = rule

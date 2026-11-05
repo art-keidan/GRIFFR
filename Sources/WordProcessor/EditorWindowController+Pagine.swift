@@ -143,7 +143,16 @@ extension EditorWindowController: PagesViewEditing {
                 setSelection(caretAfterEdit(at: range.location, inNote: inNote))
             }
         } else if let text = Self.insertions[command] {
-            pagesInsert(text, replacementRange: selection.range)
+            if text == "\n", noteAnchor == nil,
+               let current = selectionStyleName(.paragraph), let next = settings.styles.values(of: current).nextStyle,
+               !next.isEmpty, settings.styles.style(named: next)?.target == .paragraph {
+                endUndoStep(next: .none)
+                document?.undoManager?.beginUndoGrouping()
+                pagesInsert(text, replacementRange: selection.range)
+                applyNamedStyle(.paragraph, name: next)
+                document?.undoManager?.endUndoGrouping()
+                document?.undoManager?.setActionName("Nuovo paragrafo")
+            } else { pagesInsert(text, replacementRange: selection.range) }
         } else if [#selector(NSResponder.pageDown(_:)), #selector(NSResponder.scrollPageDown(_:))].contains(command) {
             pagesView.enclosingScrollView?.pageDown(nil)
         } else if [#selector(NSResponder.pageUp(_:)), #selector(NSResponder.scrollPageUp(_:))].contains(command) {

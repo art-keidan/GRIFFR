@@ -98,6 +98,12 @@ extension EditorWindowController {
         inspector.resetDetail = { [weak self] detail in self?.inspectorResetDetail(detail) }
         inspector.moveDetailToStyle = { [weak self] detail in self?.inspectorMoveDetailToStyle(detail) }
         inspector.createStyle = { [weak self] in self?.createStyleFromInspector() }
+        inspector.openFormula = { [weak self] name in self?.showStyleComposer(style: name) }
+        inspector.replaceFormula = { [weak self] property in
+            guard let self, let value = self.inspector.values.first(where: { $0.property == property }) else { return }
+            self.inspector.modes[property] = .style
+            self.setInStyle(property, value.value, replacingFormula: true)
+        }
         inspector.setPageSetup = { [weak self] setup in self?.setInspectedPageSetup(setup) }
         inspector.createRule = { [weak self] in self?.createRuleFromInspector() }
         inspector.setSectionRole = { [weak self] role in self?.changeInspectedSection(actionName: "Ruolo della sezione") { SectionEditing.setRole(role, of: $0, in: $1) } }
@@ -238,10 +244,11 @@ extension EditorWindowController {
         var values = TextStyling.inspect(level, in: target.text, range: target.range, sheet: settings.styles, resolver: fontRoleResolver)
         // Le regole agiscono solo componendo: ciò che danno lì si legge dall'ultima composizione.
         let at = selection.range.location
-        if let layout = pagesView.layout, !settings.rules.isEmpty, at < layout.text.length, at < store.length {
+        let hasContextualStyles = settings.styles.styles.contains { $0.formulas.contains(where: \.isRuntimeRule) }
+        if let layout = pagesView.layout, !settings.rules.isEmpty || hasContextualStyles, at < layout.text.length, at < store.length {
             let rules = layout.touchingRules(at: at, rules: settings.rules, sheet: settings.styles, affinity: selection.affinity)
             values = TextStyling.withRuleSources(values, rules: rules, in: target.text, at: target.isProbe ? 0 : target.range.location,
-                                                 sheet: settings.styles)
+                                                 sheet: settings.styles, resolver: fontRoleResolver)
         }
         if inspector.values != values { inspector.values = values }
         var receivers: [InspectorProperty: String] = [:]
@@ -249,6 +256,15 @@ extension EditorWindowController {
             receivers[value.property] = TextStyling.receivingStyle(for: value.property, in: target.text, at: target.range.location)?.name
         }
         inspector.receivers = receivers
+        inspector.formulaDefinitions = Dictionary(uniqueKeysWithValues: values.compactMap { value in
+            if let name = receivers[value.property], let definition = settings.styles.formulaDefinition(for: value.property, inStyle: name) {
+                return (value.property, definition)
+            }
+            if case .style(let name) = value.source, let definition = settings.styles.formulaDefinition(for: value.property, inStyle: name) {
+                return (value.property, definition)
+            }
+            return nil
+        })
         if let family = values.first(where: { $0.property == .family })?.value.family {
             inspector.faces = OpticalFonts.members(ofFamily: family).compactMap { member in
                 guard let name = member[0] as? String, let title = member[1] as? String else { return nil }
@@ -311,6 +327,10 @@ extension EditorWindowController {
                          Fact(title: "Parole", value: "\(p.wordCount)"), Fact(title: "Righe con trattino", value: "\(p.hyphenatedLines)"),
                          Fact(title: "Ultima riga", value: "\(points(p.lastLineWidth)), \(Int((p.lastLineFill * 100).rounded()))% della riga"),
                          Fact(title: "Lo precede", value: previous), Fact(title: "Regole", value: rulesText(p.rules))]
+                let start = TextStyling.bodyParagraph(in: store, at: index).range.location
+                if let opening = layout.pageStarts[start] {
+                    facts.append(Fact(title: "Apertura pagina", value: "Stile «\(opening.style)» · \(points(opening.effective)) (richiesti \(points(opening.requested)))"))
+                }
             }
         case .line:
             if let l = layout.lineFacts(at: index, affinity: selection.affinity) {
@@ -383,7 +403,7 @@ extension EditorWindowController {
     func inspectorMoveToStyle(_ property: InspectorProperty) {
         let target = inspectionTarget(property.level)
         guard let receiver = inspector.receivers[property],
-              let sheet = TextStyling.sheet(settings.styles, takingValueOf: property, from: target.text, at: target.range.location) else { return }
+              let sheet = TextStyling.sheet(settings.styles, takingValueOf: property, from: target.text, at: target.range.location, replacingFormula: true) else { return }
         endUndoStep(next: .none)
         changeStyles(to: sheet, restyle: true, actionName: "Stile «\(receiver)»: \(property.title.lowercased())")
     }
@@ -426,12 +446,12 @@ extension EditorWindowController {
 
     /// Mette un valore nello stile: tutto il testo che lo eredita cambia, e la selezione perde il suo valore dato a
     /// mano, se ne aveva uno, per prendere quello dello stile.
-    func setInStyle(_ property: InspectorProperty, _ values: StyleValues) {
+    func setInStyle(_ property: InspectorProperty, _ values: StyleValues, replacingFormula: Bool = false) {
         let target = inspectionTarget(property.level)
         let copy = NSMutableAttributedString(attributedString: target.text)
         TextStyling.setValue(values, of: property, in: copy, range: target.isProbe ? NSRange(location: 0, length: copy.length) : target.range)
         guard let receiver = inspector.receivers[property],
-              let sheet = TextStyling.sheet(settings.styles, takingValueOf: property, from: copy, at: target.range.location) else { return }
+              let sheet = TextStyling.sheet(settings.styles, takingValueOf: property, from: copy, at: target.range.location, replacingFormula: replacingFormula) else { return }
         let actionName = "Stile «\(receiver)»: \(property.title.lowercased())"
         endUndoStep(next: .none)
         document?.undoManager?.beginUndoGrouping()

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document version="4" font="HoeflerText-Regular" size="14">
+<styles>
+<style name="Testo" target="paragraph" family="Hoefler Text" size="14" italic="on" space-after="10"/>
+<style name="Forte" target="character" bold="on"/>
+<style name="Citazione" target="paragraph" based-on="Testo" left-indent="24"/>
+<style name="Citazione relativa" target="paragraph" based-on="Citazione">
+<formula id="4F6DC1BB-29CF-4AF2-A253-00F000000004" predicate="add" property="leftIndent" kind="length" value="6" unit="pt"/>
+</style>
+</styles>
+<page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
+<p style="Testo">Questo documento usa stili reali, da aprire e modificare nella bacheca.</p>
+<p style="Testo">Il paragrafo parte dal corsivo. <t char-style="Forte">Queste parole usano Forte: prova a cambiare Aggiungi in Imposta.</t></p>
+<p style="Citazione">Citazione fornisce un rientro sinistro di 24 pt.</p>
+<p style="Citazione relativa">Citazione relativa aggiunge 6 pt ai 24 pt ereditati. Nella bacheca, Imposta 6 pt sostituisce quel valore; Aggiungi 6 pt produce 30 pt.</p>
+</document>

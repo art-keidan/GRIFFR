@@ -22,18 +22,19 @@ extension TypesettingSuite {
             }
         }
 
-        @Test("Fissare un valore uguale a quello ereditato non lo fissa; togliere lo rimette in eredità")
+        @Test("Un valore fisso resta esplicito anche quando coincide con quello ereditato")
         func settingAndResetting() throws {
             var sheet = StyleSheet.builtIn
             var size = StyleValues()
             size.size = 15
             sheet = sheet.setting(size, of: .size, inStyle: "Citazione", base: base)
-            #expect(sheet.style(named: "Citazione")?.values.size == 15)
+            #expect(sheet.inspect(style: "Citazione", base: base).first { $0.property == .size }?.value.size == 15)
+            #expect(sheet.style(named: "Citazione")?.values.size == nil)
             #expect(sheet.inspect(style: "Citazione", base: base).first { $0.property == .size }?.source == .own)
             let inherited = try #require(sheet.inspect(style: "Citazione", base: base).first { $0.property == .size }?.inherited.size)
             size.size = inherited
             let same = sheet.setting(size, of: .size, inStyle: "Citazione", base: base)
-            #expect(same.style(named: "Citazione")?.values.size == nil, "il valore ereditato non si fissa")
+            #expect(same.inspect(style: "Citazione", base: base).first { $0.property == .size }?.source == .own, "Imposta rimane esplicito; Eredita è un altro comando")
             #expect(sheet.resetting(.size, inStyle: "Citazione").style(named: "Citazione")?.values.size == nil)
         }
 

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRIFFR · Studio delle interfacce</title>
+<style>
+:root{font:16px -apple-system,BlinkMacSystemFont,sans-serif;color:#202b31;background:#e9edef}body{margin:0}header{background:#183941;color:white;padding:20px 5%}header h1{font-size:1.3rem;margin:0 0 6px}header p{margin:0;color:#c6d9da}main{max-width:1150px;margin:auto;padding:24px}.notice{background:#fff7df;padding:12px 16px;border-left:4px solid #b9841c}.bar{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}button,select{font:inherit;padding:9px 13px;border:1px solid #9aaab0;border-radius:7px;background:white;color:#17343b}button{cursor:pointer}button[aria-pressed=true]{background:#236269;color:white;border-color:#236269}button:focus-visible,select:focus-visible{outline:3px solid #c08500;outline-offset:2px}.layout{display:grid;grid-template-columns:minmax(220px,1fr) minmax(300px,1.4fr) minmax(210px,1fr);gap:16px}.card{background:white;border:1px solid #cbd5d8;border-radius:10px;padding:18px}.card h2{font-size:1rem;margin:0 0 14px}.item{padding:9px;border-bottom:1px solid #e4eaeb}.muted{color:#51636a;font-size:.92rem}.step{background:#edf5f4;border-left:3px solid #3b8887;margin:8px 0;padding:10px}.page{background:#fff;border:1px solid #cbd5d8;min-height:240px;padding:24px 22px;font-family:Georgia,serif;box-shadow:0 2px 8px #0001}.chapter{margin-top:40px;text-align:center;font-size:1.3rem}.rule{border-top:1px solid #456;margin:14px 0}.details{font-size:.92rem;line-height:1.5}label{display:block;font-weight:600;margin:12px 0 5px}select{width:100%}.tag{font-size:.8rem;border-radius:12px;padding:3px 8px;background:#dcefed;color:#18544f}footer{padding:20px 5%;color:#51636a;font-size:.85rem}@media(max-width:800px){.layout{grid-template-columns:1fr}.page{min-height:160px}}
+</style>
+</head>
+<body>
+<header><h1>GRIFFR · Studio delle interfacce</h1><p>Proposta di interazione per gli stili</p></header>
+<main>
+<p class="notice"><strong>Prototipo illustrativo.</strong> I pulsanti cambiano la vista di esempio. Non modificano documenti né eseguono la composizione tipografica.</p>
+<div class="bar" role="group" aria-label="Modalità">
+<button data-mode="essenziale" aria-pressed="true">Essenziale</button><button data-mode="dettagliata" aria-pressed="false">Dettagliata</button><button data-mode="compositore" aria-pressed="false">Compositore</button>
+</div>
+<label for="scenario">Esempio da esplorare</label>
+<select id="scenario"><option value="apertura">Titolo a inizio pagina</option><option value="successivo">Titolo e paragrafo successivo</option><option value="testata">Testata di capitolo</option><option value="nota">Quinta parola e nota marginale</option></select>
+<div class="layout" style="margin-top:18px">
+<section class="card"><h2>Documento e stile</h2><div class="item">📄 Il manoscritto</div><div class="item"><strong>§ Capitolo 3</strong></div><div class="item">¶ Il primo capoverso</div><div class="item">Stile: <strong>Titolo di capitolo</strong></div><p class="muted" id="leftText"></p></section>
+<section class="card"><h2 id="panelTitle"></h2><div id="panel" aria-live="polite"></div></section>
+<section class="card"><h2>Anteprima illustrativa</h2><div class="page" id="preview"></div><p class="muted" id="previewNote"></p></section>
+</div>
+</main><footer>Prototipo di progetto · Il documento di riferimento è INTERFACCE.md</footer>
+<script>
+const cases={
+ apertura:{name:'Distanza di apertura',summary:'Quando apre una pagina · 30 mm dal margine superiore',steps:['Questo titolo','Contesto del tentativo di pagina','Se è il primo nel flusso principale','Imposta distanza del blocco: 30 mm'],inspect:'Distanza 30 mm · dalla regola «Apertura pagina». La distanza riguarda la testata intera.',page:'<div class="chapter">Capitolo 3<br>Il manoscritto</div><div class="rule"></div><p>Il primo capoverso comincia qui.</p>',note:'Il titolo è mostrato in cima al flusso. La distanza è simbolica.'},
+ successivo:{name:'Titolo e paragrafo successivo',summary:'Dopo Invio: Corpo · Il successivo ha rientro zero',steps:['Evento: Invio in fondo → assegna Corpo','Questo titolo → blocco successivo della sezione','Se il blocco è un capoverso','Imponi rientro prima riga: 0 mm'],inspect:'Rientro 0 mm · imposto da Titolo di capitolo. Valore locale 8 mm · sospeso.',page:'<div class="chapter">Capitolo 3</div><p>Il primo capoverso segue senza rientro.</p><p style="text-indent:2em">Il secondo capoverso ha il rientro ordinario.</p>',note:'Il vincolo sul vicino e lo stile assegnato da Invio sono due comportamenti distinti.'},
+ testata:{name:'Testata di capitolo',summary:'Numero · spazio · filetto · titolo',steps:['Parte: numero della sezione','Spazio: 3 mm','Filetto: 0,5 mm','Spazio: 2,5 mm','Parte: titolo · altezza naturale'],inspect:'Testata composta · numero e titolo derivano dalla sezione corrente.',page:'<div style="text-align:right;font-size:2em">3</div><div class="rule"></div><h3>Il manoscritto e le sue pagine</h3><p>Qui comincia il testo del capitolo.</p>',note:'La disposizione è una proposta grafica, senza misura tipografica reale.'},
+ nota:{name:'Nota sulla quinta parola',summary:'Quinta parola → nota a 10 mm dal bordo esterno',steps:['Questo paragrafo → parole','Scegli posizione: 5','Quando la parola è presente','Presenta nota marginale · contenuto stile X'],inspect:'Quinta parola trovata · la nota segue la riga del richiamo. Se manca, il contenuto resta salvato.',page:'<p>Alfa beta gamma delta <mark>epsilon</mark> zeta.</p><p style="border-left:2px solid #236269;padding-left:10px;font-size:.85em">Confronta il manoscritto B</p>',note:'La nota è disegnata in modo schematico. La sua collocazione precisa richiede il motore.'}
+};
+let mode='essenziale';const scenario=document.getElementById('scenario');
+function render(){const x=cases[scenario.value];document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===mode)));document.getElementById('leftText').textContent=mode==='essenziale'?'Scegli uno stile pronto e continua a scrivere.':'Stesso documento e stessa selezione nelle tre modalità.';document.getElementById('panelTitle').textContent=mode==='essenziale'?'Strumenti di scrittura':mode==='dettagliata'?'Proprietà dello stile':'Compositore · '+x.name;const panel=document.getElementById('panel');panel.replaceChildren();const add=(text,cls)=>{const el=document.createElement('div');el.className=cls;el.textContent=text;panel.appendChild(el)};if(mode==='essenziale'){add('Stile paragrafo · Titolo di capitolo','item');add('Font · Famiglia e corpo','item');add('Allineamento · Spaziatura','item');add('Lo stile contiene impostazioni contestuali.','muted')}else if(mode==='dettagliata'){add(x.summary,'step');add('Ispettore','item');add(x.inspect,'details');add('Apri compositore per vedere la definizione completa.','muted')}else{x.steps.forEach((s,i)=>add((i+1)+'  '+s,'step'));add('Bozza · Applica o annulla nella versione dell’app','muted')}document.getElementById('preview').innerHTML=x.page;document.getElementById('previewNote').textContent=x.note}
+document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.mode;render()}));scenario.addEventListener('change',render);render();
+</script>
+</body></html>

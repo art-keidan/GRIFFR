@@ -18,7 +18,13 @@ extension NSAttributedString.Key {
     public static let openingDistance = NSAttributedString.Key("WordProcessorOpeningDistance")
 }
 
+public enum PageStartSpacing: Hashable, Sendable {
+    case disabled
+    case distance(Double)
+}
+
 public struct StyleValues: Hashable, Sendable {
+    var resolutionSteps: [StyleResolutionStep] = []
     // Carattere. La faccia si indica in due modi: con il nome preciso (`fontName`), oppure con la famiglia e i
     // due segnali corsivo e nero; così «corsivo» vale in qualunque famiglia arrivi da sopra.
     public var fontName: String?
@@ -57,11 +63,14 @@ public struct StyleValues: Hashable, Sendable {
     /// Il ruolo della sezione che lo stile apre quando lo si dà a un paragrafo («Titolo 1» apre un capitolo); la stringa
     /// vuota toglie quello ereditato. Serve solo ad aprire la sezione: poi la sezione non dipende più dallo stile.
     public var opensSection: String?
+    public var nextStyle: String?
     /// Il livello di paragrafazione: 1, 2, 3…; 0 toglie esplicitamente quello ereditato, `nil` lo lascia ereditare.
     public var outlineLevel: Int?
     /// La distanza d'apertura, in punti: dove scende il paragrafo che apre una sequenza di pagine (il titolo di un capitolo
     /// che comincia su una pagina nuova, il primo paragrafo del documento), misurata dal margine superiore.
     public var openingDistance: Double?
+    /// Distanza quando il capoverso apre il flusso principale. nil eredita.
+    public var pageStartSpacing: PageStartSpacing?
     /// La tenuta delle righe fra le pagine; ciascun valore si eredita da solo.
     public var keeping = LineKeeping()
 
@@ -78,8 +87,13 @@ public struct StyleValues: Hashable, Sendable {
         take(\.color); take(\.verticalPosition); take(\.decorations); take(\.graphite); take(\.smallCaps); take(\.language); take(\.hyphenates)
         take(\.alignment); take(\.firstLineIndent); take(\.leftIndent); take(\.rightIndent)
         take(\.spaceBefore); take(\.spaceAfter); take(\.lineSpacing); take(\.lineHeightMultiple); take(\.listName); take(\.opensSection)
-        take(\.outlineLevel); take(\.openingDistance)
+        take(\.nextStyle); take(\.outlineLevel); take(\.openingDistance); take(\.pageStartSpacing)
         result.keeping = keeping.over(parent.keeping)
+        if !parent.resolutionSteps.isEmpty || !resolutionSteps.isEmpty {
+            let before = parent.resolutionSteps.isEmpty ? [.values(parent.withoutResolutionSteps)] : parent.resolutionSteps
+            let after = resolutionSteps.isEmpty ? [.values(withoutResolutionSteps)] : resolutionSteps
+            result.resolutionSteps = before + after
+        }
         return result
     }
 
@@ -91,11 +105,19 @@ public struct StyleValues: Hashable, Sendable {
             result.spaceBefore = nil; result.spaceAfter = nil; result.lineSpacing = nil; result.lineHeightMultiple = nil
             result.listName = nil
             result.opensSection = nil
+            result.nextStyle = nil
             result.outlineLevel = nil
             result.openingDistance = nil
+            result.pageStartSpacing = nil
             result.keeping = LineKeeping()
         }
         if target == .character { result.language = nil; result.hyphenates = nil }
+        result.resolutionSteps = resolutionSteps.compactMap { step in
+            switch step {
+            case .values(let values): return .values(values.limited(to: target))
+            case .formula(let formula): return (try? formula.validate(for: target)) != nil ? step : nil
+            }
+        }
         return result
     }
 
@@ -108,6 +130,16 @@ public struct StyleValues: Hashable, Sendable {
 
     /// Applica i valori di paragrafo a uno stile di paragrafo già risolto.
     public func applied(to style: ParagraphStyle) -> ParagraphStyle {
+        if !resolutionSteps.isEmpty {
+            let input = StylePredicateState(character: TextStyling.styleBase, paragraph: style)
+            let steps = resolutionSteps.filter {
+                if case .formula(let formula) = $0 { return formula.operation.property.isParagraphProperty }
+                return true
+            }
+            var projection = self
+            projection.resolutionSteps = steps
+            return (try? projection.evaluatingFormulas(from: input).paragraph) ?? withoutResolutionSteps.applied(to: style)
+        }
         var result = style
         if let alignment { result.alignment = alignment }
         if let firstLineIndent { result.firstLineIndent = firstLineIndent }
@@ -122,6 +154,20 @@ public struct StyleValues: Hashable, Sendable {
     }
 
     func apply(to fields: inout CharacterFields, resolver: FontRoleResolver = FontRoleResolver()) {
+        if !resolutionSteps.isEmpty {
+            var projection = self
+            projection.resolutionSteps = resolutionSteps.filter {
+                if case .formula(let formula) = $0 { return !formula.operation.property.isParagraphProperty }
+                return true
+            }
+            let input = StylePredicateState(character: fields.resolved(fallback: TextStyling.styleBase))
+            if let output = try? projection.evaluatingFormulas(from: input, resolver: resolver) {
+                fields = CharacterFields(output.character)
+            } else {
+                withoutResolutionSteps.apply(to: &fields, resolver: resolver)
+            }
+            return
+        }
         if let fontName {
             fields.fontName = fontName
             fields.features = []
@@ -165,8 +211,10 @@ public struct NamedStyle: Hashable, Sendable {
     public var target: StyleTarget
     public var basedOn: String?
     public var values: StyleValues
+    public var formulas: [StyleFormula]
 
-    public init(name: String, target: StyleTarget, basedOn: String? = nil, values: StyleValues = StyleValues()) {
+    public init(name: String, target: StyleTarget, basedOn: String? = nil, values: StyleValues = StyleValues(), formulas: [StyleFormula] = []) {
+        self.formulas = formulas
         self.name = name
         self.target = target
         self.basedOn = basedOn
@@ -176,6 +224,9 @@ public struct NamedStyle: Hashable, Sendable {
 
 /// Gli stili di un documento.
 public struct StyleSheet: Hashable, Sendable {
+    public var selections: [WordSelection] = []
+    /// Definizioni riutilizzabili conservate nel documento, con riferimenti per identità.
+    public var reusableFormulas: [ReusableFormula] = []
     public var styles: [NamedStyle]
 
     public init(styles: [NamedStyle] = []) {
@@ -195,7 +246,10 @@ public struct StyleSheet: Hashable, Sendable {
             chain.append(parent)
             next = parent.basedOn
         }
-        return chain.reversed().reduce(StyleValues()) { $1.values.limited(to: style.target).over($0) }
+        return chain.reversed().reduce(StyleValues()) { accumulated, item in
+            let resolved = (try? resolvingReusableStyle(item)) ?? item
+            return resolved.declarations.limited(to: style.target).over(accumulated)
+        }
     }
 
     /// Lo stile di carattere di un tratto: dalla base (il documento, o ciò che sta sopra), poi lo stile del

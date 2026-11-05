@@ -107,10 +107,12 @@ import Foundation
 /// - `placement="head"` o `placement="bottom"` su `float-style`: intestazione o piè di pagina, ripetuti da dove sono ancorati
 ///   finché un altro dello stesso tipo non prende il loro posto; `pages="odd|even|first"` (le dispari, le pari, la sola prima
 ///   pagina della sezione in cui sono ancorati) e `edge` (la distanza dal bordo del foglio; senza, a metà del margine).
-/// - `<field kind="page"/>`, dentro `p` o `note`, è un campo che la composizione calcola pagina per pagina: `page` (il numero
-///   della pagina), `pages` (quante pagine), `section-title` e `section-number` (con `role`: la sezione in corso di quel
-///   ruolo). Accetta gli attributi di `t`. `page-numbering`, su `document` e su `section`, nomina la Lista che numera le
-///   pagine (da una sezione in poi, ripartendo).
+/// - `<field kind="page"/>`, dentro `p` o `note`, è un campo storico del numero della pagina. `pages` dà quante pagine;
+///   `section-title` e `section-number` (con `role`) danno la sezione in corso di quel ruolo. La versione 9 introduce
+///   `<field kind="formula" expression="position.page-containing.number.write-here"/>`: la posizione del carattere
+///   ospite determina la pagina, il numero segue la numerazione del documento e il risultato usa lo stile del campo.
+///   Tutti i campi accettano gli attributi di `t`. `page-numbering`, su `document` e su `section`, nomina la Lista che
+///   numera le pagine (da una sezione in poi, ripartendo).
 /// - `opening-distance` (in punti, o con l'unità), su `style` di paragrafo e su `p`: la distanza d'apertura, dal margine
 ///   superiore, del paragrafo che apre una sequenza di pagine. `opens-section` su `style` di paragrafo: il ruolo della
 ///   sezione che lo stile apre quando lo si dà a un paragrafo (vuoto: nessuno).
@@ -118,28 +120,58 @@ import Foundation
 /// La lettura è severa: elementi o attributi sconosciuti sono un errore con il numero di riga, non vengono
 /// ignorati, così un refuso in un file corretto a mano non fa perdere contenuto in silenzio.
 public enum DocumentFormat {
-    public static let version = 1
+    public static let version = 11
+
+    public static func writingVersion(for document: Document) -> Int {
+        let contextual = document.styles.styles.flatMap(\.formulas).contains {
+            $0.operation.property.isDirective || $0.operation.property == .applyStyle || !$0.when.isAlways || $0.target != .paragraph
+        } || document.styles.styles.contains { $0.values.nextStyle != nil }
+        let preciseFace = document.styles.styles.flatMap(\.formulas).contains { $0.operation.property == .face }
+        let subtracts = document.styles.styles.flatMap(\.formulas).contains { $0.operation.predicate == .subtract }
+        let extended = document.styles.styles.flatMap(\.formulas).contains {
+            [.family, .color, .smallCaps, .hyphenates].contains($0.operation.property)
+        }
+        let formulaFields = document.flatParagraphs.contains { paragraph in
+            func containsFormula(_ paragraph: Paragraph) -> Bool {
+                paragraph.inlines.contains { inline in
+                    switch inline {
+                    case .text(let run):
+                        if case .some(.formula(_)) = run.field { return true }
+                        return false
+                    case .floating(let object):
+                        return object.paragraphs.contains { runs in runs.contains { if case .some(.formula(_)) = $0.field { return true }; return false } }
+                    case .image: return false
+                    }
+                }
+            }
+            return containsFormula(paragraph.paragraph)
+        }
+        return max(document.styles.styles.contains { $0.formulas.contains { $0.binding != nil } } ? 11 : 1, document.styles.reusableFormulas.isEmpty ? 1 : 10, formulaFields ? 9 : 1, contextual ? 8 : 1, preciseFace ? 7 : 1, subtracts ? 6 : 1, extended ? 5 : 1, document.styles.styles.contains { !$0.formulas.isEmpty } ? 4 : 1, document.styles.selections.isEmpty ? 1 : 3, document.sourceVersion, document.styles.styles.contains { $0.values.pageStartSpacing != nil } ? 2 : 1)
+    }
     public static let fileExtension = "grx"
     /// Le estensioni che si aprono: quella d'ora in poi e `.wpx`, quella dei file scritti prima.
     public static let readableExtensions: Set<String> = [fileExtension, "wpx"]
 
     // MARK: Scrittura
 
-    public static func data(for document: Document) -> Data {
-        Data(string(for: document).utf8)
+    public static func data(for document: Document, minimumVersion: Int = 1) -> Data {
+        Data(string(for: document, minimumVersion: minimumVersion).utf8)
     }
 
-    public static func string(for document: Document) -> String {
+    public static func string(for document: Document, minimumVersion: Int = 1) -> String {
         let paragraphs = document.flatParagraphs.map(\.paragraph)
         // Lo stile più usato diventa quello del documento, così la maggior parte dei paragrafi non lo ripete.
         var base = dominantStyle(paragraphs.flatMap { paragraph in runs(of: paragraph).map { ($0.style, $0.text.utf16.count + 1) } })
+        if document.styles.styles.contains(where: { !$0.formulas.isEmpty }) {
+            base = document.formulaBase ?? TextStyling.styleBase
+        }
         // La lingua comune a tutto il testo è quella del documento, che ha il suo attributo; e sul documento
         // l'attributo della sillabazione è l'interruttore generale, non una proprietà delle parole.
         base?.language = nil
         base?.hyphenates = true
         let sheet = document.styles
 
-        var out = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<document version=\"\(version)\""
+        var out = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<document version=\"\(max(writingVersion(for: document), minimumVersion))\""
         if let base { out += styleAttributes(base, relativeTo: nil) }
         if let language = document.language { out += " lang=\"\(escapedAttribute(language))\"" }
         if !document.hyphenates { out += " hyphenation=\"off\"" }
@@ -168,7 +200,13 @@ public enum DocumentFormat {
                 var values = style.values
                 // La stringa vuota è «nessuna Lista»: toglie quella che darebbe lo stile su cui si basa.
                 if let list = values.listName, !list.isEmpty, !knownLists.contains(list) { values.listName = nil }
-                out += styleValueAttributes(values) + "/>\n"
+                out += styleValueAttributes(values)
+                if style.formulas.isEmpty { out += "/>\n" }
+                else {
+                    out += ">\n"
+                    for formula in style.formulas { out += formulaElement(formula) }
+                    out += "</style>\n"
+                }
             }
             out += "</styles>\n"
         }
@@ -190,8 +228,18 @@ public enum DocumentFormat {
 
         // Le regole che rimandano a stili che non ci sono più non si scrivono: il file non si potrebbe riaprire.
         let rules = document.rules.filter { ruleIsWritable($0, sheet: sheet) }
-        if !rules.isEmpty {
+        if !rules.isEmpty || !sheet.selections.isEmpty || !sheet.reusableFormulas.isEmpty {
             out += "<rules>\n"
+            if !sheet.reusableFormulas.isEmpty {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.sortedKeys]
+                encoder.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "+Infinity", negativeInfinity: "-Infinity", nan: "NaN")
+                let data = try! encoder.encode(sheet.reusableFormulas)
+                out += "<reusable-formulas encoding=\"json-v1\" data=\"\(data.base64EncodedString())\"/>\n"
+            }
+            for selection in sheet.selections {
+                out += "<selection id=\"\(selection.id.uuidString)\" name=\"\(escapedAttribute(selection.name))\" source=\"\(selection.source.rawValue)\" index=\"\(selection.index)\"/>\n"
+            }
             for rule in rules { out += ruleElement(rule) }
             out += "</rules>\n"
         }
@@ -499,6 +547,7 @@ public enum DocumentFormat {
 
     private static func ruleIsWritable(_ rule: TextRule, sheet: StyleSheet) -> Bool {
         guard let style = sheet.style(named: rule.styleName), style.target != .paragraph || rule.target == .paragraph else { return false }
+        if case .selection(let id) = rule.target, !sheet.selections.contains(where: { $0.id == id }) { return false }
         if let name = rule.paragraphStyle, sheet.style(named: name)?.target != .paragraph { return false }
         if case .firstAfter(let name) = rule.position, sheet.style(named: name)?.target != .paragraph { return false }
         return true
@@ -508,6 +557,7 @@ public enum DocumentFormat {
     private static func ruleElement(_ rule: TextRule) -> String {
         var out = "<rule"
         switch rule.target {
+        case .selection(let id): out += " find=\"selection\" ref=\"\(id.uuidString)\""
         case .firstLetter: out += " find=\"first-letter\""
         case .firstWords(let count): out += " find=\"first-words\" count=\"\(count)\""
         case .firstSentence: out += " find=\"first-sentence\""
@@ -624,10 +674,63 @@ public enum DocumentFormat {
         return out + "/>\n"
     }
 
+    private static func formulaElement(_ formula: StyleFormula) -> String {
+        let operation = formula.operation
+        var out = "<formula id=\"\(formula.id.uuidString)\" predicate=\"\(operation.predicate.rawValue)\" property=\"\(operation.property.rawValue)\""
+        if let binding = formula.binding { out += " binding=\"\(FormulaCodec.encode(binding))\"" }
+        switch operation.argument {
+        case .boolean(let enabled): out += " kind=\"boolean\" value=\"\(enabled ? "on" : "off")\""
+        case .integer(let count): out += " kind=\"integer\" value=\"\(count)\""
+        case .text(let value): out += " kind=\"text\" value=\"\(escapedAttribute(value))\""
+        case .styleName(let name): out += " kind=\"style\" value=\"\(escapedAttribute(name ?? ""))\""
+        case .pageStart(let spacing):
+            let value: String
+            switch spacing { case .disabled: value = "off"; case .distance(let points): value = number(points) }
+            out += " kind=\"page-start\" value=\"\(value)\""
+        case .face(let name): out += " kind=\"face\" value=\"\(escapedAttribute(name))\""
+        case .family(let name): out += " kind=\"family\" value=\"\(escapedAttribute(name))\""
+        case .color(let color): out += " kind=\"color\" value=\"\(color ?? "")\""
+        case .smallCaps(let mode): out += " kind=\"smallCaps\" value=\"\(mode.rawValue)\""
+        case .hyphenates(let enabled): out += " kind=\"hyphenates\" value=\"\(enabled ? "on" : "off")\""
+        case .font(let role): out += " kind=\"font\" value=\"\(role.rawValue)\""
+        case .length(let amount, let unit): out += " kind=\"length\" value=\"\(number(amount))\" unit=\"\(unit.rawValue)\""
+        case .alignment(let alignment): out += " kind=\"alignment\" value=\"\(alignment.rawValue)\""
+        case .language(let language): out += " kind=\"language\" value=\"\(escapedAttribute(language ?? ""))\""
+        }
+        switch formula.when.position {
+        case .any: break
+        case .sequenceStart: out += " when=\"sequence-start\""
+        case .firstOnPage: out += " when=\"page-start\""
+        case .firstAfter(let name): out += " when=\"after\" after-style=\"\(escapedAttribute(name))\""
+        }
+        if let condition = formula.when.measurement {
+            out += " if=\"\(condition.property.rawValue)\" compare=\"\(condition.comparison.rawValue)\" threshold=\"\(number(condition.value))\""
+        }
+        switch formula.target {
+        case .paragraph: break
+        case .firstLetter: out += " find=\"first-letter\""
+        case .firstWords(let count): out += " find=\"first-words\" count=\"\(count)\""
+        case .firstSentence: out += " find=\"first-sentence\""
+        case .firstLines(let count): out += " find=\"first-lines\" count=\"\(count)\""
+        case .lastLine: out += " find=\"last-line\""
+        case .selection(let id): out += " find=\"selection\" selection=\"\(id.uuidString)\""
+        case .words(let pattern):
+            out += " find=\"words\""
+            switch pattern {
+            case .capitals: out += " pattern=\"capitals\""
+            case .romanNumerals: out += " pattern=\"roman\""
+            case .numbers: out += " pattern=\"numbers\""
+            case .listed(let words): out += " pattern=\"list\" words=\"\(escapedAttribute(words.joined(separator: " ")) )\""
+            }
+        }
+        return out + "/>\n"
+    }
+
     /// Gli attributi di una definizione di stile: solo i valori che lo stile fissa.
     private static func styleValueAttributes(_ values: StyleValues) -> String {
         var out = ""
         func flag(_ value: Bool) -> String { value ? "on" : "off" }
+        if let next = values.nextStyle { out += " next-style=\"\(escapedAttribute(next))\"" }
         if let fontName = values.fontName { out += " font=\"\(escapedAttribute(fontName))\"" }
         if let family = values.family { out += " family=\"\(escapedAttribute(family))\"" }
         if let italic = values.italic { out += " italic=\"\(flag(italic))\"" }
@@ -653,6 +756,11 @@ public enum DocumentFormat {
         if let role = values.opensSection { out += " opens-section=\"\(escapedAttribute(role))\"" }
         if let level = values.outlineLevel { out += " outline-level=\"\(level)\"" }
         if let distance = values.openingDistance { out += " opening-distance=\"\(number(distance))\"" }
+        switch values.pageStartSpacing {
+        case .distance(let points): out += " page-start-spacing=\"\(number(points))\""
+        case .disabled: out += " page-start-spacing=\"off\""
+        case nil: break
+        }
         out += values.keeping.xmlAttributes
         return out
     }
@@ -706,6 +814,7 @@ public enum DocumentFormat {
         case .pageCount: " kind=\"pages\""
         case .sectionTitle(let role): " kind=\"section-title\" role=\"\(escapedAttribute(role))\""
         case .sectionNumber(let role): " kind=\"section-number\" role=\"\(escapedAttribute(role))\""
+        case .formula(let formula): " kind=\"formula\" expression=\"\(formula.rawValue)\""
         }
     }
 
@@ -725,7 +834,7 @@ public enum DocumentFormat {
     public static func document(from data: Data) throws -> Document {
         let reader = Reader()
         // Un file scritto prima del livello di paragrafazione non ne contiene nessuno: solo lì il nome «Titolo N» lo dice.
-        reader.levelsFromNames = data.range(of: Data("outline-level=".utf8)) == nil
+        reader.levelsFromNames = data.range(of: Data("outline-level=".utf8)) == nil && data.range(of: Data("property=\"outlineLevel\"".utf8)) == nil
         let parser = XMLParser(data: data)
         parser.delegate = reader
         let succeeded = parser.parse()
@@ -735,6 +844,12 @@ public enum DocumentFormat {
         }
         guard reader.sawDocument else { throw DocumentFormatError.malformed(line: 1, detail: "manca l'elemento <document>") }
         var document = reader.settings
+        if let problem = document.styles.formulaReferenceProblem() { throw DocumentFormatError.malformed(line: 1, detail: problem) }
+        do { try ReusableFormulaLibrary(definitions: document.styles.reusableFormulas).validate() }
+        catch { throw DocumentFormatError.malformed(line: 1, detail: "Formule riutilizzabili non valide: \(error)") }
+        if document.sourceVersion >= 4, reader.documentStyle.fontName != nil, reader.documentStyle.size != nil {
+            document.formulaBase = try reader.documentStyle.resolved(line: 1)
+        }
         document.setFlatParagraphs(reader.flatParagraphs)
         return document
     }
@@ -763,6 +878,7 @@ public enum DocumentFormat {
         /// Sopra questo stile parziale, i valori di uno stile con un nome.
         func applying(_ values: StyleValues) -> PartialStyle {
             var fields = CharacterFields(fontName: fontName, size: size)
+            if !values.resolutionSteps.isEmpty { fields.fontRole = fontRole }
             fields.features = features
             fields.variations = variations
             fields.prefersVariableFont = prefersVariableFont
@@ -776,6 +892,7 @@ public enum DocumentFormat {
             fields.smallCaps = smallCaps
             values.apply(to: &fields)
             var result = self
+            if !values.resolutionSteps.isEmpty { result.fontRole = fields.fontRole }
             result.fontName = fields.fontName
             result.size = fields.size
             result.features = fields.features
@@ -981,7 +1098,7 @@ public enum DocumentFormat {
         private var tableIDs: Set<String> = []
 
         private var stack: [String] = []
-        private var documentStyle = PartialStyle()
+        var documentStyle = PartialStyle()
         private var paragraphStyle = PartialStyle()
         private var paragraph: Paragraph?
         private var paragraphLine = 0
@@ -995,6 +1112,7 @@ public enum DocumentFormat {
         private var pageNumberingName: String?
         private var sawFloatStyles = false
         private var sawRules = false
+        private var sawReusableFormulas = false
         /// L'immagine in lettura e i suoi byte in base64.
         private var imageInProgress: (src: String?, width: Double, height: Double, line: Int)?
         private var imageText = ""
@@ -1117,6 +1235,8 @@ public enum DocumentFormat {
                     settings.language = attributes["lang"].flatMap { $0.isEmpty ? nil : $0 }
                     guard let version = attributes["version"].flatMap(Int.init) else { throw DocumentFormatError.missingAttribute(line: line, attribute: "version") }
                     guard version <= DocumentFormat.version else { throw DocumentFormatError.newerVersion(version) }
+                    settings.sourceVersion = version
+                    if version >= 8 { levelsFromNames = false }
                     sawDocument = true
                     documentStyle = try PartialStyle().applying(attributes, line: line)
                     // La lingua del documento è un'impostazione, non uno stile: il testo che non ne dichiara una resta senza.
@@ -1176,12 +1296,38 @@ public enum DocumentFormat {
                 case ("float-style", "float-styles"):
                     try readFloatStyle(attributes, line: line, parser)
 
+                case ("formula", "style") where settings.sourceVersion >= 4:
+                    try readFormula(attributes, line: line, parser)
+
                 case ("rules", "document"):
                     guard check(attributes, allowed: [], element: name, parser) else { return }
                     guard paragraphs.isEmpty, paragraph == nil, !sawRules else {
                         throw DocumentFormatError.malformed(line: line, detail: "<rules> va prima dei paragrafi, e una volta sola")
                     }
                     sawRules = true
+
+                case ("selection", "rules") where settings.sourceVersion >= 3:
+                    guard check(attributes, allowed: ["id", "name", "source", "index"], element: name, parser) else { return }
+                    guard let id = attributes["id"].flatMap(UUID.init(uuidString:)),
+                          let label = attributes["name"], !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                          let source = attributes["source"].flatMap(WordSelection.Source.init(rawValue:)),
+                          let index = attributes["index"].flatMap(Int.init), index > 0,
+                          !settings.styles.selections.contains(where: { $0.id == id || $0.name == label }) else {
+                        throw DocumentFormatError.malformed(line: line, detail: "Definizione di selezione non valida o duplicata")
+                    }
+                    settings.styles.selections.append(WordSelection(id: id, name: label, source: source, index: index))
+
+                case ("reusable-formulas", "rules") where settings.sourceVersion >= 10:
+                    guard check(attributes, allowed: ["encoding", "data"], element: name, parser) else { return }
+                    guard !sawReusableFormulas, attributes["encoding"] == "json-v1", let encoded = attributes["data"],
+                          let data = Data(base64Encoded: encoded) else {
+                        throw DocumentFormatError.malformed(line: line, detail: "Definizioni di formule riutilizzabili non valide")
+                    }
+                    let decoder = JSONDecoder()
+                    decoder.nonConformingFloatDecodingStrategy = .convertFromString(positiveInfinity: "+Infinity", negativeInfinity: "-Infinity", nan: "NaN")
+                    do { settings.styles.reusableFormulas = try decoder.decode([ReusableFormula].self, from: data) }
+                    catch { throw DocumentFormatError.malformed(line: line, detail: "Definizioni di formule riutilizzabili non leggibili") }
+                    sawReusableFormulas = true
 
                 case ("rule", "rules"):
                     try readRule(attributes, line: line, parser)
@@ -1432,18 +1578,30 @@ public enum DocumentFormat {
 
                 case ("field", "p"), ("field", "note"):
                     guard check(attributes, allowed: ["kind", "role", "font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines",
-                                                      "graphite", "word-style", "char-style", "rules-off"], element: name, parser) else { return }
+                                                      "graphite", "word-style", "char-style", "rules-off", "expression"], element: name, parser) else { return }
                     let field: Field
                     switch (attributes["kind"], attributes["role"]) {
                     case ("page"?, nil): field = .page
                     case ("pages"?, nil): field = .pageCount
                     case ("section-title"?, let role?) where !role.isEmpty: field = .sectionTitle(role: role)
                     case ("section-number"?, let role?) where !role.isEmpty: field = .sectionNumber(role: role)
+                    case ("formula"?, nil):
+                        guard settings.sourceVersion >= 9 else {
+                            throw DocumentFormatError.malformed(line: line, detail: "Questa formula inserita nel testo richiede il formato 9")
+                        }
+                        guard let expression = attributes["expression"], let formula = FieldFormula(rawValue: expression) else {
+                            throw DocumentFormatError.invalidValue(line: line, attribute: "expression", value: attributes["expression"] ?? "")
+                        }
+                        field = .formula(formula)
                     default: throw DocumentFormatError.invalidValue(line: line, attribute: "kind", value: attributes["kind"] ?? "")
+                    }
+                    if attributes["kind"] != "formula", attributes["expression"] != nil {
+                        throw DocumentFormatError.invalidValue(line: line, attribute: "expression", value: attributes["expression"] ?? "")
                     }
                     var runAttributes = attributes
                     runAttributes["kind"] = nil
                     runAttributes["role"] = nil
+                    runAttributes["expression"] = nil
                     try startRun(from: note != nil ? noteStyle : paragraphStyle, runAttributes, line: line)
                     if note != nil, noteUsesParagraphs, !noteParagraphOpen {
                         throw DocumentFormatError.malformed(line: line, detail: "in una nota con paragrafi un campo va dentro <p>")
@@ -1699,10 +1857,129 @@ public enum DocumentFormat {
             runStartLine = line
         }
 
+        private func readFormula(_ attributes: [String: String], line: Int, _ parser: XMLParser) throws {
+            guard check(attributes, allowed: ["binding", "id", "predicate", "property", "kind", "value", "unit", "when", "after-style", "if", "compare", "threshold", "find", "count", "selection", "pattern", "words"], element: "formula", parser) else { return }
+            guard let index = settings.styles.styles.indices.last,
+                  let id = attributes["id"].flatMap(UUID.init(uuidString:)),
+                  !settings.styles.styles[index].formulas.contains(where: { $0.id == id }),
+                  let predicate = attributes["predicate"].flatMap(StylePredicate.init(rawValue:)),
+                  let property = attributes["property"].flatMap(StyleProperty.init(rawValue:)),
+                  let value = attributes["value"] else {
+                throw DocumentFormatError.malformed(line: line, detail: "Formula incompleta, sconosciuta o con identità duplicata")
+            }
+            let modern = property.isDirective || property == .applyStyle || ["when", "after-style", "if", "compare", "threshold", "find", "count", "selection", "pattern", "words"].contains { attributes[$0] != nil }
+            if settings.sourceVersion < 8, modern { throw DocumentFormatError.malformed(line: line, detail: "Questa formula richiede il formato 8") }
+            if settings.sourceVersion < 7, attributes["kind"] == "face" {
+                throw DocumentFormatError.malformed(line: line, detail: "La faccia precisa richiede il formato 7")
+            }
+            if settings.sourceVersion < 6, predicate == .subtract {
+                throw DocumentFormatError.malformed(line: line, detail: "Sottrai richiede il formato 6")
+            }
+            if settings.sourceVersion < 5, ["family", "color", "smallCaps", "hyphenates"].contains(attributes["kind"] ?? "") {
+                throw DocumentFormatError.malformed(line: line, detail: "Questo argomento richiede il formato 5")
+            }
+            let argument: StyleArgument
+            switch attributes["kind"] {
+            case "boolean":
+                guard ["on", "off"].contains(value) else { throw DocumentFormatError.invalidValue(line: line, attribute: "value", value: value) }
+                argument = .boolean(value == "on")
+            case "integer":
+                guard let count = Int(value) else { throw DocumentFormatError.invalidValue(line: line, attribute: "value", value: value) }
+                argument = .integer(count)
+            case "text": argument = .text(value)
+            case "style": argument = .styleName(value.isEmpty ? nil : value)
+            case "page-start":
+                if value == "off" { argument = .pageStart(.disabled) }
+                else if let points = DocumentFormat.finiteNumber(value), points >= 0 { argument = .pageStart(.distance(points)) }
+                else { throw DocumentFormatError.invalidValue(line: line, attribute: "value", value: value) }
+            case "face": argument = .face(value)
+            case "family": argument = .family(value)
+            case "color": argument = .color(value.isEmpty ? nil : value)
+            case "smallCaps":
+                guard let mode = SmallCaps(rawValue: value) else { throw DocumentFormatError.invalidValue(line: line, attribute: "value", value: value) }
+                argument = .smallCaps(mode)
+            case "hyphenates":
+                guard ["on", "off"].contains(value) else { throw DocumentFormatError.invalidValue(line: line, attribute: "value", value: value) }
+                argument = .hyphenates(value == "on")
+            case "font":
+                guard let role = FontRole(rawValue: value) else { throw DocumentFormatError.invalidValue(line: line, attribute: "value", value: value) }
+                argument = .font(role)
+            case "length":
+                guard let amount = DocumentFormat.finiteNumber(value), let unit = attributes["unit"].flatMap(LengthUnit.init(rawValue:)) else {
+                    throw DocumentFormatError.invalidValue(line: line, attribute: "value", value: value)
+                }
+                argument = .length(amount, unit)
+            case "alignment":
+                guard let alignment = ParagraphStyle.Alignment(rawValue: value) else { throw DocumentFormatError.invalidValue(line: line, attribute: "value", value: value) }
+                argument = .alignment(alignment)
+            case "language": argument = .language(value.isEmpty ? nil : value)
+            default: throw DocumentFormatError.invalidValue(line: line, attribute: "kind", value: attributes["kind"] ?? "")
+            }
+            if attributes["kind"] != "length", attributes["unit"] != nil {
+                throw DocumentFormatError.invalidValue(line: line, attribute: "unit", value: attributes["unit"] ?? "")
+            }
+            let position: TextRule.Position
+            switch attributes["when"] {
+            case nil, "any": position = .any
+            case "page-start": position = .firstOnPage
+            case "sequence-start": position = .sequenceStart
+            case "after":
+                guard let name = attributes["after-style"], !name.isEmpty else { throw DocumentFormatError.missingAttribute(line: line, attribute: "after-style") }
+                position = .firstAfter(name)
+            default: throw DocumentFormatError.invalidValue(line: line, attribute: "when", value: attributes["when"] ?? "")
+            }
+            if attributes["when"] != "after", attributes["after-style"] != nil { throw DocumentFormatError.malformed(line: line, detail: "after-style richiede when=after") }
+            let measurement: TextRule.Condition?
+            if let raw = attributes["if"] {
+                guard let metric = TextRule.Condition.Property(rawValue: raw), let comparison = attributes["compare"].flatMap(TextRule.Condition.Comparison.init(rawValue:)),
+                      let threshold = attributes["threshold"].flatMap(DocumentFormat.finiteNumber) else { throw DocumentFormatError.malformed(line: line, detail: "Condizione numerica incompleta") }
+                measurement = TextRule.Condition(metric, comparison, threshold)
+            } else {
+                guard attributes["compare"] == nil && attributes["threshold"] == nil else { throw DocumentFormatError.malformed(line: line, detail: "Confronto privo di proprietà") }
+                measurement = nil
+            }
+            let target: TextRule.Target
+            switch attributes["find"] {
+            case nil, "paragraph": target = .paragraph
+            case "first-letter": target = .firstLetter
+            case "first-sentence": target = .firstSentence
+            case "last-line": target = .lastLine
+            case "first-words", "first-lines":
+                guard let count = attributes["count"].flatMap(Int.init), count > 0 else { throw DocumentFormatError.invalidValue(line: line, attribute: "count", value: attributes["count"] ?? "") }
+                target = attributes["find"] == "first-words" ? .firstWords(count) : .firstLines(count)
+            case "selection":
+                guard let id = attributes["selection"].flatMap(UUID.init(uuidString:)) else { throw DocumentFormatError.invalidValue(line: line, attribute: "selection", value: attributes["selection"] ?? "") }
+                target = .selection(id)
+            case "words":
+                switch attributes["pattern"] {
+                case "capitals": target = .words(.capitals)
+                case "roman": target = .words(.romanNumerals)
+                case "numbers": target = .words(.numbers)
+                case "list": target = .words(.listed((attributes["words"] ?? "").split(separator: " ").map(String.init)))
+                default: throw DocumentFormatError.invalidValue(line: line, attribute: "pattern", value: attributes["pattern"] ?? "")
+                }
+            default: throw DocumentFormatError.invalidValue(line: line, attribute: "find", value: attributes["find"] ?? "")
+            }
+            if !["first-words", "first-lines"].contains(attributes["find"] ?? ""), attributes["count"] != nil { throw DocumentFormatError.malformed(line: line, detail: "count richiede parole o righe") }
+            if attributes["find"] != "selection", attributes["selection"] != nil { throw DocumentFormatError.malformed(line: line, detail: "Selezione fuori dal destinatario") }
+            if attributes["find"] != "words", attributes["pattern"] != nil || attributes["words"] != nil { throw DocumentFormatError.malformed(line: line, detail: "Modello fuori dalle parole") }
+            if attributes["pattern"] != "list", attributes["words"] != nil { throw DocumentFormatError.malformed(line: line, detail: "Elenco di parole privo del relativo modello") }
+            var formula = StyleFormula(id: id, operation: StylePropertyOperation(predicate, property, argument), when: StyleCondition(position: position, measurement: measurement), target: target)
+            if let encoded = attributes["binding"] {
+                guard settings.sourceVersion >= 11 else { throw DocumentFormatError.malformed(line: line, detail: "I collegamenti richiedono il formato 11") }
+                do { formula.binding = try FormulaCodec.decode(FormulaExpression.self, encoded) }
+                catch { throw DocumentFormatError.malformed(line: line, detail: "Collegamento di formula non valido") }
+            }
+            do { try formula.validate(for: settings.styles.styles[index].target) }
+            catch { throw DocumentFormatError.malformed(line: line, detail: "Argomenti della formula incompatibili con il predicato o lo stile") }
+            settings.styles.styles[index].formulas.append(formula)
+        }
+
         /// Legge un elemento `style` della sezione degli stili.
         private func readStyle(_ attributes: [String: String], line: Int, _ parser: XMLParser) throws {
             let measures = ["first-indent", "left-indent", "right-indent", "space-before", "space-after", "line-spacing", "line-height"]
-            guard check(attributes, allowed: Set(measures + ["name", "target", "based-on", "font", "family", "italic", "bold", "size", "features", "axes", "optical",
+            let contextual = (settings.sourceVersion >= 2 ? ["page-start-spacing"] : []) + (settings.sourceVersion >= 8 ? ["next-style"] : [])
+            guard check(attributes, allowed: Set(contextual + measures + ["name", "target", "based-on", "font", "family", "italic", "bold", "size", "features", "axes", "optical",
                                                              "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "align", "in-list", "opens-section", "opening-distance", "outline-level"] + LineKeeping.attributeNames), element: "style", parser) else { return }
             guard let name = attributes["name"], !name.isEmpty else { throw DocumentFormatError.missingAttribute(line: line, attribute: "name") }
             guard settings.styles.style(named: name) == nil else { throw DocumentFormatError.invalidValue(line: line, attribute: "name", value: name) }
@@ -1716,6 +1993,7 @@ public enum DocumentFormat {
             var values = StyleValues()
             values.fontName = attributes["font"]
             values.family = attributes["family"]
+            values.nextStyle = attributes["next-style"]
             values.italic = try flag("italic")
             values.bold = try flag("bold")
             if let optical = attributes["optical"] {
@@ -1802,6 +2080,12 @@ public enum DocumentFormat {
                 }
                 values.openingDistance = Double(value)
             }
+            if let raw = attributes["page-start-spacing"] {
+                guard target == .paragraph else { throw DocumentFormatError.invalidValue(line: line, attribute: "page-start-spacing", value: raw) }
+                if raw == "off" { values.pageStartSpacing = .disabled }
+                else if let points = DocumentFormat.parseLength(raw), points >= 0 { values.pageStartSpacing = .distance(points) }
+                else { throw DocumentFormatError.invalidValue(line: line, attribute: "page-start-spacing", value: raw) }
+            }
             values.keeping = try LineKeeping(xml: attributes) { throw DocumentFormatError.invalidValue(line: line, attribute: $0, value: $1) }
             if !values.keeping.isEmpty, target != .paragraph {
                 throw DocumentFormatError.invalidValue(line: line, attribute: "keep-with-next", value: values.keeping.encoded)
@@ -1825,7 +2109,8 @@ public enum DocumentFormat {
 
         /// Legge un elemento `rule`. Gli stili a cui rimanda devono essere già stati letti.
         private func readRule(_ attributes: [String: String], line: Int, _ parser: XMLParser) throws {
-            guard check(attributes, allowed: ["find", "count", "pattern", "list", "in", "after", "position", "if", "compare", "value", "style", "enabled"],
+            let refs: Set<String> = settings.sourceVersion >= 3 && attributes["find"] == "selection" ? ["ref"] : []
+            guard check(attributes, allowed: refs.union(["find", "count", "pattern", "list", "in", "after", "position", "if", "compare", "value", "style", "enabled"]),
                         element: "rule", parser) else { return }
             func paragraphStyle(_ attribute: String) throws -> String? {
                 guard let name = attributes[attribute] else { return nil }
@@ -1835,6 +2120,11 @@ public enum DocumentFormat {
             guard let find = attributes["find"] else { throw DocumentFormatError.missingAttribute(line: line, attribute: "find") }
             let target: TextRule.Target
             switch find {
+            case "selection" where settings.sourceVersion >= 3:
+                guard let id = attributes["ref"].flatMap(UUID.init(uuidString:)), settings.styles.selections.contains(where: { $0.id == id }) else {
+                    throw DocumentFormatError.invalidValue(line: line, attribute: "ref", value: attributes["ref"] ?? "")
+                }
+                target = .selection(id)
             case "first-letter": target = .firstLetter
             case "first-sentence": target = .firstSentence
             case "first-words", "first-lines":

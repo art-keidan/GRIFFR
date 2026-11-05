@@ -6,6 +6,10 @@ import Foundation
 /// proprio livello (`Paragraph.list`); le tabelle saranno un altro caso di `Block`. Le note a piè di pagina sono
 /// un caso di `Inline` che porta con sé il proprio testo, così che richiamo e nota viaggino insieme.
 public struct Document: Equatable, Sendable {
+    /// Versione minima da conservare al salvataggio dopo la lettura.
+    public internal(set) var sourceVersion = 1
+    /// Ingresso di documento conservato per le formule relative (per esempio corpo + 2 pt).
+    public var formulaBase: CharacterStyle?
     public var pageSetup: PageSetup
     /// Se applicare la spaziatura dipendente dal corpo che i font dichiarano nella tabella `trak`.
     public var appliesFontTracking: Bool
@@ -74,6 +78,7 @@ public struct Document: Equatable, Sendable {
         var options = LayoutOptions(appliesFontTracking: appliesFontTracking, usesOpticalMargins: usesOpticalMargins,
                                     glyphExpansionLimit: glyphExpansionLimit, hyphenationLanguage: language, hyphenates: hyphenates,
                                     lists: lists, floatStyles: floatStyles, styles: styles, rules: rules)
+        options.fontRoles = fontRoles
         options.pageTypes = pageTypes
         options.pageNumbering = pageNumbering
         options.tableStyles = tableStyles
@@ -801,8 +806,14 @@ public struct FloatingObject: Equatable, Sendable {
     public var plainText: String { paragraphs.map { $0.map(\.text).joined() }.joined(separator: "\n") }
 }
 
-/// Un tratto di testo con un solo stile. Un paragrafo vuoto contiene un tratto vuoto, che ne conserva lo stile.
-/// Un campo: un testo che la composizione calcola pagina per pagina (un «rimando relativo»). Nel testo è un carattere solo.
+/// Una formula inserita nel testo. Il carattere che la ospita ne è la posizione persistente; il suo aspetto è quello
+/// del tratto che la contiene.
+public enum FieldFormula: String, Hashable, Sendable {
+    /// Posizione → Pagina contenente → Numero → Scrivi risultato qui.
+    case pageContainingNumber = "position.page-containing.number.write-here"
+}
+
+/// Un campo: un testo che la composizione calcola nel punto in cui compare (un «rimando relativo»). Nel testo è un carattere solo.
 public enum Field: Hashable, Sendable {
     /// Il numero della pagina, come lo scrive la Lista che numera le pagine.
     case page
@@ -812,6 +823,8 @@ public enum Field: Hashable, Sendable {
     case sectionTitle(role: String)
     /// Il numero della sezione in corso di un ruolo, come lo scrive la Lista che numera quel ruolo.
     case sectionNumber(role: String)
+    /// Una formula salvata nel punto del testo in cui ne viene scritto il risultato.
+    case formula(FieldFormula)
 
     /// Il carattere che tiene il posto del campo nel testo.
     public static let placeholder = "\u{FFFC}"
@@ -823,6 +836,7 @@ public enum Field: Hashable, Sendable {
         case .pageCount: "pages"
         case .sectionTitle(let role): "section-title\n" + role
         case .sectionNumber(let role): "section-number\n" + role
+        case .formula(let formula): "formula\n" + formula.rawValue
         }
     }
 
@@ -833,6 +847,9 @@ public enum Field: Hashable, Sendable {
         case ("pages"?, 1): self = .pageCount
         case ("section-title"?, 2) where !parts[1].isEmpty: self = .sectionTitle(role: parts[1])
         case ("section-number"?, 2) where !parts[1].isEmpty: self = .sectionNumber(role: parts[1])
+        case ("formula"?, 2):
+            guard let formula = FieldFormula(rawValue: parts[1]) else { return nil }
+            self = .formula(formula)
         default: return nil
         }
     }
