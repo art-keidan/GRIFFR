@@ -52,7 +52,7 @@ extension EditorWindowController {
         let board = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
                              backing: .buffered, defer: false)
-        board.title = "Bacheca degli stili · " + ((document as? NSDocument)?.displayName ?? "Documento")
+        board.title = "Compositore di stili · " + ((document as? NSDocument)?.displayName ?? "Documento")
         board.minSize = NSSize(width: 740, height: 480)
         board.isReleasedWhenClosed = false
         board.backgroundColor = Theme.desk
@@ -315,7 +315,7 @@ final class ComposerBoardModel: ObservableObject {
     }
 }
 
-private struct ComposerPill: View {
+struct ComposerPill: View {
     let title: String
     var placeholder = false
     @State private var hovered = false
@@ -333,7 +333,7 @@ private struct ComposerPill: View {
     }
 }
 
-private struct ComposerButtonStyle: ButtonStyle {
+struct ComposerButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.padding(.horizontal, 10).padding(.vertical, 6)
             .foregroundStyle(Color(nsColor: Theme.glyph))
@@ -343,17 +343,13 @@ private struct ComposerButtonStyle: ButtonStyle {
     }
 }
 
-private struct ComposerBoard: View {
+struct ComposerBoard: View {
     @ObservedObject var model: ComposerBoardModel
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Bacheca degli stili").font(.title2.weight(.semibold))
-                    Text("Costruisci la formula scegliendo ogni pill. Riutilizza il risultato in più regole.")
-                        .foregroundStyle(.secondary)
-                }
+                Text("Compositore di stili").font(.title3.weight(.semibold))
                 Spacer()
                 Picker("Vista", selection: $model.section) {
                     Text("Stili").tag(ComposerBoardModel.Section.styles)
@@ -367,25 +363,9 @@ private struct ComposerBoard: View {
                 if model.section == .reusable {
                     Button { model.addReusableFormula() } label: { Label("Formula", systemImage: "plus") }
                 }
-            }.padding(20).background(Color(nsColor: Theme.bar))
+            }.padding(.horizontal, 16).padding(.vertical, 10).background(Color(nsColor: Theme.bar))
             if model.showingStyles {
-                HSplitView {
-                    List(selection: Binding(get: { model.selectedStyle }, set: { name in
-                        if let name { model.selectStyle(name) }
-                    })) {
-                        ForEach(model.sheet.styles, id: \.name) { style in
-                            VStack(alignment: .leading) {
-                                Text(style.name)
-                                Text(style.target.rawValue).font(.caption).foregroundStyle(.secondary)
-                            }.tag(Optional(style.name))
-                        }
-                    }.frame(minWidth: 170, idealWidth: 190, maxWidth: 230)
-                    ScrollView([.horizontal, .vertical]) {
-                        if let style = model.sheet.styles.first(where: { $0.name == model.selectedStyle }) {
-                            realStyleCard(style).padding(24)
-                        }
-                    }.background(Color(nsColor: Theme.desk))
-                }.onAppear { if let name = model.selectedStyle { model.selectStyle(name) } }
+                ActionComposer(model: model)
             } else if model.section == .selections {
                 ScrollView([.horizontal, .vertical]) {
                     VStack(alignment: .leading, spacing: 20) {
@@ -412,6 +392,13 @@ private struct ComposerBoard: View {
                     }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
                 }.background(Color(nsColor: Theme.desk))
             }
+            if !model.showingStyles { bottomBar }
+        }
+        .buttonStyle(ComposerButtonStyle())
+    }
+
+    /// Fuori dal compositore delle azioni (che ha la sua anteprima): il testo di prova, lo stato e i comandi.
+    private var bottomBar: some View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("Testo di prova").foregroundStyle(.secondary)
@@ -427,8 +414,6 @@ private struct ComposerBoard: View {
                         .disabled(!model.dirty || !model.valid)
                 }
             }.padding(16).background(Color(nsColor: Theme.bar))
-        }
-        .buttonStyle(ComposerButtonStyle())
     }
 
     private func sourceTitle(_ source: WordSelection.Source) -> String {
@@ -627,114 +612,7 @@ func roleTitle(_ role: FontRole) -> String {
     }
 }
 
-private extension ComposerBoard {
-    func realStyleCard(_ style: NamedStyle) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(style.name).font(.title2.weight(.semibold))
-            HStack {
-                Text("Eredita da").foregroundStyle(.secondary)
-                Menu {
-                    Button("Nessuno") { setParent(style.name, nil) }
-                    ForEach(model.sheet.possibleParents(of: style.name), id: \.self) { name in
-                        Button(name) { setParent(style.name, name) }
-                    }
-                } label: { ComposerPill(title: style.basedOn ?? "Documento") }
-            }.menuStyle(.borderlessButton)
-            Text(style.target == .paragraph ? "Questo paragrafo" : style.target == .word ? "Questa parola" : "Caratteri destinatari")
-                .font(.headline).foregroundStyle(Color(nsColor: Theme.glyph))
-            let states = (try? model.formulaStates(style)) ?? []
-            ForEach(Array(style.formulas.enumerated()).sorted { $0.element.phase == $1.element.phase ? $0.offset < $1.offset : $0.element.phase < $1.element.phase }, id: \.element.id) { i, formula in
-                VStack(alignment: .leading, spacing: 4) {
-                    let peers = style.formulas.indices.filter { style.formulas[$0].phase == formula.phase }
-                    Text(phaseTitle(formula.phase)).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                    formulaRow((try? formula.resolved(in: ReusableFormulaLibrary(definitions: model.sheet.reusableFormulas))) ?? formula, target: style.target, index: peers.firstIndex(of: i) ?? 0, count: peers.count)
-                        .disabled(formula.binding != nil)
-                    if let type = formula.bindingType {
-                        Toggle("Calcola con una formula", isOn: Binding(get: { formula.binding != nil }, set: { enabled in
-                            guard let si = model.sheet.styles.firstIndex(where: { $0.name == style.name }), let fi = model.sheet.styles[si].formulas.firstIndex(where: { $0.id == formula.id }) else { return }
-                            if !enabled, let resolved = try? formula.resolved(in: ReusableFormulaLibrary(definitions: model.sheet.reusableFormulas)) { model.sheet.styles[si].formulas[fi].operation = resolved.operation }
-                            model.sheet.styles[si].formulas[fi].binding = enabled ? .constant(formula.bindingSeed) : nil
-                        }))
-                        if let binding = formula.binding {
-                            FormulaExpressionEditor(expression: Binding(get: { binding }, set: { value in
-                                guard let si = model.sheet.styles.firstIndex(where: { $0.name == style.name }), let fi = model.sheet.styles[si].formulas.firstIndex(where: { $0.id == formula.id }) else { return }
-                                model.sheet.styles[si].formulas[fi].binding = value
-                            }), type: type, parameters: [], definitions: model.sheet.reusableFormulas)
-                        }
-                    }
-                    if style.target == .paragraph {
-                        FormulaQualifiers(condition: Binding(get: { formula.when }, set: { model.updateQualifiers(formula.id, when: $0) }),
-                            target: Binding(get: { formula.target }, set: { model.updateQualifiers(formula.id, target: $0) }),
-                            operation: formula.operation, styleNames: model.sheet.styles.filter { $0.target == .paragraph }.map(\.name), selections: model.sheet.selections)
-                    }
-                    if !formula.when.isAlways {
-                        Text(formula.when.holds(in: model.previewContext, facts: model.previewFacts) ? "Condizione soddisfatta nel campione" : "Condizione non soddisfatta nel campione")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    if formula.target != .paragraph {
-                        Text("Il trattamento segue il destinatario durante la composizione.").font(.caption).foregroundStyle(.secondary)
-                    }
-                    if let state = states.last(where: { $0.id == formula.id }) {
-                        Text("Ingresso: " + summary(state.input, property: formula.operation.property) + " → Risultato: " + summary(state.output, property: formula.operation.property))
-                            .font(.caption).foregroundStyle(.secondary).padding(.leading, 24)
-                    }
-                }
-            }
-            Button { model.addStyleFormula() } label: { Label("Predicato", systemImage: "plus") }
-            compatibleProperties(style)
-            Divider()
-            HStack {
-                Text("Carattere di partenza")
-                Menu {
-                    Button("Dal documento") { model.previewRole = nil }
-                    ForEach(FontRole.allCases, id: \.self) { role in
-                        Button(roleTitle(role)) { model.previewRole = role }
-                    }
-                } label: { ComposerPill(title: model.previewRole.map(roleTitle) ?? "Dal documento") }
-            }.menuStyle(.borderlessButton)
-            if style.target == .paragraph {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Contesto del campione").font(.caption.weight(.semibold))
-                    HStack {
-                        Toggle("Primo della pagina", isOn: $model.previewFirstOnPage)
-                        Toggle("Inizio sequenza", isOn: $model.previewSequenceStart)
-                        Menu {
-                            Button("Nessun precedente") { model.previewPreviousStyle = nil }
-                            ForEach(model.sheet.styles.filter { $0.target == .paragraph }, id: \.name) { previous in
-                                Button(previous.name) { model.previewPreviousStyle = previous.name }
-                            }
-                        } label: { ComposerPill(title: model.previewPreviousStyle.map { "Dopo · " + $0 } ?? "Paragrafo precedente") }
-                    }.toggleStyle(.checkbox).menuStyle(.borderlessButton)
-                    if style.formulas.contains(where: { $0.when.measurement != nil }) {
-                        HStack {
-                            Text("Righe di prova")
-                            FormulaNumberPill(value: Double(model.previewLineCount)) { model.previewLineCount = max(1, Int($0)) }
-                            Text("Ultima riga %")
-                            FormulaNumberPill(value: model.previewLastLineFill) { model.previewLastLineFill = min(100, $0) }
-                            Text("Trattini")
-                            FormulaNumberPill(value: Double(model.previewHyphens)) { model.previewHyphens = Int($0) }
-                        }.font(.caption)
-                    }
-                }
-            }
-            if let result = try? model.preview(style) {
-                Text(AttributedString(NSAttributedString(string: model.sample,
-                    attributes: TextStyling.characterAttributes(for: result.character).attributes)))
-                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(nsColor: Theme.control))
-                Text("Corpo \(result.character.size.formatted()) pt · rientro sinistro \(result.paragraph.leftIndent.formatted()) pt · spazio prima \(result.paragraph.spaceBefore.formatted()) pt")
-                    .font(.caption).foregroundStyle(.secondary)
-            } else {
-                Text("La formula non è applicabile al carattere di partenza. Controlla ruolo del font e misure.")
-                    .foregroundStyle(Color(nsColor: Theme.warn))
-            }
-        }
-        .padding(20).frame(width: 670, alignment: .leading)
-        .background(Color(nsColor: Theme.side))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(nsColor: Theme.line)))
-    }
-
+extension ComposerBoard {
     func summary(_ state: StylePredicateState, property: StyleProperty) -> String {
         let c = state.character, p = state.paragraph
         switch property {
@@ -784,41 +662,6 @@ private extension ComposerBoard {
         model.sheet.styles[i].basedOn = parent
     }
 
-    func formulaRow(_ formula: StyleFormula, target: StyleTarget, index: Int, count: Int) -> some View {
-        let op = formula.operation
-        return HStack(spacing: 8) {
-            Image(systemName: "arrow.turn.down.right").foregroundStyle(Color(nsColor: Theme.secondary))
-            Menu {
-                ForEach(op.property.predicates, id: \.self) { predicate in
-                    Button(predicate.title) {
-                        model.updateFormula(formula.id, operation: StylePropertyOperation(predicate, op.property, op.argument))
-                    }
-                }
-            } label: { ComposerPill(title: op.predicate.title) }
-            Menu {
-                ForEach(StyleProperty.allCases.filter {
-                    (try? StyleFormula(operation: StylePropertyOperation(.set, $0, $0.initialArgument)).validate(for: target)) != nil
-                }, id: \.self) { property in
-                    Button(property.title) {
-                        let predicate = property.predicates.contains(op.predicate) ? op.predicate : .set
-                        model.updateFormula(formula.id, operation: StylePropertyOperation(predicate, property, property.initialArgument))
-                    }
-                }
-            } label: { ComposerPill(title: op.property.title) }
-            FormulaArgumentPill(operation: op, target: target, styleNames: model.sheet.styles.filter {
-                op.property == .nextStyle ? $0.target == .paragraph : (($0.target != .paragraph || formula.target == .paragraph) && !$0.formulas.contains(where: \.isRuntimeRule))
-            }.map(\.name)) { value in
-                model.updateFormula(formula.id, operation: StylePropertyOperation(op.predicate, op.property, value))
-            }
-            Spacer(minLength: 4)
-            Menu {
-                Button("Sposta prima") { model.moveStyleFormula(formula.id, by: -1) }.disabled(index == 0)
-                Button("Sposta dopo") { model.moveStyleFormula(formula.id, by: 1) }.disabled(index + 1 == count)
-                Button("Togli la formula") { model.removeStyleFormula(formula.id) }
-            } label: { ComposerPill(title: "⋯") }
-        }.menuStyle(.borderlessButton)
-    }
-
     @ViewBuilder func compatibleProperties(_ style: NamedStyle) -> some View {
         let v = style.values
         if v != StyleValues() {
@@ -842,7 +685,7 @@ private extension ComposerBoard {
     }
 }
 
-private struct FormulaArgumentPill: View {
+struct FormulaArgumentPill: View {
     let operation: StylePropertyOperation
     let target: StyleTarget
     var styleNames: [String] = []
@@ -868,6 +711,9 @@ private struct FormulaArgumentPill: View {
         case .hyphenates(let enabled): enabled ? "Attiva" : "Disattivata"
         }
     }
+    /// Il valore come lo mostra la pastiglia (il compositore lo usa nel riassunto di un'azione richiusa).
+    var titleText: String { title }
+
     private var editedArgument: StyleArgument? {
         switch operation.argument {
         case .length:
@@ -959,7 +805,7 @@ private struct FormulaArgumentPill: View {
     }
 }
 
-private struct FormulaNumberPill: View {
+struct FormulaNumberPill: View {
     let value: Double
     let commit: (Double) -> Void
     @State private var editing = false
@@ -982,7 +828,7 @@ private struct FormulaNumberPill: View {
     }
 }
 
-private struct FormulaQualifiers: View {
+struct FormulaQualifiers: View {
     @Binding var condition: StyleCondition
     @Binding var target: TextRule.Target
     let operation: StylePropertyOperation
@@ -992,7 +838,9 @@ private struct FormulaQualifiers: View {
     private func valid(_ condition: StyleCondition, _ target: TextRule.Target) -> Bool {
         (try? StyleFormula(operation: operation, when: condition, target: target).validate(for: .paragraph)) != nil
     }
-    private var targetTitle: String {
+    private var targetTitle: String { Self.title(of: target, selections: selections) }
+
+    static func title(of target: TextRule.Target, selections: [WordSelection]) -> String {
         switch target {
         case .paragraph: "Questo paragrafo"
         case .firstLetter: "Prima lettera"
@@ -1100,7 +948,7 @@ private struct FormulaQualifiers: View {
     }
 }
 
-private extension ComposerBoard {
+extension ComposerBoard {
     func historicalRuleCard(_ i: Int) -> some View {
         let rule = model.rules[i]
         return VStack(alignment: .leading, spacing: 14) {
