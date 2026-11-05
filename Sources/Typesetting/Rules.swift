@@ -390,7 +390,7 @@ public enum Rules {
     /// Lo stile di paragrafo con le misure dello stile della regola, dove valevano quelle dello stile del paragrafo.
     static func restyledParagraph(_ current: NSParagraphStyle, styleName: String?, with name: String, sheet: StyleSheet,
                                   except exceptions: Set<InspectorProperty> = []) -> NSParagraphStyle {
-        if name.hasPrefix("\u{F000}formula:") {
+        if FormulaTreatment.isTreatment(name) {
             let before = ParagraphStyle(current)
             return sheet.values(of: name).clearing(exceptions).applied(to: before).nsParagraphStyle
         }
@@ -421,7 +421,7 @@ public enum Rules {
             // Ciò che è stato dato qui a mano contro le regole resta com'è.
             let exceptions = TextStyling.ruleExceptions(attributes[.ruleExceptions] as? String)
             let after = (exceptions.isEmpty ? values : values.clearing(exceptions)).applied(to: before, resolver: resolver)
-            var result = name.hasPrefix("\u{F000}formula:")
+            var result = FormulaTreatment.isTreatment(name)
                 ? (exceptions.isEmpty ? values : values.clearing(exceptions)).applied(to: current, resolver: resolver)
                 : TextStyling.restyled(current, from: before, to: after)
             if let features = values.features, result.fontName == current.fontName {

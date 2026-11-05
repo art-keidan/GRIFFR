@@ -4,7 +4,34 @@ extension StyleSheet {
     /// Compila le formule di resa nel motore di regole esistente. La definizione
     /// resta nello stile; gli stili tecnici prodotti qui vivono solo nella composizione.
     public func compilingStyleRules(_ historical: [TextRule]) -> (sheet: StyleSheet, rules: [TextRule]) {
-        if let resolved = try? resolvingReusable(), resolved != self { return resolved.compilingStyleRules(historical) }
+        // A ogni modifica la compilazione si chiede da più parti (impaginazione, regole, ispettore, fatti) con lo stesso
+        // foglio: l'ultima si ricorda. Il confronto costa meno di un microsecondo, la compilazione millisecondi.
+        CompilationCache.lock.lock()
+        if let cached = CompilationCache.last {
+            // Il foglio di partenza, o quello già compilato che l'impaginazione passa alle regole: compilarlo di nuovo
+            // darebbe lo stesso risultato.
+            if (cached.sheet == self && cached.historical == historical) ||
+                (cached.result.sheet == self && cached.result.rules == historical) {
+                CompilationCache.lock.unlock()
+                return cached.result
+            }
+        }
+        CompilationCache.lock.unlock()
+        let result = compilingStyleRulesUncached(historical)
+        CompilationCache.lock.lock()
+        CompilationCache.last = (self, historical, result)
+        CompilationCache.lock.unlock()
+        return result
+    }
+
+    private func compilingStyleRulesUncached(_ historical: [TextRule]) -> (sheet: StyleSheet, rules: [TextRule]) {
+        // Le formule riutilizzabili si espandono prima. Se non si possono risolvere (un riferimento rotto: il file e il
+        // compositore non lo lasciano entrare, ma un foglio costruito altrove sì), si compone senza espanderle; l'editor
+        // lo segnala fra gli avvisi con `formulaReferenceProblem`.
+        do {
+            let resolved = try resolvingReusable()
+            if resolved != self { return resolved.compilingStyleRulesUncached(historical) }
+        } catch {}
         var compiled = self
         var generated: [TextRule] = []
         for style in styles where style.target == .paragraph {
@@ -17,7 +44,7 @@ extension StyleSheet {
                 for formula in ancestor.formulas where formula.isRuntimeRule {
                     let ownerKey = Data(style.name.utf8).base64EncodedString()
                     let declarationKey = Data(ancestor.name.utf8).base64EncodedString()
-                    let name = "\u{F000}formula:" + ownerKey + ":" + declarationKey + ":" + formula.id.uuidString
+                    let name = FormulaTreatment.name(owner: ownerKey, declaration: declarationKey, formula: formula.id)
                     if compiled.style(named: name) == nil {
                         if formula.operation.property == .applyStyle, case .styleName(let reference) = formula.operation.argument,
                            let reference, let appearance = self.style(named: reference) {
@@ -69,4 +96,24 @@ extension StyleSheet {
         }
         return nil
     }
+}
+
+/// L'ultima compilazione delle formule (vedi `compilingStyleRules`).
+private enum CompilationCache {
+    static let lock = NSLock()
+    nonisolated(unsafe) static var last: (sheet: StyleSheet, historical: [TextRule], result: (sheet: StyleSheet, rules: [TextRule]))?
+}
+
+/// Gli stili tecnici che la compilazione delle formule aggiunge al foglio: vivono solo nella composizione, mai nel file
+/// né nei menu. Il nome comincia con un carattere dell'area privata, che nessuno stile dell'autore usa.
+public enum FormulaTreatment {
+    static let prefix = "\u{F000}formula:"
+
+    static func name(owner: String, declaration: String, formula: UUID) -> String {
+        prefix + owner + ":" + declaration + ":" + formula.uuidString
+    }
+
+    /// Vero per uno stile prodotto dalla compilazione: si applica sul testo così com'è, non come differenza dallo stile
+    /// del paragrafo.
+    public static func isTreatment(_ name: String) -> Bool { name.hasPrefix(prefix) }
 }
