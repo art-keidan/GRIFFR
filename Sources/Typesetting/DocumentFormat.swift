@@ -146,7 +146,22 @@ public enum DocumentFormat {
             }
             return containsFormula(paragraph.paragraph)
         }
-        return max(document.styles.styles.contains { $0.formulas.contains { $0.binding != nil } } ? 11 : 1, document.styles.reusableFormulas.isEmpty ? 1 : 10, formulaFields ? 9 : 1, contextual ? 8 : 1, preciseFace ? 7 : 1, subtracts ? 6 : 1, extended ? 5 : 1, document.styles.styles.contains { !$0.formulas.isEmpty } ? 4 : 1, document.styles.selections.isEmpty ? 1 : 3, document.sourceVersion, document.styles.styles.contains { $0.values.pageStartSpacing != nil } ? 2 : 1)
+        let styles = document.styles.styles
+        // La versione più bassa che sa leggere tutto ciò che il documento usa: ogni costrutto con la versione che l'ha
+        // introdotto. Un documento aperto da una versione più nuova non scende sotto di essa.
+        let needs: [(version: Int, used: Bool)] = [
+            (2, styles.contains { $0.values.pageStartSpacing != nil }),
+            (3, !document.styles.selections.isEmpty),
+            (4, styles.contains { !$0.formulas.isEmpty }),
+            (5, extended),
+            (6, subtracts),
+            (7, preciseFace),
+            (8, contextual),
+            (9, formulaFields),
+            (10, !document.styles.reusableFormulas.isEmpty),
+            (11, styles.contains { $0.formulas.contains { $0.binding != nil } }),
+        ]
+        return needs.filter(\.used).map(\.version).reduce(max(1, document.sourceVersion), max)
     }
     public static let fileExtension = "grx"
     /// Le estensioni che si aprono: quella d'ora in poi e `.wpx`, quella dei file scritti prima.
