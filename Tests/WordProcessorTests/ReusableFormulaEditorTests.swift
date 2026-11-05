@@ -11,8 +11,8 @@ struct ReusableFormulaEditorTests {
         defer { h.close() }
         h.editor.openStyleComposer(nil)
         let board = try #require(h.editor.composerModel)
-        board.selectStyle("Testo")
-        let index = try #require(board.sheet.styles.firstIndex { $0.name == "Testo" })
+        board.selectStyle("Body")
+        let index = try #require(board.sheet.styles.firstIndex { $0.name == "Body" })
         let definition = ReusableFormula(name: "Corpo comune", resultType: .length, expression: .constant(.length(18)))
         board.sheet.reusableFormulas = [definition]
         var formula = StyleFormula(operation: StylePropertyOperation(.set, .size, .length(12, .points)))
@@ -31,8 +31,8 @@ struct ReusableFormulaEditorTests {
         h.redo()
         #expect((h.attributed.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.pointSize == 22)
         let read = try DocumentFormat.document(from: h.document.data(ofType: TextDocument.typeName))
-        #expect(read.styles.resolveCharacter(paragraphStyle: "Testo", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase).size == 22)
-        #expect(read.styles.style(named: "Testo")?.formulas.contains { $0.binding != nil } == true)
+        #expect(read.styles.resolveCharacter(paragraphStyle: "Body", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase).size == 22)
+        #expect(read.styles.style(named: "Body")?.formulas.contains { $0.binding != nil } == true)
         board.removeReusableFormula(definition.id)
         #expect(board.sheet.reusableFormulas.count == 1)
         #expect(board.problem != nil)

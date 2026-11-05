@@ -12,16 +12,16 @@ struct RealStyleBoardTests {
         let resolver = FontRoleResolver()
         let italic = try #require(resolver.applying(role: .boldItalic, to: EditorHarness.body))
         var doc = h.editor.currentDocument()
-        let bodyIndex = try #require(doc.styles.styles.firstIndex { $0.name == "Testo" })
+        let bodyIndex = try #require(doc.styles.styles.firstIndex { $0.name == "Body" })
         doc.styles.styles[bodyIndex].values.italic = true
         doc.styles.styles[bodyIndex].values.bold = true
-        doc.blocks = [.paragraph(Paragraph(styleName: "Testo", inlines: [.text(TextRun("Prova", style: italic, characterStyleName: "Forte"))]))]
+        doc.blocks = [.paragraph(Paragraph(styleName: "Body", inlines: [.text(TextRun("Prova", style: italic, characterStyleName: "Strong"))]))]
         h.editor.replaceContent(doc)
         h.document.undoManager?.removeAllActions()
-        let model = ComposerBoardModel(sheet: doc.styles, rules: [], owner: "Testo", sample: "Prova")
+        let model = ComposerBoardModel(sheet: doc.styles, rules: [], owner: "Body", sample: "Prova")
         model.commit = { h.editor.applyStyleBoard(base: $0, rules: $1, updated: $2, updatedRules: $3) }
-        model.selectStyle("Forte")
-        let style = try #require(model.sheet.style(named: "Forte"))
+        model.selectStyle("Strong")
+        let style = try #require(model.sheet.style(named: "Strong"))
         let f = try #require(style.formulas.first)
         #expect(f.operation.predicate == .add && style.values.bold == nil)
         model.apply()
@@ -186,7 +186,7 @@ struct RealStyleBoardTests {
             defer { h.close() }
             var sheet = h.editor.settings.styles
             sheet.styles.append(NamedStyle(name: "Senza grassetto", target: target,
-                basedOn: target == .paragraph ? "Testo" : nil,
+                basedOn: target == .paragraph ? "Body" : nil,
                 formulas: [StyleFormula(operation: StylePropertyOperation(.subtract, .font, .font(.bold)))]))
             h.editor.changeStyles(to: sheet, restyle: false, actionName: "Nuovo stile")
             h.select(0, length: 5)

@@ -334,7 +334,7 @@ extension TypesettingSuite {
             sheet.styles.append(NamedStyle(name: "Birmano", target: .character, values: birmano))
             var withFeatures = padauk
             withFeatures.graphite = "lldt=1"
-            var document = Document(styles: sheet, blocks: [.paragraph(Paragraph(styleName: "Testo", inlines: [
+            var document = Document(styles: sheet, blocks: [.paragraph(Paragraph(styleName: "Body", inlines: [
                 .text(TextRun("မြန်မာ", style: { var s = padauk; s.graphite = ""; return s }(), characterStyleName: "Birmano")),
                 .text(TextRun(" စာ", style: withFeatures)),
             ]))])

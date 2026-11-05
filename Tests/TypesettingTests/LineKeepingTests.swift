@@ -93,7 +93,7 @@ extension TypesettingSuite {
             let document = try DocumentFormat.document(from: file)
             let text = document.attributedString().text
             let location = (text.string as NSString).range(of: "Sei.").location
-            let values = TextStyling.styleValues(from: text, at: location, target: .paragraph, sheet: document.styles, basedOn: "Testo")
+            let values = TextStyling.styleValues(from: text, at: location, target: .paragraph, sheet: document.styles, basedOn: "Body")
             #expect(values.keeping == LineKeeping(together: true, linesAtStart: 4))
         }
 

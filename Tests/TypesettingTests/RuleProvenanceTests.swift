@@ -6,11 +6,11 @@ extension TypesettingSuite {
     @Suite("Regole nell'ispettore: da dove viene un valore, valori che vincono, regole indovinate")
     struct RuleProvenanceTests {
         private let body = CharacterStyle(fontName: "HoeflerText-Regular", size: 12)
-        private let rule = TextRule(target: .firstWords(1), paragraphStyle: "Testo", styleName: "Enfasi")
+        private let rule = TextRule(target: .firstWords(1), paragraphStyle: "Body", styleName: "Emphasis")
 
         private func document(_ texts: [String] = ["Roma, città aperta.", "Seconda frase qui."]) -> Document {
             var document = Document(styles: .builtIn, lists: ListDefinition.builtIn, blocks: texts.map { text in
-                .paragraph(Paragraph(styleName: "Testo", style: StyleSheet.builtIn.resolveParagraph(styleName: "Testo"),
+                .paragraph(Paragraph(styleName: "Body", style: StyleSheet.builtIn.resolveParagraph(styleName: "Body"),
                                      inlines: [.text(TextRun(text, style: body))]))
             })
             document.rules = [rule]
@@ -67,7 +67,7 @@ extension TypesettingSuite {
         @Test("I segni della provenienza: i tratti dati a mano e quelli a cui dà l'aspetto una regola")
         func marks() throws {
             var document = document(["Roma, città aperta.", "Seconda frase qui."])
-            document.rules = [rule, TextRule(target: .lastLine, paragraphStyle: "Testo", styleName: "Enfasi")]
+            document.rules = [rule, TextRule(target: .lastLine, paragraphStyle: "Body", styleName: "Emphasis")]
             let text = NSMutableAttributedString(attributedString: document.attributedString().text)
             let string = text.string as NSString
             let città = string.range(of: "città")
@@ -75,7 +75,7 @@ extension TypesettingSuite {
             #expect(TextStyling.manualRanges(in: text, sheet: document.styles) == [città])
             // Il maiuscoletto dato a mano è una funzione del font, non una proprietà: conta lo stesso.
             let qui = string.range(of: "qui")
-            Rules.applyStyle("Maiuscoletto", to: qui, in: text, sheet: document.styles)
+            Rules.applyStyle("Small Caps", to: qui, in: text, sheet: document.styles)
             #expect(TextStyling.manualRanges(in: text, sheet: document.styles) == [città, qui])
             // Un paragrafo con una misura data a mano: tutto il suo testo, senza l'a capo.
             let second = NSRange(location: string.range(of: "Seconda").location, length: "Seconda frase qui.".utf16.count)

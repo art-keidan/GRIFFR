@@ -17,14 +17,14 @@ extension TypesettingSuite {
             var body = StyleValues(); body.family = "Skia"; body.size = 12
             var strong = StyleValues(); strong.bold = true
             let sheet = StyleSheet(styles: [
-                NamedStyle(name: "Testo", target: .paragraph, values: body),
-                NamedStyle(name: "Forte", target: .character, values: strong),
+                NamedStyle(name: "Body", target: .paragraph, values: body),
+                NamedStyle(name: "Strong", target: .character, values: strong),
             ])
             let regular = CharacterStyle(fontName: "Skia-Regular", size: 12)
             let text = NSMutableAttributedString(string: "Una parola", attributes: TextStyling.characterAttributes(for: regular).attributes)
-            text.addAttribute(.paragraphStyleName, value: "Testo", range: NSRange(location: 0, length: text.length))
+            text.addAttribute(.paragraphStyleName, value: "Body", range: NSRange(location: 0, length: text.length))
             let range = (text.string as NSString).range(of: "parola")
-            TextStyling.restyle(text, range: range, from: sheet, to: sheet, resolver: resolver(2.2)) { $0.character = "Forte" }
+            TextStyling.restyle(text, range: range, from: sheet, to: sheet, resolver: resolver(2.2)) { $0.character = "Strong" }
             let font = try #require(text.attribute(.font, at: range.location, effectiveRange: nil) as? NSFont) as CTFont
             #expect(FontVariations.values(of: font) == [AxisValue(tag: "wght", value: 2.2)])
             #expect(text.attribute(.fontRole, at: range.location, effectiveRange: nil) == nil)

@@ -18,47 +18,47 @@ extension TypesettingSuite {
         @Test("Gli esempi proseguono dopo il testo normale; gli elenchi comuni ripartono")
         func continuation() {
             var n = numberer()
-            #expect(n.next("Esempi")?.text == "(1)")
+            #expect(n.next("Examples")?.text == "(1)")
             n.interrupt()
-            #expect(n.next("Esempi")?.text == "(2)")
-            #expect(n.next("Elenco numerato")?.text == "1.")
-            #expect(n.next("Elenco numerato")?.text == "2.")
+            #expect(n.next("Examples")?.text == "(2)")
+            #expect(n.next("Numbered List")?.text == "1.")
+            #expect(n.next("Numbered List")?.text == "2.")
             n.interrupt()
-            #expect(n.next("Elenco numerato")?.text == "1.")
+            #expect(n.next("Numbered List")?.text == "1.")
             // Un esempio in mezzo interrompe l'elenco comune.
-            #expect(n.next("Esempi")?.text == "(3)")
-            #expect(n.next("Elenco numerato")?.text == "1.")
+            #expect(n.next("Examples")?.text == "(3)")
+            #expect(n.next("Numbered List")?.text == "1.")
             #expect(n.next("Inesistente") == nil)
         }
 
         @Test("Una lista riparte a ogni passo della sua lista superiore, e le voci interne non interrompono la superiore")
         func parent() {
-            var n = numberer([ListDefinition(name: "Sottoelenco", counter: .lowerLetter, suffix: ")", parent: .list("Elenco numerato"))])
-            #expect(n.next("Esempi")?.text == "(1)")
-            #expect(n.next("Sottoesempi")?.text == "a.")
-            #expect(n.next("Sottoesempi")?.text == "b.")
-            #expect(n.next("Esempi")?.text == "(2)")
-            #expect(n.next("Sottoesempi")?.text == "a.")
-            #expect(n.next("Elenco numerato")?.text == "1.")
+            var n = numberer([ListDefinition(name: "Sottoelenco", counter: .lowerLetter, suffix: ")", parent: .list("Numbered List"))])
+            #expect(n.next("Examples")?.text == "(1)")
+            #expect(n.next("Subexamples")?.text == "a.")
+            #expect(n.next("Subexamples")?.text == "b.")
+            #expect(n.next("Examples")?.text == "(2)")
+            #expect(n.next("Subexamples")?.text == "a.")
+            #expect(n.next("Numbered List")?.text == "1.")
             #expect(n.next("Sottoelenco")?.text == "a)")
             #expect(n.next("Sottoelenco")?.text == "b)")
-            #expect(n.next("Elenco numerato")?.text == "2.")
+            #expect(n.next("Numbered List")?.text == "2.")
             #expect(n.next("Sottoelenco")?.text == "a)")
             // Dopo un'interruzione l'elenco riparte da 1, e il sottoelenco riconosce il passo nuovo.
             n.interrupt()
-            #expect(n.next("Elenco numerato")?.text == "1.")
+            #expect(n.next("Numbered List")?.text == "1.")
             #expect(n.next("Sottoelenco")?.text == "a)")
-            #expect(n.depth(of: "Sottoesempi") == 1 && n.depth(of: "Esempi") == 0)
+            #expect(n.depth(of: "Subexamples") == 1 && n.depth(of: "Examples") == 0)
         }
 
         @Test("Le note a simboli ripartono a ogni pagina")
         func page() {
             var n = numberer()
             n.setPage(1)
-            #expect(n.next("Note a simboli")?.text == "*")
-            #expect(n.next("Note a simboli")?.text == "†")
+            #expect(n.next("Symbol Notes")?.text == "*")
+            #expect(n.next("Symbol Notes")?.text == "†")
             n.setPage(2)
-            #expect(n.next("Note a simboli")?.text == "*")
+            #expect(n.next("Symbol Notes")?.text == "*")
         }
 
         @Test("Oltre l'ultimo simbolo: finché non è deciso il segno è provvisorio; poi vale la scelta fatta")
@@ -78,9 +78,9 @@ extension TypesettingSuite {
 
         @Test("Il numero della lista superiore davanti al proprio")
         func showsParent() {
-            var n = numberer([ListDefinition(name: "Paragrafi", counter: .decimal, prefix: ".", parent: .list("Elenco numerato"), showsParent: true)])
-            _ = n.next("Elenco numerato")
-            _ = n.next("Elenco numerato")
+            var n = numberer([ListDefinition(name: "Paragrafi", counter: .decimal, prefix: ".", parent: .list("Numbered List"), showsParent: true)])
+            _ = n.next("Numbered List")
+            _ = n.next("Numbered List")
             #expect(n.next("Paragrafi")?.text == "2.1")
             #expect(n.next("Paragrafi")?.text == "2.2")
         }
@@ -90,30 +90,30 @@ extension TypesettingSuite {
         @Test("Nel file: la sezione delle Liste, la Lista delle note, gli stili che danno una Lista e i paragrafi che la cambiano")
         func file() throws {
             let sheet = StyleSheet.builtIn
-            let plain = sheet.resolveCharacter(paragraphStyle: "Esempio", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
+            let plain = sheet.resolveCharacter(paragraphStyle: "Example", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
             func paragraph(_ text: String, style: String, list: ListItem?) -> Block {
                 .paragraph(Paragraph(styleName: style, style: sheet.resolveParagraph(styleName: style), list: list, inlines: [.text(TextRun(text, style: plain))]))
             }
-            let document = Document(styles: sheet, lists: ListDefinition.builtIn, noteList: "Note a simboli", blocks: [
-                paragraph("Primo esempio", style: "Esempio", list: ListItem(listName: "Esempi")),
-                paragraph("Esempio fuori lista", style: "Esempio", list: nil),
-                paragraph("Esempio in un'altra lista", style: "Esempio", list: ListItem(listName: "Elenco numerato")),
+            let document = Document(styles: sheet, lists: ListDefinition.builtIn, noteList: "Symbol Notes", blocks: [
+                paragraph("Primo esempio", style: "Example", list: ListItem(listName: "Examples")),
+                paragraph("Esempio fuori lista", style: "Example", list: nil),
+                paragraph("Esempio in un'altra lista", style: "Example", list: ListItem(listName: "Numbered List")),
             ])
             let written = DocumentFormat.string(for: document)
-            #expect(written.contains(" notes=\"Note a simboli\">"))
+            #expect(written.contains(" notes=\"Symbol Notes\">"))
             #expect(written.contains("""
             <lists>
-            <list name="Elenco numerato" counter="1" suffix="."/>
-            <list name="Esempi" counter="1" prefix="(" suffix=")" continues="on"/>
-            <list name="Sottoesempi" counter="a" suffix="." parent="Esempi" continues="on"/>
-            <list name="Note" counter="1" continues="on"/>
-            <list name="Note a simboli" counter="†" parent="page" continues="on"/>
+            <list name="Numbered List" counter="1" suffix="."/>
+            <list name="Examples" counter="1" prefix="(" suffix=")" continues="on"/>
+            <list name="Subexamples" counter="a" suffix="." parent="Examples" continues="on"/>
+            <list name="Notes" counter="1" continues="on"/>
+            <list name="Symbol Notes" counter="†" parent="page" continues="on"/>
             </lists>
             """))
-            #expect(written.contains("<style name=\"Esempio\" target=\"paragraph\" based-on=\"Testo\" align=\"natural\" space-before=\"6\" space-after=\"6\" in-list=\"Esempi\"/>"))
-            #expect(written.contains("<p style=\"Esempio\">Primo esempio</p>"), "la Lista data dallo stile non si ripete")
-            #expect(written.contains("<p style=\"Esempio\" in-list=\"\">Esempio fuori lista</p>"))
-            #expect(written.contains("<p style=\"Esempio\" in-list=\"Elenco numerato\">"))
+            #expect(written.contains("<style name=\"Example\" target=\"paragraph\" based-on=\"Body\" align=\"natural\" space-before=\"6\" space-after=\"6\" in-list=\"Examples\"/>"))
+            #expect(written.contains("<p style=\"Example\">Primo esempio</p>"), "la Lista data dallo stile non si ripete")
+            #expect(written.contains("<p style=\"Example\" in-list=\"\">Esempio fuori lista</p>"))
+            #expect(written.contains("<p style=\"Example\" in-list=\"Numbered List\">"))
             #expect(try DocumentFormat.document(from: written) == document)
         }
 
@@ -141,8 +141,8 @@ extension TypesettingSuite {
 
         @Test("Nella pagina, voci ed esempi prendono segno e rientro dalla loro Lista")
         func pageMarkers() throws {
-            let blocks = [item("Uno", "Esempi"), item("Due", "Esempi"), item("Testo", nil), item("Tre", "Esempi"), item("Primo", "Sottoesempi"),
-                          item("Secondo", "Sottoesempi"), item("Voce", "Elenco numerato"), item("Voce", "Elenco numerato"), item("Ignota", "Nessuna")]
+            let blocks = [item("Uno", "Examples"), item("Due", "Examples"), item("Testo", nil), item("Tre", "Examples"), item("Primo", "Subexamples"),
+                          item("Secondo", "Subexamples"), item("Voce", "Numbered List"), item("Voce", "Numbered List"), item("Ignota", "Nessuna")]
             let layout = PageLayout.layout(Document(lists: ListDefinition.builtIn, blocks: blocks).attributedString().text, options: options)
             let markers = layout.pages[0].markers
             let font = try TestFonts.hoefler(size: 12)
@@ -168,7 +168,7 @@ extension TypesettingSuite {
 
         @Test("Le note prendono il segno dalla Lista delle note; a simboli ripartono nella pagina dove sta il richiamo")
         func noteMarks() throws {
-            let symbols = notesAcrossPages(noteList: "Note a simboli")
+            let symbols = notesAcrossPages(noteList: "Symbol Notes")
             #expect(symbols.pages.count == 2)
             let pdf = try #require(PDFDocument(data: PDFRenderer.pdfData(for: symbols)))
             let first = try #require(pdf.page(at: 0)?.string), second = try #require(pdf.page(at: 1)?.string)
@@ -177,7 +177,7 @@ extension TypesettingSuite {
             #expect(second.contains("ancora* fine.") && second.contains("* Seconda."))
             #expect(!second.contains("\u{2020}"))
 
-            let decimal = notesAcrossPages(noteList: "Note")
+            let decimal = notesAcrossPages(noteList: "Notes")
             let text = try #require(PDFDocument(data: PDFRenderer.pdfData(for: decimal))?.string)
             #expect(text.contains("\u{B9} Prima.") && text.contains("\u{B2} Seconda."), "le note numerate proseguono da una pagina all'altra")
         }
@@ -210,50 +210,50 @@ extension TypesettingSuite {
         func restyleList() {
             let sheet = StyleSheet.builtIn
             let text = NSMutableAttributedString(attributedString: Document(styles: sheet, lists: ListDefinition.builtIn, blocks: [
-                .paragraph(Paragraph(styleName: "Testo", inlines: [.text(TextRun("Uno", style: body))])),
-                .paragraph(Paragraph(styleName: "Testo", list: ListItem(listName: "Elenco numerato"), inlines: [.text(TextRun("Due", style: body))])),
+                .paragraph(Paragraph(styleName: "Body", inlines: [.text(TextRun("Uno", style: body))])),
+                .paragraph(Paragraph(styleName: "Body", list: ListItem(listName: "Numbered List"), inlines: [.text(TextRun("Due", style: body))])),
             ]).attributedString().text)
             func list(at index: Int) -> String? { text.attribute(.listItem, at: index, effectiveRange: nil) as? String }
-            TextStyling.restyle(text, range: NSRange(location: 0, length: text.length), from: sheet, to: sheet) { $0.paragraph = "Esempio" }
-            #expect(list(at: 0) == "@Esempi" && list(at: 3) == "@Esempi")
-            #expect(list(at: 4) == "@Elenco numerato")
-            TextStyling.restyle(text, range: NSRange(location: 0, length: 4), from: sheet, to: sheet) { $0.paragraph = "Testo" }
+            TextStyling.restyle(text, range: NSRange(location: 0, length: text.length), from: sheet, to: sheet) { $0.paragraph = "Example" }
+            #expect(list(at: 0) == "@Examples" && list(at: 3) == "@Examples")
+            #expect(list(at: 4) == "@Numbered List")
+            TextStyling.restyle(text, range: NSRange(location: 0, length: 4), from: sheet, to: sheet) { $0.paragraph = "Body" }
             #expect(list(at: 0) == nil)
         }
         @Test("Una Lista rinominata o tolta: le voci e gli stili la seguono")
         func renaming() {
             let text = NSMutableAttributedString(attributedString: Document(lists: ListDefinition.builtIn, blocks: [
-                item("Uno", "Esempi"), item("Due", "Elenco numerato"), item("Tre", nil),
+                item("Uno", "Examples"), item("Due", "Numbered List"), item("Tre", nil),
             ]).attributedString().text)
-            TextStyling.renameLists(in: text, ["Esempi": "Frasi", "Elenco numerato": nil])
+            TextStyling.renameLists(in: text, ["Examples": "Frasi", "Numbered List": nil])
             #expect(text.attribute(.listItem, at: 0, effectiveRange: nil) as? String == "@Frasi")
             #expect(text.attribute(.listItem, at: 4, effectiveRange: nil) == nil)
-            let sheet = StyleSheet.builtIn.renamingLists(["Esempi": "Frasi", "Sottoesempi": nil])
-            #expect(sheet.style(named: "Esempio")?.values.listName == "Frasi")
-            #expect(sheet.style(named: "Sottoesempio")?.values.listName == nil)
+            let sheet = StyleSheet.builtIn.renamingLists(["Examples": "Frasi", "Subexamples": nil])
+            #expect(sheet.style(named: "Example")?.values.listName == "Frasi")
+            #expect(sheet.style(named: "Subexample")?.values.listName == nil)
         }
         @Test("Aggiornare uno stile dalla selezione conserva la sua Lista (errore segnalato il 16 ottobre)")
         func updateKeepsList() throws {
             let sheet = StyleSheet.builtIn
-            let plain = sheet.resolveCharacter(paragraphStyle: "Esempio", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
+            let plain = sheet.resolveCharacter(paragraphStyle: "Example", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
             let text = NSMutableAttributedString(attributedString: Document(styles: sheet, lists: ListDefinition.builtIn, blocks: [
-                .paragraph(Paragraph(styleName: "Esempio", style: sheet.resolveParagraph(styleName: "Esempio"), list: ListItem(listName: "Esempi"),
+                .paragraph(Paragraph(styleName: "Example", style: sheet.resolveParagraph(styleName: "Example"), list: ListItem(listName: "Examples"),
                                      inlines: [.text(TextRun("Esempio 1234", style: plain))])),
             ]).attributedString().text)
             // Le cifre alte al posto di quelle basse, solo in questo paragrafo, come nella segnalazione.
             TextStyling.updateFeatures(in: text, range: NSRange(location: 0, length: text.length), ofFontNamed: "HoeflerText-Regular") { _ in [.aat(type: 21, selector: 1)] }
-            let values = TextStyling.styleValues(from: text, at: 0, target: .paragraph, sheet: sheet, basedOn: "Testo")
-            #expect(values.listName == "Esempi")
+            let values = TextStyling.styleValues(from: text, at: 0, target: .paragraph, sheet: sheet, basedOn: "Body")
+            #expect(values.listName == "Examples")
             var updated = sheet
-            let index = try #require(updated.styles.firstIndex { $0.name == "Esempio" })
+            let index = try #require(updated.styles.firstIndex { $0.name == "Example" })
             updated.styles[index].values = values
             TextStyling.restyle(text, range: NSRange(location: 0, length: text.length), from: sheet, to: updated)
-            #expect(text.attribute(.listItem, at: 0, effectiveRange: nil) as? String == "@Esempi", "la numerazione resta")
+            #expect(text.attribute(.listItem, at: 0, effectiveRange: nil) as? String == "@Examples", "la numerazione resta")
             // «Nessuna Lista» in uno stile si salva e si rilegge.
             var none = updated
             none.styles[index].values.listName = ""
             let document = Document(styles: none, lists: ListDefinition.builtIn, blocks: [])
-            #expect(try DocumentFormat.document(from: DocumentFormat.string(for: document)).styles.style(named: "Esempio")?.values.listName == "")
+            #expect(try DocumentFormat.document(from: DocumentFormat.string(for: document)).styles.style(named: "Example")?.values.listName == "")
         }
     }
 }
@@ -295,13 +295,13 @@ extension TypesettingSuite {
         @Test("Le misure della Lista valgono per tutte le sue voci; quelle della voce valgono sopra; segno e testo sono indipendenti")
         func listAndItemMeasures() throws {
             var lists = ListDefinition.builtIn
-            let index = try #require(lists.firstIndex { $0.name == "Esempi" })
+            let index = try #require(lists.firstIndex { $0.name == "Examples" })
             lists[index].textIndent = 40
             lists[index].markerPosition = 30
-            var own = ListItem(listName: "Esempi")
+            var own = ListItem(listName: "Examples")
             own.textIndent = 60
             let document = Document(lists: lists, blocks: [
-                .paragraph(Paragraph(list: ListItem(listName: "Esempi"), inlines: [run("Primo esempio.")])),
+                .paragraph(Paragraph(list: ListItem(listName: "Examples"), inlines: [run("Primo esempio.")])),
                 .paragraph(Paragraph(list: own, inlines: [run("Secondo, spostato a mano.")])),
             ])
             let g = geometry(document)

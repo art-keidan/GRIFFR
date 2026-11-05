@@ -126,12 +126,12 @@ struct StoreEditingTests {
         let titles = SectionEditing.titles(in: store)
         #expect(titles.map(\.depth) == [1, 2, 3, 4])
         #expect(titles.map { store.attribute(.paragraphStyleName, at: $0.range.location, effectiveRange: nil) as? String }
-                == [nil, "Speciale", "Titolo 3", "Titolo 4"],
+                == [nil, "Speciale", "Heading 3", "Heading 4"],
                 "Beta resta com'era; Alfa prende «Speciale», l'unico stile di livello 2; i livelli 3 e 4 nascono, ciascuno basato sul precedente")
-        #expect(store.settings.styles.style(named: "Titolo 3")?.basedOn == "Speciale")
+        #expect(store.settings.styles.style(named: "Heading 3")?.basedOn == "Speciale")
         #expect(titles.map { (store.attribute(.outlineLevel, at: $0.range.location, effectiveRange: nil) as? NSNumber)?.intValue }
                 == [1, 2, 3, 4])
-        #expect(store.settings.styles.style(named: "Titolo 4")?.values.outlineLevel == 4)
+        #expect(store.settings.styles.style(named: "Heading 4")?.values.outlineLevel == 4)
         #expect(store.settings.styles.style(named: "Speciale")?.values.outlineLevel == 2, "la definizione personalizzata non cambia")
         let saved = store.document
         // Nel file il livello dei titoli è l'annidamento: riaperto, ogni titolo ha di nuovo il livello della sua profondità.
@@ -141,9 +141,9 @@ struct StoreEditingTests {
                 == [1, 2, 3, 4])
         h.undo()
         #expect(h.attributed.isEqual(to: original))
-        #expect(store.settings.styles.style(named: "Titolo 4") == nil)
+        #expect(store.settings.styles.style(named: "Heading 4") == nil)
         h.redo()
-        #expect(store.settings.styles.style(named: "Titolo 4")?.values.outlineLevel == 4)
+        #expect(store.settings.styles.style(named: "Heading 4")?.values.outlineLevel == 4)
         #expect(SectionEditing.titles(in: store).map(\.depth) == [1, 2, 3, 4])
     }
 
@@ -151,7 +151,7 @@ struct StoreEditingTests {
     func randomEditing(seed: Int) {
         let h = EditorHarness(paragraphs: ["Prima riga di prova", "Seconda riga", "Terza"])
         defer { h.close() }
-        randomEdits(h, seed: seed, styles: ["Testo", "Citazione", "Esempio", "Titolo 1"])
+        randomEdits(h, seed: seed, styles: ["Body", "Quotation", "Example", "Heading 1"])
     }
 
     @Test("Azioni casuali in un documento con i ritorni: editor e modello vedono la stessa struttura, Annulla fino all'inizio",
@@ -161,7 +161,7 @@ struct StoreEditingTests {
         defer { h.close() }
         _ = try returning(h)
         h.step()
-        randomEdits(h, seed: seed, styles: ["Testo", "Titolo 1", "Titolo 2"]) { action in
+        randomEdits(h, seed: seed, styles: ["Body", "Heading 1", "Heading 2"]) { action in
             let store = h.editor.store
             // Un ritorno senza senso può restare finché una modifica non tocca i segni (come i segni di titolo ripetuti):
             // non conta. Conta che l'editor e il modello vedano la stessa struttura.
@@ -252,13 +252,13 @@ struct StoreEditingTests {
     private func alfaBeta(_ h: EditorHarness) throws -> DocumentStore {
         h.editor.replaceContent(try DocumentFormat.document(from: """
         <document version="1" font="HoeflerText-Regular" size="12">
-        <styles><style name="Testo" target="paragraph"/>
-        <style name="Titolo 1" target="paragraph" based-on="Testo" size="18" outline-level="1"/>
-        <style name="Titolo 2" target="paragraph" based-on="Testo" size="14" outline-level="2"/>
-        <style name="Titolo 3" target="paragraph" based-on="Testo" size="13" outline-level="3"/></styles>
-        <section id="a" role="capitolo"><title><p style="Titolo 1">Alfa</p></title><p style="Testo">Testo di Alfa.</p>
-        <section id="aa" role="sezione"><title><p style="Titolo 2">Alfa interna</p></title><p style="Testo">Testo interno.</p></section></section>
-        <section id="b" role="capitolo"><title><p style="Titolo 1">Beta</p></title><p style="Testo">Testo di Beta.</p></section>
+        <styles><style name="Body" target="paragraph"/>
+        <style name="Heading 1" target="paragraph" based-on="Body" size="18" outline-level="1"/>
+        <style name="Heading 2" target="paragraph" based-on="Body" size="14" outline-level="2"/>
+        <style name="Heading 3" target="paragraph" based-on="Body" size="13" outline-level="3"/></styles>
+        <section id="a" role="capitolo"><title><p style="Heading 1">Alfa</p></title><p style="Body">Testo di Alfa.</p>
+        <section id="aa" role="sezione"><title><p style="Heading 2">Alfa interna</p></title><p style="Body">Testo interno.</p></section></section>
+        <section id="b" role="capitolo"><title><p style="Heading 1">Beta</p></title><p style="Body">Testo di Beta.</p></section>
         </document>
         """))
         return h.editor.store
@@ -285,24 +285,24 @@ struct StoreEditingTests {
         let h = EditorHarness(paragraphs: ["segnaposto"])
         defer { h.close() }
         let store = try alfaBeta(h)
-        #expect(levels(store) == ["Alfa|Titolo 1|1", "Testo di Alfa.|Testo|0", "Alfa interna|Titolo 2|2", "Testo interno.|Testo|0",
-                                  "Beta|Titolo 1|1", "Testo di Beta.|Testo|0"])
+        #expect(levels(store) == ["Alfa|Heading 1|1", "Testo di Alfa.|Body|0", "Alfa interna|Heading 2|2", "Testo interno.|Body|0",
+                                  "Beta|Heading 1|1", "Testo di Beta.|Body|0"])
         let original = NSAttributedString(attributedString: h.attributed)
         let ids = store.paragraphIDs
         h.editor.writeStore(actionName: "Sposta la sezione") { _ = $0.moveSection(ids[0], .inside, ids[4]) }
-        #expect(levels(store) == ["Beta|Titolo 1|1", "Testo di Beta.|Testo|0", "Alfa|Titolo 2|2", "Testo di Alfa.|Testo|0",
-                                  "Alfa interna|Titolo 3|3", "Testo interno.|Testo|0"])
+        #expect(levels(store) == ["Beta|Heading 1|1", "Testo di Beta.|Body|0", "Alfa|Heading 2|2", "Testo di Alfa.|Body|0",
+                                  "Alfa interna|Heading 3|3", "Testo interno.|Body|0"])
         #expect(h.editor.settings.styles == store.settings.styles, "l'editor ha la stessa copia degli stili")
         #expect(store.structuralProblem() == nil)
 
         // Riportata fuori, sorella di Beta: tutto risale di un gradino.
         h.step()
         h.editor.writeStore(actionName: "Sposta la sezione") { _ = $0.moveSection(ids[0], .after, ids[4]) }
-        #expect(levels(store) == ["Beta|Titolo 1|1", "Testo di Beta.|Testo|0", "Alfa|Titolo 1|1", "Testo di Alfa.|Testo|0",
-                                  "Alfa interna|Titolo 2|2", "Testo interno.|Testo|0"])
+        #expect(levels(store) == ["Beta|Heading 1|1", "Testo di Beta.|Body|0", "Alfa|Heading 1|1", "Testo di Alfa.|Body|0",
+                                  "Alfa interna|Heading 2|2", "Testo interno.|Body|0"])
         h.undo()
-        #expect(levels(store) == ["Beta|Titolo 1|1", "Testo di Beta.|Testo|0", "Alfa|Titolo 2|2", "Testo di Alfa.|Testo|0",
-                                  "Alfa interna|Titolo 3|3", "Testo interno.|Testo|0"])
+        #expect(levels(store) == ["Beta|Heading 1|1", "Testo di Beta.|Body|0", "Alfa|Heading 2|2", "Testo di Alfa.|Body|0",
+                                  "Alfa interna|Heading 3|3", "Testo interno.|Body|0"])
         h.undo()
         #expect(h.attributed.isEqual(to: original))
     }
@@ -329,15 +329,15 @@ struct StoreEditingTests {
             return try #require(find(h.editor.objectTree.items))
         }
         h.editor.moveOutlineItem(try item("Alfa"), to: try item("Beta"), placement: .inside)
-        #expect(shownStyle() == "Titolo 2")
+        #expect(shownStyle() == "Heading 2")
         let inside = h.editor.selection.range.location
         h.step()
         // Alfa esce dopo Beta: il titolo ricomincia allo stesso carattere, ma ora è «Titolo 1».
         h.editor.moveOutlineItem(try item("Alfa"), to: try item("Beta"), placement: .after)
         #expect(h.editor.selection.range.location == inside)
-        #expect(shownStyle() == "Titolo 1")
+        #expect(shownStyle() == "Heading 1")
         h.undo()
-        #expect(shownStyle() == "Titolo 2")
+        #expect(shownStyle() == "Heading 2")
     }
 
     @Test("Dare a un titolo lo stile di un altro livello sposta la sezione a quel livello, con il suo contenuto (come la mappa)")
@@ -346,15 +346,15 @@ struct StoreEditingTests {
         defer { h.close() }
         h.editor.replaceContent(try DocumentFormat.document(from: """
         <document version="1" font="HoeflerText-Regular" size="12">
-        <styles><style name="Testo" target="paragraph"/>
-        <style name="Titolo 1" target="paragraph" based-on="Testo" size="18" outline-level="1"/>
-        <style name="Titolo 2" target="paragraph" based-on="Testo" size="14" outline-level="2"/>
-        <style name="Titolo 3" target="paragraph" based-on="Testo" size="13" outline-level="3"/></styles>
-        <section id="a" role="capitolo"><title><p style="Titolo 1">Alfa</p></title><p style="Testo">Testo di Alfa.</p>
-        <section id="a1" role="sezione"><title><p style="Titolo 2">Alfa uno</p></title><p style="Testo">Testo di uno.</p>
-        <section id="a11" role="sezione"><title><p style="Titolo 3">Alfa uno uno</p></title><p style="Testo">Testo di uno uno.</p></section></section>
-        <section id="a2" role="sezione"><title><p style="Titolo 2">Alfa due</p></title><p style="Testo">Testo di due.</p></section></section>
-        <section id="b" role="capitolo"><title><p style="Titolo 1">Beta</p></title><p style="Testo">Testo di Beta.</p></section>
+        <styles><style name="Body" target="paragraph"/>
+        <style name="Heading 1" target="paragraph" based-on="Body" size="18" outline-level="1"/>
+        <style name="Heading 2" target="paragraph" based-on="Body" size="14" outline-level="2"/>
+        <style name="Heading 3" target="paragraph" based-on="Body" size="13" outline-level="3"/></styles>
+        <section id="a" role="capitolo"><title><p style="Heading 1">Alfa</p></title><p style="Body">Testo di Alfa.</p>
+        <section id="a1" role="sezione"><title><p style="Heading 2">Alfa uno</p></title><p style="Body">Testo di uno.</p>
+        <section id="a11" role="sezione"><title><p style="Heading 3">Alfa uno uno</p></title><p style="Body">Testo di uno uno.</p></section></section>
+        <section id="a2" role="sezione"><title><p style="Heading 2">Alfa due</p></title><p style="Body">Testo di due.</p></section></section>
+        <section id="b" role="capitolo"><title><p style="Heading 1">Beta</p></title><p style="Body">Testo di Beta.</p></section>
         </document>
         """))
         let store = h.editor.store
@@ -368,34 +368,34 @@ struct StoreEditingTests {
         func outline() -> [String] { SectionEditing.titles(in: store).map { "\($0.mark.id)@\($0.depth)" } }
 
         // «Titolo 1» ad Alfa uno: esce da Alfa con la sua interna, dopo Alfa; Alfa due resta in Alfa.
-        try give("Titolo 1", to: "a1")
+        try give("Heading 1", to: "a1")
         #expect(outline() == ["a@1", "a2@2", "a1@1", "a11@2", "b@1"])
-        #expect(levels(store) == ["Alfa|Titolo 1|1", "Testo di Alfa.|Testo|0", "Alfa due|Titolo 2|2", "Testo di due.|Testo|0",
-                                  "Alfa uno|Titolo 1|1", "Testo di uno.|Testo|0", "Alfa uno uno|Titolo 2|2", "Testo di uno uno.|Testo|0",
-                                  "Beta|Titolo 1|1", "Testo di Beta.|Testo|0"])
+        #expect(levels(store) == ["Alfa|Heading 1|1", "Testo di Alfa.|Body|0", "Alfa due|Heading 2|2", "Testo di due.|Body|0",
+                                  "Alfa uno|Heading 1|1", "Testo di uno.|Body|0", "Alfa uno uno|Heading 2|2", "Testo di uno uno.|Body|0",
+                                  "Beta|Heading 1|1", "Testo di Beta.|Body|0"])
         #expect(store.structuralProblem() == nil)
         h.undo()
         #expect(h.attributed.isEqual(to: original), "un solo passo di Annulla")
 
         // Da 3 a 1 in un colpo: dopo il capitolo che la conteneva.
-        try give("Titolo 1", to: "a11")
+        try give("Heading 1", to: "a11")
         #expect(outline() == ["a@1", "a1@2", "a2@2", "a11@1", "b@1"])
         h.undo()
 
         // Più dentro: Alfa due con «Titolo 3» diventa l'ultima interna di Alfa uno, la sorella che la precede.
-        try give("Titolo 3", to: "a2")
+        try give("Heading 3", to: "a2")
         #expect(outline() == ["a@1", "a1@2", "a11@3", "a2@3", "b@1"])
         h.undo()
 
         // Beta con «Titolo 3»: due gradini più dentro, prima in Alfa, poi nella sua ultima interna (Alfa due).
-        try give("Titolo 3", to: "b")
+        try give("Heading 3", to: "b")
         #expect(outline() == ["a@1", "a1@2", "a11@3", "a2@2", "b@3"])
         h.undo()
 
         // Alfa con «Titolo 2»: non ha una sorella prima, resta al livello 1 e lo stile segue quello possibile.
-        try give("Titolo 2", to: "a")
+        try give("Heading 2", to: "a")
         #expect(outline() == ["a@1", "a1@2", "a11@3", "a2@2", "b@1"])
-        #expect(levels(store).first == "Alfa|Titolo 1|1")
+        #expect(levels(store).first == "Alfa|Heading 1|1")
         h.undo()
         #expect(h.attributed.isEqual(to: original))
     }
@@ -407,19 +407,19 @@ struct StoreEditingTests {
         let store = try alfaBeta(h)
         let original = NSAttributedString(attributedString: h.attributed)
         let originalSheet = h.editor.settings.styles
-        h.editor.stylesTab.onOutlineLevel?("Titolo 2", 1)
+        h.editor.stylesTab.onOutlineLevel?("Heading 2", 1)
         h.step()
-        #expect(h.editor.settings.styles.resolveParagraph(styleName: "Titolo 2").outlineLevel == 1)
+        #expect(h.editor.settings.styles.resolveParagraph(styleName: "Heading 2").outlineLevel == 1)
         #expect(SectionEditing.titles(in: store).map { "\($0.mark.id)@\($0.depth)" } == ["a@1", "aa@1", "b@1"])
-        #expect(levels(store)[2] == "Alfa interna|Titolo 2|1")
-        #expect(h.undoActionName == "Style “Titolo 2”: level")
+        #expect(levels(store)[2] == "Alfa interna|Heading 2|1")
+        #expect(h.undoActionName == "Style “Heading 2”: level")
         h.undo()
         #expect(h.attributed.isEqual(to: original))
         #expect(h.editor.settings.styles == originalSheet, "Annulla rimette anche lo stile")
         // «Nessuno»: lo stile non dichiara più un livello; i titoli restano dove sono.
-        h.editor.stylesTab.onOutlineLevel?("Titolo 2", 0)
+        h.editor.stylesTab.onOutlineLevel?("Heading 2", 0)
         h.step()
-        #expect(h.editor.settings.styles.resolveParagraph(styleName: "Titolo 2").outlineLevel == nil)
+        #expect(h.editor.settings.styles.resolveParagraph(styleName: "Heading 2").outlineLevel == nil)
         #expect(SectionEditing.titles(in: store).map { "\($0.mark.id)@\($0.depth)" } == ["a@1", "aa@2", "b@1"])
     }
 
@@ -430,17 +430,17 @@ struct StoreEditingTests {
         let store = try alfaBeta(h)
         let inner = try #require(SectionEditing.titles(in: store).first { $0.mark.id == "aa" })
         h.select(inner.range.location)
-        h.editor.applyNamedStyle(.paragraph, name: "Titolo 1")
+        h.editor.applyNamedStyle(.paragraph, name: "Heading 1")
         h.step()
-        #expect(levels(store) == ["Alfa|Titolo 1|1", "Testo di Alfa.|Testo|0", "Alfa interna|Titolo 1|1", "Testo interno.|Testo|0",
-                                  "Beta|Titolo 1|1", "Testo di Beta.|Testo|0"])
+        #expect(levels(store) == ["Alfa|Heading 1|1", "Testo di Alfa.|Body|0", "Alfa interna|Heading 1|1", "Testo interno.|Body|0",
+                                  "Beta|Heading 1|1", "Testo di Beta.|Body|0"])
         // Un capoverso del corpo con «Titolo 2» diventa una sezione di livello 2.
         h.step()
         let body = (store.string as NSString).range(of: "Testo di Beta.")
         h.select(body.location)
-        h.editor.applyNamedStyle(.paragraph, name: "Titolo 2")
+        h.editor.applyNamedStyle(.paragraph, name: "Heading 2")
         h.step()
-        #expect(levels(store).last == "Testo di Beta.|Titolo 2|2")
+        #expect(levels(store).last == "Testo di Beta.|Heading 2|2")
         #expect(store.structuralProblem() == nil)
     }
 
@@ -450,17 +450,17 @@ struct StoreEditingTests {
     private func returning(_ h: EditorHarness) throws -> DocumentStore {
         h.editor.replaceContent(try DocumentFormat.document(from: """
         <document version="1" font="HoeflerText-Regular" size="12">
-        <styles><style name="Testo" target="paragraph"/>
-        <style name="Titolo 1" target="paragraph" based-on="Testo" size="18" outline-level="1"/>
-        <style name="Titolo 2" target="paragraph" based-on="Testo" size="14" outline-level="2"/></styles>
+        <styles><style name="Body" target="paragraph"/>
+        <style name="Heading 1" target="paragraph" based-on="Body" size="18" outline-level="1"/>
+        <style name="Heading 2" target="paragraph" based-on="Body" size="14" outline-level="2"/></styles>
         <p>Premessa.</p>
-        <section id="c" role="capitolo"><title><p style="Titolo 1">Capitolo</p></title><p>Primo.</p>
-        <section id="s" role="sezione"><title><p style="Titolo 2">Sotto</p></title><p>Testo di sotto.</p></section>
+        <section id="c" role="capitolo"><title><p style="Heading 1">Capitolo</p></title><p>Primo.</p>
+        <section id="s" role="sezione"><title><p style="Heading 2">Sotto</p></title><p>Testo di sotto.</p></section>
         <p>Secondo.</p>
-        <section id="t" role="sezione"><title><p style="Titolo 2">Altra</p></title><p>Testo di altra.</p></section>
+        <section id="t" role="sezione"><title><p style="Heading 2">Altra</p></title><p>Testo di altra.</p></section>
         </section>
         <p>Postfazione.</p>
-        <section id="d" role="capitolo"><title><p style="Titolo 1">Dopo</p></title><p>Testo di dopo.</p></section>
+        <section id="d" role="capitolo"><title><p style="Heading 1">Dopo</p></title><p>Testo di dopo.</p></section>
         </document>
         """))
         return h.editor.store
@@ -804,15 +804,15 @@ struct StoreEditingTests {
         let original = NSAttributedString(attributedString: h.attributed)
         let beta = try #require(SectionEditing.titles(in: store).last)
         h.editor.writeStore(actionName: "Sezione più dentro") { SectionEditing.moveSection(beta, by: 1, in: $0) }
-        #expect(levels(store) == ["Alfa|Titolo 1|1", "Testo di Alfa.|Testo|0", "Alfa interna|Titolo 2|2", "Testo interno.|Testo|0",
-                                  "Beta|Titolo 2|2", "Testo di Beta.|Testo|0"])
+        #expect(levels(store) == ["Alfa|Heading 1|1", "Testo di Alfa.|Body|0", "Alfa interna|Heading 2|2", "Testo interno.|Body|0",
+                                  "Beta|Heading 2|2", "Testo di Beta.|Body|0"])
         h.step()
         let deeper = try #require(SectionEditing.titles(in: store).first { $0.mark.id == "aa" })
         h.editor.writeStore(actionName: "Sezione più fuori") { SectionEditing.moveSection(deeper, by: -1, in: $0) }
-        #expect(levels(store)[2] == "Alfa interna|Titolo 1|1", "più fuori: torna capitolo con lo stile del livello 1")
+        #expect(levels(store)[2] == "Alfa interna|Heading 1|1", "più fuori: torna capitolo con lo stile del livello 1")
         h.step()
         h.undo()
-        #expect(levels(store)[2] == "Alfa interna|Titolo 2|2")
+        #expect(levels(store)[2] == "Alfa interna|Heading 2|2")
         h.undo()
         #expect(h.attributed.isEqual(to: original))
     }
@@ -825,8 +825,8 @@ struct StoreEditingTests {
         let original = NSAttributedString(attributedString: h.attributed)
         let alfa = try #require(SectionEditing.titles(in: store).first)
         h.editor.writeStore(actionName: "Togli la sezione") { SectionEditing.removeSection(alfa, in: $0) }
-        #expect(levels(store) == ["Alfa|Titolo 1|0", "Testo di Alfa.|Testo|0", "Alfa interna|Titolo 1|1", "Testo interno.|Testo|0",
-                                  "Beta|Titolo 1|1", "Testo di Beta.|Testo|0"])
+        #expect(levels(store) == ["Alfa|Heading 1|0", "Testo di Alfa.|Body|0", "Alfa interna|Heading 1|1", "Testo interno.|Body|0",
+                                  "Beta|Heading 1|1", "Testo di Beta.|Body|0"])
         h.undo()
         #expect(h.attributed.isEqual(to: original))
     }
@@ -837,31 +837,31 @@ struct StoreEditingTests {
         defer { h.close() }
         h.editor.replaceContent(try DocumentFormat.document(from: """
         <document version="1" font="HoeflerText-Regular" size="12">
-        <styles><style name="Testo" target="paragraph"/>
-        <style name="Titolo 1" target="paragraph" based-on="Testo" size="18" outline-level="1"/>
-        <style name="Titolo 2" target="paragraph" based-on="Testo" size="14" outline-level="2"/>
-        <style name="Titolo 3" target="paragraph" based-on="Testo" size="13" outline-level="3"/></styles>
-        <section id="a" role="capitolo"><title><p style="Titolo 1">Alfa</p></title>
-        <section id="aa" role="sezione"><title><p style="Titolo 2">Alfa interna</p></title></section></section>
-        <section id="b" role="capitolo"><title><p style="Titolo 1">Beta</p></title>
-        <section id="bb" role="sezione"><title><p style="Titolo 2">Beta interna</p></title></section></section>
+        <styles><style name="Body" target="paragraph"/>
+        <style name="Heading 1" target="paragraph" based-on="Body" size="18" outline-level="1"/>
+        <style name="Heading 2" target="paragraph" based-on="Body" size="14" outline-level="2"/>
+        <style name="Heading 3" target="paragraph" based-on="Body" size="13" outline-level="3"/></styles>
+        <section id="a" role="capitolo"><title><p style="Heading 1">Alfa</p></title>
+        <section id="aa" role="sezione"><title><p style="Heading 2">Alfa interna</p></title></section></section>
+        <section id="b" role="capitolo"><title><p style="Heading 1">Beta</p></title>
+        <section id="bb" role="sezione"><title><p style="Heading 2">Beta interna</p></title></section></section>
         </document>
         """))
         let store = h.editor.store
         let ids = store.paragraphIDs
         h.editor.writeStore(actionName: "Sposta la sezione") { _ = $0.moveSection(ids[0], .inside, ids[3]) }
-        #expect(levels(store) == ["Beta|Titolo 1|1", "Beta interna|Titolo 2|2", "Alfa|Titolo 3|3", "Alfa interna|Titolo 4|4"])
-        #expect(h.editor.settings.styles.style(named: "Titolo 4")?.values.outlineLevel == 4)
-        #expect(h.editor.settings.styles.style(named: "Titolo 4")?.basedOn == "Titolo 3", "prende l'aspetto del livello sopra")
+        #expect(levels(store) == ["Beta|Heading 1|1", "Beta interna|Heading 2|2", "Alfa|Heading 3|3", "Alfa interna|Heading 4|4"])
+        #expect(h.editor.settings.styles.style(named: "Heading 4")?.values.outlineLevel == 4)
+        #expect(h.editor.settings.styles.style(named: "Heading 4")?.basedOn == "Heading 3", "prende l'aspetto del livello sopra")
         // Il file si rilegge, e riaperto dà gli stessi livelli.
         let saved = h.editor.currentDocument()
         #expect(try DocumentFormat.document(from: DocumentFormat.data(for: saved)) == saved)
         #expect(levels(DocumentStore(document: saved)) == levels(store))
         h.undo()
-        #expect(h.editor.settings.styles.style(named: "Titolo 4") == nil && store.settings.styles.style(named: "Titolo 4") == nil)
-        #expect(levels(store).first == "Alfa|Titolo 1|1")
+        #expect(h.editor.settings.styles.style(named: "Heading 4") == nil && store.settings.styles.style(named: "Heading 4") == nil)
+        #expect(levels(store).first == "Alfa|Heading 1|1")
         h.redo()
-        #expect(h.editor.settings.styles.style(named: "Titolo 4") != nil)
+        #expect(h.editor.settings.styles.style(named: "Heading 4") != nil)
     }
 
     // MARK: Lo stile si sceglie dal livello dichiarato, non dal nome (tappa 2)
@@ -869,13 +869,13 @@ struct StoreEditingTests {
     private func ownNames(_ h: EditorHarness) throws -> DocumentStore {
         h.editor.replaceContent(try DocumentFormat.document(from: """
         <document version="1" font="HoeflerText-Regular" size="12">
-        <styles><style name="Testo" target="paragraph"/>
-        <style name="Capitolo" target="paragraph" based-on="Testo" size="18" outline-level="1" opens-section="capitolo"/>
-        <style name="Paragrafo" target="paragraph" based-on="Testo" size="14" outline-level="2" opens-section="sezione"/>
-        <style name="Sottoparagrafo" target="paragraph" based-on="Testo" size="13" outline-level="3" opens-section="sezione"/>
-        <style name="Titolo 2" target="paragraph" based-on="Testo" size="20"/>
-        <style name="Titolo a mano" target="paragraph" based-on="Testo" italic="on"/></styles>
-        <section id="a" role="capitolo"><title><p style="Capitolo">Alfa</p></title><p style="Testo">Testo di Alfa.</p>
+        <styles><style name="Body" target="paragraph"/>
+        <style name="Capitolo" target="paragraph" based-on="Body" size="18" outline-level="1" opens-section="capitolo"/>
+        <style name="Paragrafo" target="paragraph" based-on="Body" size="14" outline-level="2" opens-section="sezione"/>
+        <style name="Sottoparagrafo" target="paragraph" based-on="Body" size="13" outline-level="3" opens-section="sezione"/>
+        <style name="Heading 2" target="paragraph" based-on="Body" size="20"/>
+        <style name="Titolo a mano" target="paragraph" based-on="Body" italic="on"/></styles>
+        <section id="a" role="capitolo"><title><p style="Capitolo">Alfa</p></title><p style="Body">Testo di Alfa.</p>
         <section id="aa" role="sezione"><title><p style="Paragrafo">Alfa interna</p></title></section></section>
         <section id="b" role="capitolo"><title><p style="Capitolo">Beta</p></title>
         <section id="bb" role="sezione"><title><p style="Titolo a mano">Beta interna</p></title></section></section>
@@ -893,12 +893,12 @@ struct StoreEditingTests {
         let ids = store.paragraphIDs  // Alfa, Testo di Alfa, Alfa interna, Beta, Beta interna
         h.editor.writeStore(actionName: "Sposta la sezione") { _ = $0.moveSection(ids[0], .after, ids[3]) }
         h.step()
-        #expect(levels(store) == ["Beta|Capitolo|1", "Beta interna|Titolo a mano|2", "Alfa|Capitolo|1", "Testo di Alfa.|Testo|0",
+        #expect(levels(store) == ["Beta|Capitolo|1", "Beta interna|Titolo a mano|2", "Alfa|Capitolo|1", "Testo di Alfa.|Body|0",
                                   "Alfa interna|Paragrafo|2"], "lo spostamento alla pari non cambia nulla")
         h.editor.writeStore(actionName: "Sposta la sezione") { _ = $0.moveSection(ids[0], .inside, ids[3]) }
-        #expect(levels(store) == ["Beta|Capitolo|1", "Beta interna|Titolo a mano|2", "Alfa|Paragrafo|2", "Testo di Alfa.|Testo|0",
+        #expect(levels(store) == ["Beta|Capitolo|1", "Beta interna|Titolo a mano|2", "Alfa|Paragrafo|2", "Testo di Alfa.|Body|0",
                                   "Alfa interna|Sottoparagrafo|3"])
-        #expect(store.settings.styles.style(named: "Titolo 3") == nil, "nessuno stile nuovo: il livello 3 ce l'ha già")
+        #expect(store.settings.styles.style(named: "Heading 3") == nil, "nessuno stile nuovo: il livello 3 ce l'ha già")
     }
 
     @Test("Uno stile che non dichiara il livello del titolo è una scelta a mano: resta, e cambia solo il livello")
@@ -934,6 +934,6 @@ struct StoreEditingTests {
         #expect(levels(store)[1] == "Testo di Alfa.|Paragrafo|2")
         h.step()
         h.undo()
-        #expect(levels(store)[1] == "Testo di Alfa.|Testo|0")
+        #expect(levels(store)[1] == "Testo di Alfa.|Body|0")
     }
 }

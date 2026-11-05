@@ -150,26 +150,26 @@ extension TypesettingSuite {
         @Test("Il paragrafo: righe, pagine, parole, ultima riga, che cosa lo precede, regole")
         func paragraphFacts() throws {
             let long = String(repeating: Self.sentence, count: 4)
-            let rule = TextRule(target: .firstLines(1), paragraphStyle: "Testo", position: .firstAfter("Titolo 1"), styleName: "Maiuscoletto")
-            let (layout, document) = factsDocument(paragraphs: [("Titolo 1", "Capitolo"), ("Testo", long), ("Testo", "Breve.")], rules: [rule])
+            let rule = TextRule(target: .firstLines(1), paragraphStyle: "Body", position: .firstAfter("Heading 1"), styleName: "Small Caps")
+            let (layout, document) = factsDocument(paragraphs: [("Heading 1", "Capitolo"), ("Body", long), ("Body", "Breve.")], rules: [rule])
             let start = ("Capitolo\n" as NSString).length
             let facts = try #require(layout.paragraphFacts(at: start + 5, rules: document.rules, sheet: document.styles))
             #expect(facts.lineCount == layout.pages[0].lines.filter { $0.paragraphLocation == start }.count)
             #expect(facts.lineCount >= 4)
             #expect(facts.wordCount == 4 * 20, "venti parole per frase")
             #expect(facts.firstPage == 1 && !facts.isSplit)
-            #expect(!facts.isDocumentStart && facts.previousStyle == "Titolo 1")
+            #expect(!facts.isDocumentStart && facts.previousStyle == "Heading 1")
             #expect(facts.rules == [rule.summary])
             #expect(facts.lastLineFill > 0 && facts.lastLineFill < 1)
             let title = try #require(layout.paragraphFacts(at: 0, rules: document.rules, sheet: document.styles))
             #expect(title.isDocumentStart && title.isFirstOnPage && title.lineCount == 1 && title.rules.isEmpty)
             let short = try #require(layout.paragraphFacts(at: start + (long as NSString).length + 2, rules: document.rules, sheet: document.styles))
-            #expect(short.isLastOnPage && short.previousStyle == "Testo" && short.rules.isEmpty, "non è il primo dopo il titolo")
+            #expect(short.isLastOnPage && short.previousStyle == "Body" && short.rules.isEmpty, "non è il primo dopo il titolo")
         }
 
         @Test("Un paragrafo che si spezza tra due pagine; la pagina: numero, righe, spazio vuoto")
         func splitParagraphAndPage() throws {
-            let paragraphs = (0..<40).map { _ in ("Testo", String(repeating: Self.sentence, count: 3)) }
+            let paragraphs = (0..<40).map { _ in ("Body", String(repeating: Self.sentence, count: 3)) }
             let (layout, document) = factsDocument(paragraphs: paragraphs)
             #expect(layout.pages.count >= 2)
             // Il paragrafo dell'ultima riga della prima pagina continua nella seconda.
@@ -181,15 +181,15 @@ extension TypesettingSuite {
             #expect(page.freeSpace < 20, "una pagina piena")
             let lastPage = try #require(layout.pageFacts(at: layout.text.length, affinity: .downstream))
             #expect(lastPage.number == layout.pages.count)
-            let short = factsDocument(paragraphs: [("Testo", "Breve.")]).0
+            let short = factsDocument(paragraphs: [("Body", "Breve.")]).0
             #expect(try #require(short.pageFacts(at: 0, affinity: .downstream)).freeSpace > 500, "una pagina quasi vuota")
         }
 
         @Test("La riga: posizione, larghezza naturale e giustificazione, trattino; le regole che toccano un punto")
         func lineFactsAndRulesHere() throws {
             let long = String(repeating: Self.sentence, count: 4)
-            let rule = TextRule(target: .firstLines(1), styleName: "Maiuscoletto")
-            let (layout, document) = factsDocument(paragraphs: [("Testo", long)], rules: [rule])
+            let rule = TextRule(target: .firstLines(1), styleName: "Small Caps")
+            let (layout, document) = factsDocument(paragraphs: [("Body", long)], rules: [rule])
             let lines = layout.pages[0].lines
             let first = try #require(layout.lineFacts(at: 2, affinity: .downstream))
             #expect(first.number == 1 && first.count == lines.count && first.page == 1)

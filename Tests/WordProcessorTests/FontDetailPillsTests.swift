@@ -61,8 +61,8 @@ struct FontDetailPillsTests {
         h.select(0, length: 3)
         h.editor.additionMonitorMenu(at: 1).performActionForItem(at: 1)
         h.step()
-        let testo = h.editor.currentDocument().styles.style(named: "Testo")?.values
-        #expect(h.editor.currentDocument().styles.inspect(style: "Testo", base: TextStyling.styleBase).first { $0.property == .smallCaps }?.value.smallCaps == .lowercase, "nello stile va la scelta, non le forme tecniche")
+        let testo = h.editor.currentDocument().styles.style(named: "Body")?.values
+        #expect(h.editor.currentDocument().styles.inspect(style: "Body", base: TextStyling.styleBase).first { $0.property == .smallCaps }?.value.smallCaps == .lowercase, "nello stile va la scelta, non le forme tecniche")
         #expect(testo?.features == nil)
         #expect(testo?.italic == nil, "il corsivo non va nello stile")
         #expect(h.editor.styleMonitor.additions == ["char. italic"])
@@ -78,7 +78,7 @@ struct FontDetailPillsTests {
         defer { h.close() }
         h.select(0, length: 3)
         let menu = h.editor.styleMonitorMenu()
-        #expect(menu.items[1].title == "Move the Additions into the Style “Testo”")
+        #expect(menu.items[1].title == "Move the Additions into the Style “Body”")
         menu.performActionForItem(at: 1)
         h.step()
         #expect(h.editor.styleMonitor.additions.isEmpty)

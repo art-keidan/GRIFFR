@@ -12,7 +12,7 @@ struct LoremTests {
         #expect(h.text.isEmpty)
         h.type("Ciao")
         #expect(h.text == "Ciao")
-        #expect(h.attributed.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String == "Testo")
+        #expect(h.attributed.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String == "Body")
     }
 
     @Test("Lorem: circa due pagine in Garamond Premier Pro, con tre titoletti, in un passo di Annulla",
@@ -37,10 +37,10 @@ struct LoremTests {
         #expect(h.text.isEmpty)
     }
 
-    @Test("Il brano di Lorem è italiano corretto per il correttore del Mac",
-          .enabled(if: NSSpellChecker.shared.availableLanguages.contains { $0.hasPrefix("it") }))
+    @Test("Il brano di Lorem è inglese corretto per il correttore del Mac",
+          .enabled(if: NSSpellChecker.shared.availableLanguages.contains { $0.hasPrefix("en") }))
     func loremSpelling() {
-        let language = NSSpellChecker.shared.availableLanguages.first { $0.hasPrefix("it") }
+        let language = NSSpellChecker.shared.availableLanguages.first { $0.hasPrefix("en") }
         let pieces = [LoremText.opening] + LoremText.parts.flatMap { [$0.title] + $0.paragraphs }
         for piece in pieces {
             let found = NSSpellChecker.shared.checkSpelling(of: piece, startingAt: 0, language: language, wrap: false,

@@ -14,7 +14,7 @@ struct StyleVariableTests {
         indent.binding = .variable(distance.id)
         var before = StyleFormula(operation: StylePropertyOperation(.set, .spaceBefore, .length(0, .points)))
         before.binding = .variable(distance.id)
-        var sheet = StyleSheet(styles: [NamedStyle(name: "Citazione", target: .paragraph, formulas: [indent, before], variables: [distance])])
+        var sheet = StyleSheet(styles: [NamedStyle(name: "Quotation", target: .paragraph, formulas: [indent, before], variables: [distance])])
         sheet.reusableFormulas = [definition]
         return (sheet, distance)
     }
@@ -22,24 +22,24 @@ struct StyleVariableTests {
     @Test("Base 12 pt più margine 6 pt dà Distanza, 18 pt, a due proprietà; con margine 10 pt dà 22 pt")
     func distance() throws {
         var (sheet, _) = sheet()
-        let paragraph = sheet.resolveParagraph(styleName: "Citazione")
+        let paragraph = sheet.resolveParagraph(styleName: "Quotation")
         #expect(paragraph.leftIndent == 18 && paragraph.spaceBefore == 18)
         let parameter = sheet.reusableFormulas[0].parameters[0].id
         sheet.reusableFormulas[0].expression = .add(.parameter(parameter), .constant(.length(10)))
-        #expect(sheet.resolveParagraph(styleName: "Citazione").leftIndent == 22)
+        #expect(sheet.resolveParagraph(styleName: "Quotation").leftIndent == 22)
         #expect(sheet.formulaReferenceProblem() == nil)
-        #expect(sheet.formulaDefinition(for: .leftIndent, inStyle: "Citazione")?.calculation?.contains("Distanza") == true)
+        #expect(sheet.formulaDefinition(for: .leftIndent, inStyle: "Quotation")?.calculation?.contains("Distanza") == true)
     }
 
     @Test("Rinominare la variabile non interrompe le formule; una variabile può usarne un'altra")
     func renameAndChain() throws {
         var (sheet, distance) = sheet()
         sheet.styles[0].variables[0].name = "Rientro"
-        #expect(sheet.resolveParagraph(styleName: "Citazione").leftIndent == 18)
+        #expect(sheet.resolveParagraph(styleName: "Quotation").leftIndent == 18)
         let double = StyleVariable(name: "Doppia", expression: .add(.variable(distance.id), .variable(distance.id)))
         sheet.styles[0].variables.append(double)
         sheet.styles[0].formulas[1].binding = .variable(double.id)
-        #expect(sheet.resolveParagraph(styleName: "Citazione").spaceBefore == 36)
+        #expect(sheet.resolveParagraph(styleName: "Quotation").spaceBefore == 36)
     }
 
     @Test("Una variabile assente, un giro di variabili e nomi doppi sono diagnosi, non silenzi")
@@ -64,7 +64,7 @@ struct StyleVariableTests {
         #expect(xml.contains("version=\"12\"") && xml.contains("<variable id=\"\(distance.id.uuidString)\" name=\"Distanza\""))
         let read = try DocumentFormat.document(from: xml)
         #expect(read.styles.styles[0].variables == sheet.styles[0].variables)
-        #expect(read.styles.resolveParagraph(styleName: "Citazione").leftIndent == 18)
+        #expect(read.styles.resolveParagraph(styleName: "Quotation").leftIndent == 18)
         #expect(DocumentFormat.string(for: read) == xml, "riscritto uguale, senza duplicati")
         #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"12\"", with: "version=\"11\"")) }
     }
@@ -72,16 +72,16 @@ struct StyleVariableTests {
     @Test("Incollare uno stile con variabili porta la formula che esse richiamano, con l'identità rinnovata nei conflitti")
     func importCarriesVariables() throws {
         let (sheet, _) = sheet()
-        let source = Document(styles: sheet, blocks: [.paragraph(Paragraph(styleName: "Citazione", inlines: [.text(TextRun("Testo", style: TextStyling.styleBase))]))])
+        let source = Document(styles: sheet, blocks: [.paragraph(Paragraph(styleName: "Quotation", inlines: [.text(TextRun("Testo", style: TextStyling.styleBase))]))])
         let (text, _) = source.attributedString()
         let empty = DefinitionImport.merge(text, from: source, into: Document(), policy: .renameCopies)
         #expect(empty.styles.reusableFormulas.count == 1)
-        #expect(empty.styles.resolveParagraph(styleName: "Citazione").leftIndent == 18)
+        #expect(empty.styles.resolveParagraph(styleName: "Quotation").leftIndent == 18)
         var destination = source
         destination.styles.reusableFormulas[0].expression = .constant(.length(40))
         let merged = DefinitionImport.merge(text, from: source, into: destination, policy: .renameCopies)
-        #expect(merged.styles.resolveParagraph(styleName: "Citazione (2)").leftIndent == 18)
-        #expect(merged.styles.resolveParagraph(styleName: "Citazione").leftIndent == 40)
+        #expect(merged.styles.resolveParagraph(styleName: "Quotation (2)").leftIndent == 18)
+        #expect(merged.styles.resolveParagraph(styleName: "Quotation").leftIndent == 40)
         #expect(merged.styles.formulaReferenceProblem() == nil)
     }
 }

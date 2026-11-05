@@ -140,7 +140,7 @@ extension TypesettingSuite {
             let n = perPage
             func document(corpo: Int, keeping: LineKeeping) -> Document {
                 var document = Document(blocks: [lines(2, word: "Prima")])
-                document.sections = [Section(id: "c1", role: "capitolo", title: paragraph(1, word: "Capitolo"),
+                document.sections = [Section(id: "c1", role: "chapter", title: paragraph(1, word: "Capitolo"),
                                              blocks: [lines(corpo, word: "Corpo"), lines(1, word: "Coda", keeping: keeping)],
                                              afterward: [lines(3, word: "Dopo")])]
                 return document
@@ -178,7 +178,7 @@ extension TypesettingSuite {
         func beforeNewPageSection() {
             let n = perPage
             var document = Document(blocks: [lines(n - 1, word: "Riempi"), lines(1, word: "Titolo", keeping: withNext)])
-            document.sections = [Section(id: "c1", role: "capitolo", title: paragraph(1, word: "Capitolo"),
+            document.sections = [Section(id: "c1", role: "chapter", title: paragraph(1, word: "Capitolo"),
                                          blocks: [lines(3, word: "Testo")], start: .newPage)]
             let result = layout(document)
             #expect(pages(of: "Titolo", in: result) == [0])

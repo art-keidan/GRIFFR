@@ -23,9 +23,9 @@ final class EditorHarness {
         editor.pasteboard = NSPasteboard(name: NSPasteboard.Name("local.wordprocessor.tests.\(UUID().uuidString)"))
         if let paragraphs {
             let sheet = StyleSheet.builtIn
-            let style = sheet.resolveCharacter(paragraphStyle: "Testo", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
-            editor.replaceContent(Document(styles: sheet, lists: ListDefinition.builtIn, noteList: "Note", blocks: paragraphs.map {
-                .paragraph(Paragraph(styleName: "Testo", style: sheet.resolveParagraph(styleName: "Testo"), inlines: [.text(TextRun($0, style: style))]))
+            let style = sheet.resolveCharacter(paragraphStyle: "Body", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
+            editor.replaceContent(Document(styles: sheet, lists: ListDefinition.builtIn, noteList: "Notes", blocks: paragraphs.map {
+                .paragraph(Paragraph(styleName: "Body", style: sheet.resolveParagraph(styleName: "Body"), inlines: [.text(TextRun($0, style: style))]))
             }))
             document.undoManager?.removeAllActions()
         }

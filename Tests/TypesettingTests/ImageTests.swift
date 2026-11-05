@@ -102,7 +102,7 @@ extension TypesettingSuite {
             let doc = figureDocument([.text(TextRun("Testo", style: body)), figure("Didascalia")], style: style)
             let written = DocumentFormat.string(for: doc)
             #expect(written.contains("placement=\"figure\" positions=\"!tb\" caption=\"above\""))
-            #expect(written.contains("<note style=\"Figura\""))
+            #expect(written.contains("<note style=\"Figure\""))
             #expect(try DocumentFormat.document(from: written) == doc)
         }
 
@@ -119,7 +119,7 @@ extension TypesettingSuite {
             // Rosso (la conversione tra spazi di colore porta il verde a circa 0,15).
             #expect(red.redComponent > 0.9 && red.greenComponent < 0.3 && red.blueComponent < 0.1, "l'immagine è disegnata al suo posto")
             let text = try #require(PDFDocument(data: PDFRenderer.pdfData(for: result))?.string)
-            #expect(text.contains("Figura 1. Una didascalia"))
+            #expect(text.contains("Figure 1. Una didascalia"))
         }
 
         @Test("t: in cima alla pagina dopo; b: in fondo alla pagina del richiamo")

@@ -15,11 +15,11 @@ extension TypesettingSuite {
         /// «Citazione» con una parola latina in corsivo (0…10 «Una frase »; 10…15 «veni,»; poi « fine.»), e un esempio.
         private func sample() -> NSMutableAttributedString {
             NSMutableAttributedString(attributedString: Document(styles: sheet, lists: ListDefinition.builtIn, blocks: [
-                .paragraph(Paragraph(styleName: "Citazione", style: sheet.resolveParagraph(styleName: "Citazione"), inlines: [
-                    run("Una frase ", "Citazione"), run("veni,", "Citazione", word: "Latino", character: "Enfasi"), run(" fine.", "Citazione"),
+                .paragraph(Paragraph(styleName: "Quotation", style: sheet.resolveParagraph(styleName: "Quotation"), inlines: [
+                    run("Una frase ", "Quotation"), run("veni,", "Quotation", word: "Latin", character: "Emphasis"), run(" fine.", "Quotation"),
                 ])),
-                .paragraph(Paragraph(styleName: "Esempio", style: sheet.resolveParagraph(styleName: "Esempio"), list: ListItem(listName: "Esempi"),
-                                     inlines: [run("Esempio", "Esempio")])),
+                .paragraph(Paragraph(styleName: "Example", style: sheet.resolveParagraph(styleName: "Example"), list: ListItem(listName: "Examples"),
+                                     inlines: [run("Esempio", "Example")])),
             ]).attributedString().text)
         }
 
@@ -31,15 +31,15 @@ extension TypesettingSuite {
         func sources() {
             let text = sample()
             #expect(value(.size, text, at: 0).value.size == 11)
-            #expect(value(.size, text, at: 0).source == .style("Citazione"))
-            #expect(value(.family, text, at: 0).source == .style("Testo"), "la famiglia la fissa lo stile su cui Citazione si basa")
+            #expect(value(.size, text, at: 0).source == .style("Quotation"))
+            #expect(value(.family, text, at: 0).source == .style("Body"), "la famiglia la fissa lo stile su cui Citazione si basa")
             #expect(value(.face, text, at: 12).value.fontName == "HoeflerText-Italic")
-            #expect(value(.face, text, at: 12).source == .style("Enfasi"))
-            #expect(value(.language, text, at: 12).source == .style("Latino") && value(.language, text, at: 12).value.language == "la")
+            #expect(value(.face, text, at: 12).source == .style("Emphasis"))
+            #expect(value(.language, text, at: 12).source == .style("Latin") && value(.language, text, at: 12).value.language == "la")
             #expect(value(.language, text, at: 0).source == .document && value(.language, text, at: 0).value.language == "")
-            #expect(value(.leftIndent, text, at: 0).source == .style("Citazione"))
+            #expect(value(.leftIndent, text, at: 0).source == .style("Quotation"))
             #expect(value(.firstLineIndent, text, at: 0).source == .document)
-            #expect(value(.list, text, at: 22).value.listName == "Esempi" && value(.list, text, at: 22).source == .style("Esempio"))
+            #expect(value(.list, text, at: 22).value.listName == "Examples" && value(.list, text, at: 22).source == .style("Example"))
             #expect(value(.size, text, at: 5, length: 10).isMixed == false)
             #expect(value(.face, text, at: 5, length: 10).isMixed, "la selezione attraversa il tondo e il corsivo")
         }
@@ -52,15 +52,15 @@ extension TypesettingSuite {
             TextStyling.setValue(big, of: .size, in: text, range: NSRange(location: 0, length: 3))
             #expect(value(.size, text, at: 0).source == .own && value(.size, text, at: 0).value.size == 14)
             #expect(value(.size, text, at: 0).inherited.size == 11)
-            #expect(value(.size, text, at: 4).source == .style("Citazione"), "solo i caratteri scelti")
+            #expect(value(.size, text, at: 4).source == .style("Quotation"), "solo i caratteri scelti")
             var centered = StyleValues()
             centered.alignment = .center
             TextStyling.setValue(centered, of: .alignment, in: text, range: NSRange(location: 4, length: 0))
             #expect(value(.alignment, text, at: 18).source == .own, "una proprietà di paragrafo vale per tutto il paragrafo")
             TextStyling.resetValue(of: .size, in: text, range: NSRange(location: 0, length: text.length), sheet: sheet)
             TextStyling.resetValue(of: .alignment, in: text, range: NSRange(location: 0, length: 1), sheet: sheet)
-            #expect(value(.size, text, at: 0).source == .style("Citazione") && value(.size, text, at: 0).value.size == 11)
-            #expect(value(.alignment, text, at: 0).source == .style("Testo"))
+            #expect(value(.size, text, at: 0).source == .style("Quotation") && value(.size, text, at: 0).value.size == 11)
+            #expect(value(.alignment, text, at: 0).source == .style("Body"))
             #expect(value(.face, text, at: 12).value.fontName == "HoeflerText-Italic", "togliere il corpo non tocca il corsivo")
 
             // Una famiglia data a mano si toglie insieme alla faccia.
@@ -68,7 +68,7 @@ extension TypesettingSuite {
             times.family = "Times New Roman"
             TextStyling.setValue(times, of: .family, in: text, range: NSRange(location: 10, length: 5))
             #expect(value(.family, text, at: 12).source == .own && value(.face, text, at: 12).value.fontName == "TimesNewRomanPS-ItalicMT", "il corsivo resta")
-            #expect(value(.face, text, at: 12).source == .style("Enfasi"), "il nome del font cambia, ma il corsivo resta ereditato")
+            #expect(value(.face, text, at: 12).source == .style("Emphasis"), "il nome del font cambia, ma il corsivo resta ereditato")
             TextStyling.resetValue(of: .family, in: text, range: NSRange(location: 10, length: 5), sheet: sheet)
             #expect(value(.face, text, at: 12).value.fontName == "HoeflerText-Italic")
 
@@ -78,7 +78,7 @@ extension TypesettingSuite {
             TextStyling.setValue(none, of: .list, in: text, range: NSRange(location: 22, length: 0))
             #expect(value(.list, text, at: 22).source == .own && value(.list, text, at: 22).value.listName == "")
             TextStyling.resetValue(of: .list, in: text, range: NSRange(location: 22, length: 0), sheet: sheet)
-            #expect(value(.list, text, at: 22).value.listName == "Esempi")
+            #expect(value(.list, text, at: 22).value.listName == "Examples")
         }
 
         @Test("Portare un valore nello stile: lo riceve lo stile più vicino che lo può fissare")
@@ -88,15 +88,15 @@ extension TypesettingSuite {
             big.size = 13
             TextStyling.setValue(big, of: .size, in: text, range: NSRange(location: 0, length: 3))
             let updated = try #require(TextStyling.sheet(sheet, takingValueOf: .size, from: text, at: 0))
-            #expect(updated.inspect(style: "Citazione", base: TextStyling.styleBase).first { $0.property == .size }?.value.size == 13)
-            #expect(TextStyling.receivingStyle(for: .face, in: text, at: 12)?.name == "Enfasi")
-            #expect(TextStyling.receivingStyle(for: .language, in: text, at: 12)?.name == "Latino", "la lingua non va in uno stile di carattere")
-            #expect(TextStyling.receivingStyle(for: .alignment, in: text, at: 12)?.name == "Citazione")
+            #expect(updated.inspect(style: "Quotation", base: TextStyling.styleBase).first { $0.property == .size }?.value.size == 13)
+            #expect(TextStyling.receivingStyle(for: .face, in: text, at: 12)?.name == "Emphasis")
+            #expect(TextStyling.receivingStyle(for: .language, in: text, at: 12)?.name == "Latin", "la lingua non va in uno stile di carattere")
+            #expect(TextStyling.receivingStyle(for: .alignment, in: text, at: 12)?.name == "Quotation")
             // Un valore uguale a quello ereditato: lo stile smette di fissarlo.
             var twelve = StyleValues()
             twelve.size = 12
             TextStyling.setValue(twelve, of: .size, in: text, range: NSRange(location: 0, length: 3))
-            #expect(TextStyling.sheet(sheet, takingValueOf: .size, from: text, at: 0)?.style(named: "Citazione")?.values.size == nil)
+            #expect(TextStyling.sheet(sheet, takingValueOf: .size, from: text, at: 0)?.style(named: "Quotation")?.values.size == nil)
             // Il testo senza stile non ha dove portare il valore.
             let plain = NSMutableAttributedString(string: "x", attributes: [.font: NSFont(name: "HoeflerText-Regular", size: 12)!])
             #expect(TextStyling.sheet(sheet, takingValueOf: .size, from: plain, at: 0) == nil)
@@ -105,16 +105,16 @@ extension TypesettingSuite {
         @Test("La sola famiglia entra in uno stile nero anche con una faccia personalizzata")
         func familyIntoBoldStyleWithCustomFace() throws {
             var sheet = StyleSheet.builtIn
-            let position = try #require(sheet.styles.firstIndex { $0.name == "Testo" })
+            let position = try #require(sheet.styles.firstIndex { $0.name == "Body" })
             sheet.styles[position].values.family = "Hoefler Text"
             sheet.styles[position].values.bold = true
             let current = CharacterStyle(fontName: "Baskerville-SemiBold", size: 12, fontRole: .bold)
             let text = NSMutableAttributedString(string: "Parola", attributes: TextStyling.characterAttributes(for: current).attributes)
-            text.addAttribute(.paragraphStyleName, value: "Testo", range: NSRange(location: 0, length: text.length))
+            text.addAttribute(.paragraphStyleName, value: "Body", range: NSRange(location: 0, length: text.length))
             let updated = try #require(TextStyling.sheet(sheet, takingValueOf: .family, from: text, at: 0))
-            let values = try #require(updated.style(named: "Testo")?.values)
-            #expect(updated.inspect(style: "Testo", base: TextStyling.styleBase).first { $0.property == .family }?.value.family == "Baskerville")
-            #expect(updated.resolveCharacter(paragraphStyle: "Testo", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase).fontName == "Baskerville-Bold")
+            let values = try #require(updated.style(named: "Body")?.values)
+            #expect(updated.inspect(style: "Body", base: TextStyling.styleBase).first { $0.property == .family }?.value.family == "Baskerville")
+            #expect(updated.resolveCharacter(paragraphStyle: "Body", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase).fontName == "Baskerville-Bold")
             #expect(values.fontName == nil)
             #expect(values.italic == nil)
         }

@@ -20,9 +20,9 @@ extension TypesettingSuite {
 
         /// Un paragrafo «Citazione» composto con gli stili dati.
         private func sample(_ sheet: StyleSheet) -> NSMutableAttributedString {
-            let style = sheet.resolveCharacter(paragraphStyle: "Citazione", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
+            let style = sheet.resolveCharacter(paragraphStyle: "Quotation", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
             return NSMutableAttributedString(attributedString: Document(styles: sheet, lists: ListDefinition.builtIn, blocks: [
-                .paragraph(Paragraph(styleName: "Citazione", style: sheet.resolveParagraph(styleName: "Citazione"),
+                .paragraph(Paragraph(styleName: "Quotation", style: sheet.resolveParagraph(styleName: "Quotation"),
                                      inlines: [.text(TextRun("Una frase qualsiasi.", style: style))])),
             ]).attributedString().text)
         }
@@ -73,9 +73,9 @@ extension TypesettingSuite {
             let off = try ligaturesOff()
             give(text, features: [rare, off])
             let updated = try #require(TextStyling.sheet(sheet, takingDetail: key(rare), from: text, at: 0))
-            #expect(updated.style(named: "Citazione")?.values.features == [rare])
+            #expect(updated.style(named: "Quotation")?.values.features == [rare])
             TextStyling.restyle(text, range: NSRange(location: 0, length: text.length), from: sheet, to: updated)
-            #expect(detail(key(rare), text, updated)?.source == .style("Citazione"))
+            #expect(detail(key(rare), text, updated)?.source == .style("Quotation"))
             #expect(detail(key(off), text, updated)?.source == .own, "le legature restano date a mano")
             #expect(TextStyling.characterStyle(in: text, at: 0).map { Set($0.features) } == [rare, off])
             #expect(TextStyling.characterStyle(in: text, at: 5)?.features == [rare], "il resto del paragrafo prende le legature rare dallo stile")
@@ -88,18 +88,18 @@ extension TypesettingSuite {
             let off = try ligaturesOff()
             give(text, features: [rare])
             var updated = sheet
-            let position = try #require(updated.styles.firstIndex { $0.name == "Citazione" })
+            let position = try #require(updated.styles.firstIndex { $0.name == "Quotation" })
             updated.styles[position].values.features = [off]
             TextStyling.restyle(text, range: NSRange(location: 0, length: text.length), from: sheet, to: updated)
             #expect(TextStyling.characterStyle(in: text, at: 0).map { Set($0.features) } == [rare, off])
-            #expect(detail(key(off), text, updated)?.source == .style("Citazione"))
+            #expect(detail(key(off), text, updated)?.source == .style("Quotation"))
             #expect(detail(key(rare), text, updated)?.source == .own)
         }
 
         @Test("Il maiuscoletto non è più una funzione: nello stile e nel testo è una proprietà, e il corsivo non lo tocca")
         func smallCapsIsAProperty() throws {
             var sheet = StyleSheet.builtIn
-            let position = try #require(sheet.styles.firstIndex { $0.name == "Citazione" })
+            let position = try #require(sheet.styles.firstIndex { $0.name == "Quotation" })
             sheet.styles[position].values.smallCaps = .lowercase
             let text = sample(sheet)
             #expect(TextStyling.characterStyle(in: text, at: 0)?.smallCaps == .lowercase)
@@ -114,13 +114,13 @@ extension TypesettingSuite {
             #expect(TextStyling.inspectDetails(in: text, range: NSRange(location: 0, length: 0), sheet: sheet).isEmpty,
                     "nessuna funzione data a mano")
             let inspected = TextStyling.inspect(.character, in: text, range: NSRange(location: 0, length: 0), sheet: sheet).first { $0.property == .smallCaps }
-            #expect(inspected?.source == .style("Citazione"))
+            #expect(inspected?.source == .style("Quotation"))
         }
 
         /// Gli stili con «Citazione» in Skia: il testo ha il font dello stile, e gli assi si possono portare nello stile.
         private func skiaSheet() throws -> StyleSheet {
             var sheet = StyleSheet.builtIn
-            let position = try #require(sheet.styles.firstIndex { $0.name == "Citazione" })
+            let position = try #require(sheet.styles.firstIndex { $0.name == "Quotation" })
             sheet.styles[position].values.family = "Skia"
             return sheet
         }
@@ -135,9 +135,9 @@ extension TypesettingSuite {
             #expect(detail(.axis("wdth"), text, sheet)?.source == .own)
 
             let updated = try #require(TextStyling.sheet(sheet, takingDetail: .axis("wght"), from: text, at: 0))
-            #expect(updated.style(named: "Citazione")?.values.variations == [AxisValue(tag: "wght", value: 2)])
+            #expect(updated.style(named: "Quotation")?.values.variations == [AxisValue(tag: "wght", value: 2)])
             TextStyling.restyle(text, range: NSRange(location: 0, length: text.length), from: sheet, to: updated)
-            #expect(detail(.axis("wght"), text, updated)?.source == .style("Citazione"))
+            #expect(detail(.axis("wght"), text, updated)?.source == .style("Quotation"))
             #expect(detail(.axis("wdth"), text, updated)?.source == .own)
 
             TextStyling.resetDetail(.axis("wdth"), in: text, range: NSRange(location: 0, length: 3), sheet: updated)

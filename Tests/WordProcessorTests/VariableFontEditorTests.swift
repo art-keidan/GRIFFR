@@ -96,10 +96,10 @@ struct VariableFontEditorTests {
         e.moveStyleAdditionsToStyles(nil); h.step()
         #expect(e.styleMonitor.additions.isEmpty)
         let sheet = e.currentDocument().styles
-        let testo = sheet.values(of: "Testo")
+        let testo = sheet.values(of: "Body")
         // La famiglia ora sta in una formula dello stile, non nel campo storico: conta che lo stile la dichiari e la dia.
-        #expect(sheet.style(named: "Testo")?.declares(.family) == true)
-        let resolved = sheet.resolveCharacter(paragraphStyle: "Testo", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
+        #expect(sheet.style(named: "Body")?.declares(.family) == true)
+        let resolved = sheet.resolveCharacter(paragraphStyle: "Body", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
         #expect(FontRoleResolver().family(of: resolved) == "Adobe Kis VF")
         #expect(testo.variations == [AxisValue(tag: "wght", value: 600)])
         // L'altro capoverso dello stesso stile: lo stesso font, senza corpo ottico fissato.
@@ -124,7 +124,7 @@ struct VariableFontEditorTests {
         send(slider, h)
         #expect(e.styleMonitor.additions.contains("char. weight 300"))
         e.moveStyleAdditionsToStyles(nil); h.step()
-        #expect(e.currentDocument().styles.values(of: "Testo").variations == [AxisValue(tag: "wght", value: 300)])
+        #expect(e.currentDocument().styles.values(of: "Body").variations == [AxisValue(tag: "wght", value: 300)])
         #expect(axes(h, at: 30)["wght"] == 300, "l'altro capoverso dello stile resta a 300")
         h.select(0, length: 5)
         e.toggleBold(nil); h.step()
@@ -150,7 +150,7 @@ struct VariableFontEditorTests {
         h.select(0, length: 5)
         e.assignFontRole(.regular); h.step()
         // Lo stile non tiene più il 300 a numero: segue il Regular.
-        #expect(e.currentDocument().styles.values(of: "Testo").variations == nil)
+        #expect(e.currentDocument().styles.values(of: "Body").variations == nil)
         #expect(axes(h, at: 40)["wght"] == 300)
         h.select(6, length: 18)
         slider.doubleValue = 400

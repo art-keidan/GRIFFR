@@ -42,8 +42,8 @@ extension TypesettingSuite {
         }
 
         private func document(facing: Bool, inlines: [Inline], floatStyles: [FloatStyle] = []) -> Document {
-            var document = Document(styles: .builtIn, lists: ListDefinition.builtIn, blocks: [.paragraph(Paragraph(styleName: "Testo",
-                                    style: StyleSheet.builtIn.resolveParagraph(styleName: "Testo"), inlines: inlines))])
+            var document = Document(styles: .builtIn, lists: ListDefinition.builtIn, blocks: [.paragraph(Paragraph(styleName: "Body",
+                                    style: StyleSheet.builtIn.resolveParagraph(styleName: "Body"), inlines: inlines))])
             document.floatStyles += floatStyles
             document.pageSetup = PageSetup(paperSize: CGSize(width: mm(170), height: mm(240)), top: mm(20), bottom: mm(25),
                                            left: mm(15), right: mm(35), facing: facing)

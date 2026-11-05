@@ -12,7 +12,7 @@ extension TypesettingSuite {
 
         @Test("Forte come formula cambia il font effettivo anche dopo il salvataggio e il deposito")
         func fontRoundTrip() throws {
-            let add = NamedStyle(name: "Forte", target: .character, formulas: [formula(.add, .font, .font(.bold))])
+            let add = NamedStyle(name: "Strong", target: .character, formulas: [formula(.add, .font, .font(.bold))])
             let set = NamedStyle(name: "Nero assoluto", target: .character, formulas: [formula(.set, .font, .font(.bold))])
             let sheet = StyleSheet(styles: [add, set])
             var doc = Document(styles: sheet, blocks: [.paragraph(Paragraph(inlines: [
@@ -22,13 +22,13 @@ extension TypesettingSuite {
             let loaded = try DocumentFormat.document(from: serialized)
             #expect(loaded.sourceVersion == 4)
             #expect(loaded.styles.styles == sheet.styles)
-            #expect(loaded.styles.resolveCharacter(paragraphStyle: nil, wordStyle: nil, characterStyle: "Forte", base: base).fontName == "HoeflerText-BlackItalic")
+            #expect(loaded.styles.resolveCharacter(paragraphStyle: nil, wordStyle: nil, characterStyle: "Strong", base: base).fontName == "HoeflerText-BlackItalic")
             #expect(loaded.styles.resolveCharacter(paragraphStyle: nil, wordStyle: nil, characterStyle: "Nero assoluto", base: base).fontName == "HoeflerText-Black")
             let store = DocumentStore(document: loaded)
             let reopened = try DocumentFormat.document(from: DocumentFormat.data(for: store.document))
             #expect(reopened.styles.styles == sheet.styles)
             doc.styles.styles[0].formulas[0].operation = StylePropertyOperation(.set, .font, .font(.bold))
-            #expect(doc.styles.resolveCharacter(paragraphStyle: nil, wordStyle: nil, characterStyle: "Forte", base: base).fontName == "HoeflerText-Black")
+            #expect(doc.styles.resolveCharacter(paragraphStyle: nil, wordStyle: nil, characterStyle: "Strong", base: base).fontName == "HoeflerText-Black")
         }
 
         @Test("Eredità mista, unità, ordine e sostituzione dal controllo di rientro")
@@ -36,27 +36,27 @@ extension TypesettingSuite {
             var values = StyleValues()
             values.leftIndent = 12
             let parent = NamedStyle(name: "Base", target: .paragraph, values: values)
-            let child = NamedStyle(name: "Citazione", target: .paragraph, basedOn: "Base",
+            let child = NamedStyle(name: "Quotation", target: .paragraph, basedOn: "Base",
                                    formulas: [formula(.add, .leftIndent, .length(6, .points))])
             var sheet = StyleSheet(styles: [parent, child])
-            #expect(sheet.resolveParagraph(styleName: "Citazione").leftIndent == 18)
-            #expect(sheet.inspect(style: "Citazione", base: base).first { $0.property == .leftIndent }?.source == .own)
+            #expect(sheet.resolveParagraph(styleName: "Quotation").leftIndent == 18)
+            #expect(sheet.inspect(style: "Quotation", base: base).first { $0.property == .leftIndent }?.source == .own)
             sheet.styles[0].values.leftIndent = 24
-            #expect(sheet.resolveParagraph(styleName: "Citazione").leftIndent == 30)
+            #expect(sheet.resolveParagraph(styleName: "Quotation").leftIndent == 30)
             var replacement = StyleValues()
             replacement.leftIndent = 8
-            let controlled = sheet.setting(replacement, of: .leftIndent, inStyle: "Citazione", base: base, replacingFormula: true)
+            let controlled = sheet.setting(replacement, of: .leftIndent, inStyle: "Quotation", base: base, replacingFormula: true)
             #expect(controlled.styles[1].formulas.first?.operation.predicate == .set)
-            #expect(controlled.resolveParagraph(styleName: "Citazione").leftIndent == 8)
-            let inherited = sheet.resetting(.leftIndent, inStyle: "Citazione")
-            #expect(inherited.resolveParagraph(styleName: "Citazione").leftIndent == 24)
+            #expect(controlled.resolveParagraph(styleName: "Quotation").leftIndent == 8)
+            let inherited = sheet.resetting(.leftIndent, inStyle: "Quotation")
+            #expect(inherited.resolveParagraph(styleName: "Quotation").leftIndent == 24)
 
-            sheet.styles.append(NamedStyle(name: "Dopo", target: .paragraph, basedOn: "Citazione", values: replacement))
+            sheet.styles.append(NamedStyle(name: "Dopo", target: .paragraph, basedOn: "Quotation", values: replacement))
             #expect(sheet.resolveParagraph(styleName: "Dopo").leftIndent == 8)
             let loaded = try DocumentFormat.document(from: DocumentFormat.data(for: Document(styles: sheet)))
             #expect(loaded.styles.styles == sheet.styles)
-            #expect(loaded.styles.resolveParagraph(styleName: "Citazione").leftIndent == 30)
-            let evaluated = try sheet.values(of: "Citazione").evaluatingFormulas(from: StylePredicateState(character: base))
+            #expect(loaded.styles.resolveParagraph(styleName: "Quotation").leftIndent == 30)
+            let evaluated = try sheet.values(of: "Quotation").evaluatingFormulas(from: StylePredicateState(character: base))
             #expect(evaluated.paragraph.leftIndent == 30)
         }
 

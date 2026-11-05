@@ -27,14 +27,19 @@ enum LoremText {
             """,
             """
             The distance between the lines matters as much as their length. A long line needs more air, so that the eye can find \
-            its way back; a short line can stay closer. A type with a large x-height looks bigger than its size suggests, and \
-            asks for a little more space. These are not rigid rules but habits of the eye, which the compositor learns to \
+            its way back; a short line can stay closer. A type with tall lowercase letters looks bigger than its size suggests, \
+            and asks for a little more space. These are not rigid rules but habits of the eye, which the compositor learns to \
             respect.
             """,
             """
             Justified text gives the page a calm, even look, but it has a price: the spaces between the words grow and shrink \
             from line to line. Hyphenation helps to keep them even, and a good line-breaking program weighs the whole paragraph \
             instead of one line at a time, so that no line is left too loose or too tight.
+            """,
+            """
+            Readers rarely measure anything, yet they feel at once when a page has been set with care. A column that is too \
+            wide for its type, or lines packed too tightly, make the text look dark and heavy before a single word has been \
+            read. A well balanced page, instead, invites the eye to begin, and keeps it company until the last line.
             """,
         ]),
         ("The typeface and its voice", [
@@ -53,6 +58,11 @@ enum LoremText {
             one. A good font provides them, and a good program lets the author use them without effort, so that abbreviations do \
             not shout and numbers sit quietly among the letters.
             """,
+            """
+            Choosing a typeface also means choosing its family. A text needs a roman, an italic and often small capitals that \
+            belong together, drawn with the same hand and the same rhythm. When the italic comes from another family, the page \
+            loses its unity, and even a reader who knows nothing about type senses that something is out of tune.
+            """,
         ]),
         ("The page as space", [
             """
@@ -70,6 +80,11 @@ enum LoremText {
             it, but only find the words in their place, clear and quiet, ready to be read. It is a craft made of measures and \
             proportions, but also of listening: one has to understand what the text asks for, and give it the form that lets it \
             speak.
+            """,
+            """
+            White space works in the same way between the parts of a book. A little more room before a heading tells the reader \
+            that a new subject begins; a little less after it binds the heading to its text. Each of these distances is small, \
+            but together they give the book its pace, like the pauses in a piece of music.
             """,
         ]),
     ]

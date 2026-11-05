@@ -33,7 +33,7 @@ extension TypesettingSuite {
             #expect(flat.map(\.paragraph.plainText) == ["Premessa.", "Parte prima", "Capitolo primo", "Testo del capitolo.", "1.1", "Testo di 1.1.", "",
                                                         "Testo di 1.2, senza titolo.", "Capitolo secondo", "Testo.", "Appendice", "Tavole."])
             #expect(flat.map { $0.section?.depth ?? 0 } == [0, 1, 2, 0, 3, 0, 3, 0, 2, 0, 1, 0])
-            #expect(flat[1].section?.role == "parte" && flat[10].section?.role == "appendice")
+            #expect(flat[1].section?.role == "part" && flat[10].section?.role == "appendix")
             var rebuilt = Document()
             rebuilt.setFlatParagraphs(flat)
             #expect(rebuilt.blocks == document.blocks && rebuilt.sections == document.sections)
@@ -42,9 +42,9 @@ extension TypesettingSuite {
         @Test("Dalla fila: un segno ripetuto è testo della sezione; una profondità che salta livelli si accorcia")
         func repairs() {
             var document = Document()
-            let mark = SectionMark(id: "x", role: "capitolo", depth: 1)
+            let mark = SectionMark(id: "x", role: "chapter", depth: 1)
             document.setFlatParagraphs([FlatParagraph(paragraph("Tito"), section: mark), FlatParagraph(paragraph("lo"), section: mark),
-                                        FlatParagraph(paragraph("Salta"), section: SectionMark(id: "y", role: "sezione", depth: 3))])
+                                        FlatParagraph(paragraph("Salta"), section: SectionMark(id: "y", role: "section", depth: 3))])
             #expect(document.blocks.isEmpty && document.sections.count == 1)
             #expect(document.sections[0].title.plainText == "Tito")
             #expect(document.sections[0].blocks == [.paragraph(paragraph("lo"))], "Invio in fondo al titolo fa un paragrafo del corpo")
@@ -63,26 +63,26 @@ extension TypesettingSuite {
         <document version="1" font="HoeflerText-Regular" size="12">
         <page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
         <p>Premessa.</p>
-        <section id="p1" role="parte">
+        <section id="p1" role="part">
         <title><p>Parte prima</p></title>
-        <section id="c1" role="capitolo">
+        <section id="c1" role="chapter">
         <title><p>Capitolo primo</p></title>
         <p>Testo del capitolo.</p>
-        <section id="s11" role="sezione">
+        <section id="s11" role="section">
         <title><p>1.1</p></title>
         <p>Testo di 1.1.</p>
         </section>
-        <section id="s12" role="sezione">
+        <section id="s12" role="section">
         <title><p/></title>
         <p>Testo di 1.2, senza titolo.</p>
         </section>
         </section>
-        <section id="c2" role="capitolo">
+        <section id="c2" role="chapter">
         <title><p>Capitolo secondo</p></title>
         <p>Testo.</p>
         </section>
         </section>
-        <section id="a1" role="appendice">
+        <section id="a1" role="appendix">
         <title><p>Appendice</p></title>
         <p>Tavole.</p>
         </section>
@@ -112,7 +112,7 @@ extension TypesettingSuite {
         @Test("Un ultimo paragrafo vuoto che è un titolo si dichiara sull'a capo che lo precede")
         func emptyFinalTitle() {
             var document = Document(blocks: [.paragraph(paragraph("Testo."))])
-            document.sections = [Section(id: "fine", role: "capitolo", title: paragraph(""))]
+            document.sections = [Section(id: "fine", role: "chapter", title: paragraph(""))]
             let (text, _) = document.attributedString()
             #expect(text.string == "Testo.\n")
             let back = Document(attributedString: text, settings: document.settingsOnly)
@@ -124,7 +124,7 @@ extension TypesettingSuite {
             let plain = try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><p>a</p><p>b</p></document>")
             #expect(plain.sections.isEmpty && plain.blocks.count == 2)
             let bare = try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><section><title/><p>a</p></section></document>")
-            #expect(bare.sections.count == 1 && bare.sections[0].role == "sezione" && bare.sections[0].id.hasPrefix("s"))
+            #expect(bare.sections.count == 1 && bare.sections[0].role == "section" && bare.sections[0].id.hasPrefix("s"))
             #expect(bare.sections[0].title.plainText.isEmpty && bare.sections[0].blocks.count == 1)
         }
 
@@ -167,8 +167,8 @@ extension TypesettingSuite {
             let title = SectionEditing.insertSection(in: text, at: point, level: .same, sheet: .builtIn)
             #expect(title == point + 1 && (text.string as NSString).substring(with: NSRange(location: point - 5, length: 8)) == "Testo\n\n ")
             let document = tree(text)
-            #expect(outline(document.sections) == ["1 parte Parte prima", "2 capitolo Capitolo primo", "2 capitolo ", "3 sezione 1.1", "3 sezione ",
-                                                   "2 capitolo Capitolo secondo", "1 appendice Appendice"])
+            #expect(outline(document.sections) == ["1 part Parte prima", "2 chapter Capitolo primo", "2 chapter ", "3 section 1.1", "3 section ",
+                                                   "2 chapter Capitolo secondo", "1 appendix Appendice"])
             #expect(document.sections[0].sections[0].blocks.map { if case .paragraph(let p) = $0 { p.plainText } else { "" } } == ["Testo"])
             #expect(document.sections[0].sections[1].blocks.count == 1, "« del capitolo.» passa al capitolo nuovo, con le sue sezioni")
         }
@@ -177,35 +177,35 @@ extension TypesettingSuite {
         func insertLevels() {
             let text = editable()
             SectionEditing.insertSection(in: text, at: location(of: "Testo.", in: text), level: .inside, sheet: .builtIn)
-            #expect(outline(tree(text).sections).contains("3 sezione "), "dentro il capitolo secondo, prima del suo testo")
+            #expect(outline(tree(text).sections).contains("3 section "), "dentro il capitolo secondo, prima del suo testo")
             let inner = location(of: "Testo di 1.1.", in: text)
             SectionEditing.insertSection(in: text, at: inner + ("Testo di 1.1." as NSString).length, level: .outside, sheet: .builtIn)
             let names = outline(tree(text).sections)
-            #expect(names.prefix(5) == ["1 parte Parte prima", "2 capitolo Capitolo primo", "3 sezione 1.1", "2 capitolo ", "3 sezione "],
+            #expect(names.prefix(5) == ["1 part Parte prima", "2 chapter Capitolo primo", "3 section 1.1", "2 chapter ", "3 section "],
                     "più fuori dopo «Testo di 1.1.»: un capitolo, che prende la sezione 1.2 che seguiva")
             var plain = NSMutableAttributedString(attributedString: Document(blocks: [.paragraph(paragraph("Uno")), .paragraph(paragraph("Due"))]).attributedString().text)
             let first = SectionEditing.insertSection(in: plain, at: 0, level: .same, sheet: .builtIn)
             #expect(first == 0 && plain.string == "\nUno\nDue")
-            #expect(plain.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String == "Titolo 1", "primo livello: Titolo 1")
-            #expect(tree(plain).sections.first?.role == "capitolo" && tree(plain).blocks.isEmpty)
+            #expect(plain.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String == "Heading 1", "primo livello: Titolo 1")
+            #expect(tree(plain).sections.first?.role == "chapter" && tree(plain).blocks.isEmpty)
             plain = NSMutableAttributedString(attributedString: Document(blocks: [.paragraph(paragraph("Uno")), .paragraph(paragraph("Due"))]).attributedString().text)
             SectionEditing.insertSection(in: plain, at: 3, level: .same, sheet: .builtIn)
             #expect(plain.string == "Uno\n\nDue", "alla fine di un paragrafo: il titolo dopo")
             SectionEditing.insertSection(in: plain, at: plain.length, level: .inside, sheet: .builtIn)
             #expect(plain.string == "Uno\n\nDue\n\n", "alla fine del testo: un titolo e un paragrafo vuoto dopo")
-            #expect(outline(tree(plain).sections) == ["1 capitolo ", "2 sezione "])
-            #expect(plain.attribute(.paragraphStyleName, at: 9, effectiveRange: nil) as? String == "Titolo 2")
+            #expect(outline(tree(plain).sections) == ["1 chapter ", "2 section "])
+            #expect(plain.attribute(.paragraphStyleName, at: 9, effectiveRange: nil) as? String == "Heading 2")
         }
 
         @Test("Il ruolo di una sezione nuova: dalle sorelle, poi da chi ha un genitore dello stesso ruolo, altrimenti dalla profondità")
         func roleOfNewSection() {
             let text = editable()
             SectionEditing.insertSection(in: text, at: location(of: "Tavole.", in: text), level: .inside, sheet: .builtIn)
-            #expect(outline(tree(text).sections).last == "2 sezione ", "dentro l'appendice: non «capitolo» come i capitoli della parte")
+            #expect(outline(tree(text).sections).last == "2 section ", "dentro l'appendice: non «capitolo» come i capitoli della parte")
             SectionEditing.insertSection(in: text, at: location(of: "Testo.", in: text), level: .inside, sheet: .builtIn)
-            #expect(outline(tree(text).sections).contains("3 sezione "), "dentro il capitolo secondo: «sezione», come le sezioni del capitolo primo")
+            #expect(outline(tree(text).sections).contains("3 section "), "dentro il capitolo secondo: «sezione», come le sezioni del capitolo primo")
             SectionEditing.insertSection(in: text, at: location(of: "Testo del capitolo.", in: text), level: .same, sheet: .builtIn)
-            #expect(outline(tree(text).sections)[2] == "2 capitolo ", "accanto a un capitolo: un capitolo")
+            #expect(outline(tree(text).sections)[2] == "2 chapter ", "accanto a un capitolo: un capitolo")
         }
 
         @Test("Togliere una sezione: il suo testo passa alla sezione prima, le interne salgono di un livello e restano sorelle")
@@ -213,7 +213,7 @@ extension TypesettingSuite {
             let text = editable()
             let chapter = try #require(SectionEditing.titles(in: text).first { $0.mark.id == "c1" })
             SectionEditing.removeSection(chapter, in: text)
-            #expect(outline(tree(text).sections) == ["1 parte Parte prima", "2 sezione 1.1", "2 sezione ", "2 capitolo Capitolo secondo", "1 appendice Appendice"])
+            #expect(outline(tree(text).sections) == ["1 part Parte prima", "2 section 1.1", "2 section ", "2 chapter Capitolo secondo", "1 appendix Appendice"])
             #expect(SectionEditing.titles(in: text).allSatisfy { $0.mark.depth == $0.depth }, "i segni dicono la profondità vera")
             #expect(tree(text).sections[0].blocks.count == 2, "titolo e testo del capitolo restano, come paragrafi della parte")
         }
@@ -240,11 +240,11 @@ extension TypesettingSuite {
             #expect(!SectionEditing.canMoveInside(try #require(title("c1", text)), in: text), "il primo capitolo non ha una sorella prima")
             #expect(SectionEditing.canMoveInside(try #require(title("c2", text)), in: text))
             #expect(SectionEditing.moveSection(try #require(title("c2", text)), by: 1, in: text))
-            #expect(outline(tree(text).sections) == ["1 parte Parte prima", "2 capitolo Capitolo primo", "3 sezione 1.1", "3 sezione ", "3 lezione Capitolo secondo",
-                                                     "1 appendice Appendice"], "dopo le sezioni del capitolo primo, come sua ultima interna")
+            #expect(outline(tree(text).sections) == ["1 part Parte prima", "2 chapter Capitolo primo", "3 section 1.1", "3 section ", "3 lezione Capitolo secondo",
+                                                     "1 appendix Appendice"], "dopo le sezioni del capitolo primo, come sua ultima interna")
             #expect(SectionEditing.moveSection(try #require(title("c1", text)), by: -1, in: text))
-            #expect(outline(tree(text).sections) == ["1 parte Parte prima", "1 capitolo Capitolo primo", "2 sezione 1.1", "2 sezione ", "2 lezione Capitolo secondo",
-                                                     "1 appendice Appendice"], "sale con le sue interne")
+            #expect(outline(tree(text).sections) == ["1 part Parte prima", "1 chapter Capitolo primo", "2 section 1.1", "2 section ", "2 lezione Capitolo secondo",
+                                                     "1 appendix Appendice"], "sale con le sue interne")
             #expect(!SectionEditing.moveSection(try #require(title("a1", text)), by: -1, in: text), "al primo livello non si sale")
             #expect(SectionEditing.titles(in: text).allSatisfy { $0.mark.depth == $0.depth })
         }
@@ -255,26 +255,26 @@ extension TypesettingSuite {
         func opensFromStyle() {
             let text = NSMutableAttributedString(attributedString: Document(blocks: ["Uno", "Due", "Tre", "Quattro"].map { .paragraph(paragraph($0)) }).attributedString().text)
             func range(_ word: String) -> NSRange { (text.string as NSString).range(of: word) }
-            SectionEditing.openSections(role: "capitolo", inParagraphsOf: range("Due"), in: text)
-            SectionEditing.openSections(role: "sezione", inParagraphsOf: range("Tre"), in: text)
-            #expect(outline(tree(text).sections) == ["1 capitolo Due", "2 sezione Tre"], "la sezione nasce dentro il capitolo in cui cade")
-            SectionEditing.openSections(role: "capitolo", inParagraphsOf: range("Quattro"), in: text)
-            #expect(outline(tree(text).sections) == ["1 capitolo Due", "2 sezione Tre", "1 capitolo Quattro"], "un capitolo va dove sono gli altri capitoli")
-            SectionEditing.openSections(role: "parte", inParagraphsOf: range("Due"), in: text)
-            #expect(outline(tree(text).sections).first == "1 capitolo Due", "un titolo resta la sezione che era")
-            SectionEditing.openSections(role: "capitolo", inParagraphsOf: NSRange(location: 0, length: text.length), in: text)
-            #expect(outline(tree(text).sections) == ["1 capitolo Uno", "1 capitolo Due", "2 sezione Tre", "1 capitolo Quattro"], "più paragrafi in una volta")
+            SectionEditing.openSections(role: "chapter", inParagraphsOf: range("Due"), in: text)
+            SectionEditing.openSections(role: "section", inParagraphsOf: range("Tre"), in: text)
+            #expect(outline(tree(text).sections) == ["1 chapter Due", "2 section Tre"], "la sezione nasce dentro il capitolo in cui cade")
+            SectionEditing.openSections(role: "chapter", inParagraphsOf: range("Quattro"), in: text)
+            #expect(outline(tree(text).sections) == ["1 chapter Due", "2 section Tre", "1 chapter Quattro"], "un capitolo va dove sono gli altri capitoli")
+            SectionEditing.openSections(role: "part", inParagraphsOf: range("Due"), in: text)
+            #expect(outline(tree(text).sections).first == "1 chapter Due", "un titolo resta la sezione che era")
+            SectionEditing.openSections(role: "chapter", inParagraphsOf: NSRange(location: 0, length: text.length), in: text)
+            #expect(outline(tree(text).sections) == ["1 chapter Uno", "1 chapter Due", "2 section Tre", "1 chapter Quattro"], "più paragrafi in una volta")
         }
 
         @Test("Nel file: opens-section sugli stili di paragrafo; Titolo 1 e Titolo 2 già pronti aprono capitolo e sezione")
         func opensSectionInFile() throws {
-            #expect(StyleSheet.builtIn.values(of: "Titolo 1").opensSection == "capitolo" && StyleSheet.builtIn.values(of: "Titolo 2").opensSection == "sezione")
-            #expect(StyleSheet.builtIn.values(of: "Testo").opensSection == nil)
+            #expect(StyleSheet.builtIn.values(of: "Heading 1").opensSection == "chapter" && StyleSheet.builtIn.values(of: "Heading 2").opensSection == "section")
+            #expect(StyleSheet.builtIn.values(of: "Body").opensSection == nil)
             let document = Document(styles: .builtIn, lists: ListDefinition.builtIn, blocks: [.paragraph(paragraph("a"))])
             let written = DocumentFormat.string(for: document)
-            #expect(written.contains("opens-section=\"capitolo\"") && written.contains("opens-section=\"sezione\""))
+            #expect(written.contains("opens-section=\"chapter\"") && written.contains("opens-section=\"section\""))
             #expect(try DocumentFormat.document(from: written).styles == document.styles)
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><styles><style name=\"L\" target=\"word\" opens-section=\"capitolo\"/></styles></document>")) == nil,
+            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><styles><style name=\"L\" target=\"word\" opens-section=\"chapter\"/></styles></document>")) == nil,
                     "solo uno stile di paragrafo apre una sezione")
         }
 
@@ -284,9 +284,9 @@ extension TypesettingSuite {
             func names(_ items: [OutlineItem], depth: Int = 0) -> [String] {
                 items.flatMap { ["\(String(repeating: "  ", count: depth))\($0.label) \($0.title) [\($0.detail)]"] + names($0.children ?? [], depth: depth + 1) }
             }
-            #expect(names(items) == ["¶ Premessa. []", "§ Parte prima [parte]", "  § Capitolo primo [capitolo]", "    ¶ Testo del capitolo. []",
-                                     "    § 1.1 [sezione]", "      ¶ Testo di 1.1. []", "    § (senza titolo) [sezione]", "      ¶ Testo di 1.2, senza titolo. []",
-                                     "  § Capitolo secondo [capitolo]", "    ¶ Testo. []", "§ Appendice [appendice]", "  ¶ Tavole. []"])
+            #expect(names(items) == ["¶ Premessa. []", "§ Parte prima [part]", "  § Capitolo primo [chapter]", "    ¶ Testo del capitolo. []",
+                                     "    § 1.1 [section]", "      ¶ Testo di 1.1. []", "    § (senza titolo) [section]", "      ¶ Testo di 1.2, senza titolo. []",
+                                     "  § Capitolo secondo [chapter]", "    ¶ Testo. []", "§ Appendice [appendix]", "  ¶ Tavole. []"])
         }
 
         // MARK: Dove comincia una sezione (tappa S.3a)
@@ -294,10 +294,10 @@ extension TypesettingSuite {
         private func pagedBook() -> Document {
             var document = Document(blocks: [.paragraph(paragraph("Premessa."))])
             document.sections = [
-                Section(id: "c1", role: "capitolo", title: paragraph("Uno"), blocks: [.paragraph(paragraph("Testo uno."))], start: .newPage),
-                Section(id: "c2", role: "capitolo", title: paragraph("Due"), blocks: [.paragraph(paragraph("Testo due."))], start: .oddPage),
-                Section(id: "c3", role: "capitolo", title: paragraph("Tre"), blocks: [.paragraph(paragraph("Testo tre."))], start: .oddPage),
-                Section(id: "c4", role: "capitolo", title: paragraph("Quattro"), blocks: [.paragraph(paragraph("Testo quattro."))]),
+                Section(id: "c1", role: "chapter", title: paragraph("Uno"), blocks: [.paragraph(paragraph("Testo uno."))], start: .newPage),
+                Section(id: "c2", role: "chapter", title: paragraph("Due"), blocks: [.paragraph(paragraph("Testo due."))], start: .oddPage),
+                Section(id: "c3", role: "chapter", title: paragraph("Tre"), blocks: [.paragraph(paragraph("Testo tre."))], start: .oddPage),
+                Section(id: "c4", role: "chapter", title: paragraph("Quattro"), blocks: [.paragraph(paragraph("Testo quattro."))]),
             ]
             return document
         }
@@ -320,7 +320,7 @@ extension TypesettingSuite {
         @Test("Nel file start=\"new-page\" e start=\"odd-page\"; una sezione nuova copia l'inizio dalla sorella")
         func startInFileAndCopy() throws {
             let written = DocumentFormat.string(for: pagedBook())
-            #expect(written.contains("<section id=\"c1\" role=\"capitolo\" start=\"new-page\">") && written.contains("<section id=\"c4\" role=\"capitolo\">"))
+            #expect(written.contains("<section id=\"c1\" role=\"chapter\" start=\"new-page\">") && written.contains("<section id=\"c4\" role=\"chapter\">"))
             let read = try DocumentFormat.document(from: written)
             #expect(read.sections == pagedBook().sections)
             #expect((try? DocumentFormat.document(from: "<document version=\"1\"><section start=\"altrove\"><title/></section></document>")) == nil)
@@ -340,16 +340,16 @@ extension TypesettingSuite {
         /// secondo di seguito.
         private func openingBook(distance: Double?, own: Double? = nil) -> Document {
             var sheet = StyleSheet.builtIn
-            if let index = sheet.styles.firstIndex(where: { $0.name == "Titolo 1" }) { sheet.styles[index].values.openingDistance = distance }
+            if let index = sheet.styles.firstIndex(where: { $0.name == "Heading 1" }) { sheet.styles[index].values.openingDistance = distance }
             func titled(_ text: String) -> Paragraph {
-                Paragraph(styleName: "Titolo 1", style: sheet.resolveParagraph(styleName: "Titolo 1"),
-                          inlines: [.text(TextRun(text, style: sheet.resolveCharacter(paragraphStyle: "Titolo 1", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)))])
+                Paragraph(styleName: "Heading 1", style: sheet.resolveParagraph(styleName: "Heading 1"),
+                          inlines: [.text(TextRun(text, style: sheet.resolveCharacter(paragraphStyle: "Heading 1", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)))])
             }
             var first = titled("Uno")
             first.openingDistance = own
             var document = Document(styles: sheet, lists: ListDefinition.builtIn, blocks: [.paragraph(paragraph("Premessa."))])
-            document.sections = [Section(id: "c1", role: "capitolo", title: first, blocks: [.paragraph(paragraph("Testo uno."))], start: .newPage),
-                                 Section(id: "c2", role: "capitolo", title: titled("Due"), blocks: [.paragraph(paragraph("Testo due."))])]
+            document.sections = [Section(id: "c1", role: "chapter", title: first, blocks: [.paragraph(paragraph("Testo uno."))], start: .newPage),
+                                 Section(id: "c2", role: "chapter", title: titled("Due"), blocks: [.paragraph(paragraph("Testo due."))])]
             return document
         }
 
@@ -386,44 +386,44 @@ extension TypesettingSuite {
                 TextStyling.inspect(.paragraph, in: text, range: NSRange(location: due, length: 0), sheet: openingBook(distance: 50).styles)
                     .first { $0.property == .openingDistance }
             }
-            #expect(value()?.value.openingDistance == 50 && value()?.source == .style("Titolo 1"))
+            #expect(value()?.value.openingDistance == 50 && value()?.source == .style("Heading 1"))
             var values = StyleValues()
             values.openingDistance = 30
             TextStyling.setValue(values, of: .openingDistance, in: text, range: NSRange(location: due, length: 0))
             #expect(value()?.value.openingDistance == 30 && value()?.source == .own)
             TextStyling.resetValue(of: .openingDistance, in: text, range: NSRange(location: due, length: 0), sheet: openingBook(distance: 50).styles)
-            #expect(value()?.value.openingDistance == 50 && value()?.source == .style("Titolo 1"))
+            #expect(value()?.value.openingDistance == 50 && value()?.source == .style("Heading 1"))
         }
 
         // MARK: Liste per sezione (tappa S.4)
 
         @Test("Il contatore: una Lista che riparte a ogni sezione di un ruolo riparte quando ne passa una")
         func numbererSections() {
-            var numberer = ListNumberer(definitions: [ListDefinition(name: "Esempi", counter: .decimal, parent: .section("capitolo"), continues: true)])
-            #expect(numberer.next("Esempi")?.text == "1" && numberer.next("Esempi")?.text == "2")
-            numberer.passSection(role: "sezione")
-            #expect(numberer.next("Esempi")?.text == "3", "una sezione di un altro ruolo non conta")
-            numberer.passSection(role: "capitolo")
-            #expect(numberer.next("Esempi")?.text == "1")
+            var numberer = ListNumberer(definitions: [ListDefinition(name: "Examples", counter: .decimal, parent: .section("chapter"), continues: true)])
+            #expect(numberer.next("Examples")?.text == "1" && numberer.next("Examples")?.text == "2")
+            numberer.passSection(role: "section")
+            #expect(numberer.next("Examples")?.text == "3", "una sezione di un altro ruolo non conta")
+            numberer.passSection(role: "chapter")
+            #expect(numberer.next("Examples")?.text == "1")
         }
 
         private func numberedBook() -> Document {
             let lists = [
-                ListDefinition(name: "Capitoli", counter: .decimal, suffix: ".", continues: true, numbersSections: "capitolo"),
-                ListDefinition(name: "Paragrafi", counter: .decimal, prefix: ".", parent: .list("Capitoli"), continues: true, showsParent: true, numbersSections: "sezione"),
-                ListDefinition(name: "Esempi", counter: .decimal, prefix: ".", parent: .section("capitolo"), continues: true, showsParent: true),
-                ListDefinition(name: "Note", counter: .decimal, parent: .section("capitolo"), continues: true),
+                ListDefinition(name: "Capitoli", counter: .decimal, suffix: ".", continues: true, numbersSections: "chapter"),
+                ListDefinition(name: "Paragrafi", counter: .decimal, prefix: ".", parent: .list("Capitoli"), continues: true, showsParent: true, numbersSections: "section"),
+                ListDefinition(name: "Examples", counter: .decimal, prefix: ".", parent: .section("chapter"), continues: true, showsParent: true),
+                ListDefinition(name: "Notes", counter: .decimal, parent: .section("chapter"), continues: true),
             ]
-            func example(_ text: String) -> Paragraph { Paragraph(list: ListItem(listName: "Esempi"), inlines: [.text(TextRun(text, style: body))]) }
+            func example(_ text: String) -> Paragraph { Paragraph(list: ListItem(listName: "Examples"), inlines: [.text(TextRun(text, style: body))]) }
             func noted(_ text: String) -> Paragraph {
                 Paragraph(inlines: [.text(TextRun(text, style: body)), .floating(FloatingObject(paragraphs: [[TextRun("Nota.", style: body)]]))])
             }
-            var document = Document(lists: lists, noteList: "Note", blocks: [.paragraph(paragraph("Premessa."))])
+            var document = Document(lists: lists, noteList: "Notes", blocks: [.paragraph(paragraph("Premessa."))])
             document.sections = [
-                Section(id: "c1", role: "capitolo", title: paragraph("Primo"), blocks: [.paragraph(example("Es. a")), .paragraph(noted("Con nota"))],
+                Section(id: "c1", role: "chapter", title: paragraph("Primo"), blocks: [.paragraph(example("Es. a")), .paragraph(noted("Con nota"))],
                         sections: [Section(id: "s11", title: paragraph("Uno"), blocks: [.paragraph(example("Es. b"))]),
                                    Section(id: "s12", title: paragraph(""), blocks: [.paragraph(paragraph("Senza titolo."))])]),
-                Section(id: "c2", role: "capitolo", title: paragraph("Secondo"), blocks: [.paragraph(example("Es. c")), .paragraph(noted("Altra nota"))]),
+                Section(id: "c2", role: "chapter", title: paragraph("Secondo"), blocks: [.paragraph(example("Es. c")), .paragraph(noted("Altra nota"))]),
             ]
             return document
         }
@@ -450,9 +450,9 @@ extension TypesettingSuite {
         @Test("Nel file parent-section e numbers-sections; parent e parent-section insieme non vanno")
         func sectionListsInFile() throws {
             let written = DocumentFormat.string(for: numberedBook())
-            #expect(written.contains("numbers-sections=\"capitolo\"") && written.contains("parent-section=\"capitolo\""))
+            #expect(written.contains("numbers-sections=\"chapter\"") && written.contains("parent-section=\"chapter\""))
             #expect(try DocumentFormat.document(from: written).lists == numberedBook().lists)
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><lists><list name=\"A\" counter=\"1\" parent=\"page\" parent-section=\"capitolo\"/></lists></document>")) == nil)
+            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><lists><list name=\"A\" counter=\"1\" parent=\"page\" parent-section=\"chapter\"/></lists></document>")) == nil)
         }
 
         // MARK: Tipi di pagina (tappa S.5a)
@@ -470,12 +470,12 @@ extension TypesettingSuite {
                 PageType(name: "Pari", setup: PageSetup(paperSize: PageSetup.a4.paperSize, top: mm(25), bottom: mm(25), left: mm(35), right: mm(15))),
             ]
             document.sections = [
-                Section(id: "c1", role: "capitolo", title: paragraph("Uno"), blocks: [.paragraph(paragraph(long))], start: .newPage,
+                Section(id: "c1", role: "chapter", title: paragraph("Uno"), blocks: [.paragraph(paragraph(long))], start: .newPage,
                         pageTypes: SectionPageTypes(firstPage: "Apertura")),
-                Section(id: "c2", role: "capitolo", title: paragraph("Due"), blocks: [.paragraph(paragraph("Tavola."))],
+                Section(id: "c2", role: "chapter", title: paragraph("Due"), blocks: [.paragraph(paragraph("Tavola."))],
                         sections: [Section(id: "s21", title: paragraph("Due.1"), blocks: [.paragraph(paragraph(long))])],
                         start: .newPage, pageTypes: SectionPageTypes(pages: "Orizzontale")),
-                Section(id: "c3", role: "capitolo", title: paragraph("Tre"), blocks: [.paragraph(paragraph(long))], start: .newPage,
+                Section(id: "c3", role: "chapter", title: paragraph("Tre"), blocks: [.paragraph(paragraph(long))], start: .newPage,
                         pageTypes: SectionPageTypes(pages: PageType.defaultName, evenPages: "Pari")),
             ]
             return document
@@ -485,11 +485,11 @@ extension TypesettingSuite {
         func pageTypesInFile() throws {
             let written = DocumentFormat.string(for: typedBook())
             #expect(written.contains("<page-type name=\"Orizzontale\" width=\"297mm\" height=\"210mm\""))
-            #expect(written.contains("first-page-type=\"Apertura\"") && written.contains("even-page-type=\"Pari\"") && written.contains("page-type=\"Predefinito\""))
+            #expect(written.contains("first-page-type=\"Apertura\"") && written.contains("even-page-type=\"Pari\"") && written.contains("page-type=\"Default\""))
             let read = try DocumentFormat.document(from: written)
             #expect(read.pageTypes == typedBook().pageTypes && read.sections == typedBook().sections)
             #expect((try? DocumentFormat.document(from: "<document version=\"1\"><section page-type=\"Nessuno\"><title/></section></document>")) == nil)
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><page-types><page-type name=\"Predefinito\"/></page-types></document>")) == nil)
+            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><page-types><page-type name=\"Default\"/></page-types></document>")) == nil)
         }
 
         @Test("Ogni pagina col suo tipo: prima pagina, tipo ereditato dalle interne, pari e dispari; il seguito di un paragrafo si ricompone")
@@ -532,7 +532,7 @@ extension TypesettingSuite {
             let back = String(repeating: "Il ritorno al capitolo continua per molte righe ancora. ", count: 160)
             document.blocks = []
             document.sections = [
-                Section(id: "c", role: "capitolo", title: paragraph("Capitolo"), blocks: [.paragraph(paragraph("Primo."))],
+                Section(id: "c", role: "chapter", title: paragraph("Capitolo"), blocks: [.paragraph(paragraph("Primo."))],
                         sections: [Section(id: "s", title: paragraph("Sotto"), blocks: [.paragraph(paragraph(long))], start: .newPage,
                                            pageTypes: SectionPageTypes(pages: "Orizzontale"),
                                            afterward: [.paragraph(paragraph(back))])]),
@@ -600,8 +600,8 @@ extension TypesettingSuite {
                                                                              .text(TextRun(" di ", style: body)), .text(field(.pageCount))])),
                                              .paragraph(paragraph(long))])
             document.pageNumbering = "Romani"
-            document.sections = [Section(id: "c1", role: "capitolo", title: paragraph("Il primo capitolo"),
-                                         blocks: [.paragraph(Paragraph(inlines: [.text(TextRun("Qui: ", style: body)), .text(field(.sectionTitle(role: "capitolo"))),
+            document.sections = [Section(id: "c1", role: "chapter", title: paragraph("Il primo capitolo"),
+                                         blocks: [.paragraph(Paragraph(inlines: [.text(TextRun("Qui: ", style: body)), .text(field(.sectionTitle(role: "chapter"))),
                                                                                   .text(TextRun(", pagina ", style: body)), .text(field(.page))])),
                                                   .paragraph(paragraph(long))],
                                          start: .newPage, pageNumbering: "Arabi")]
@@ -610,7 +610,7 @@ extension TypesettingSuite {
 
         @Test("Il campo nel segno e nel file (anche dentro una nota); due campi vicini restano due")
         func fieldsInFileAndText() throws {
-            #expect(Field(encoded: Field.sectionNumber(role: "parte").encoded) == .sectionNumber(role: "parte") && Field(encoded: "pagina") == nil)
+            #expect(Field(encoded: Field.sectionNumber(role: "part").encoded) == .sectionNumber(role: "part") && Field(encoded: "pagina") == nil)
             var document = numberedPages()
             document.blocks.append(.paragraph(Paragraph(inlines: [.text(field(.page)), .text(field(.page)),
                                                                   .floating(FloatingObject(paragraphs: [[TextRun("Nota a pagina ", style: body), field(.page)]]))])))
@@ -618,7 +618,7 @@ extension TypesettingSuite {
             // I campi si scrivono come formule, anche quelli costruiti nella forma storica.
             let page = "<field kind=\"formula\" expression=\"position.page-containing.number.write-here\"/>"
             #expect(written.contains(page + page))
-            #expect(written.contains("<field kind=\"formula\" expression=\"position.section-containing.title.write-here\" role=\"capitolo\"/>"))
+            #expect(written.contains("<field kind=\"formula\" expression=\"position.section-containing.title.write-here\" role=\"chapter\"/>"))
             #expect(written.contains("version=\"13\""), "la sezione contenente richiede il formato 13")
             #expect(written.contains("page-numbering=\"Romani\"") && written.contains("page-numbering=\"Arabi\""))
             let read = try DocumentFormat.document(from: written)
@@ -665,9 +665,9 @@ extension TypesettingSuite {
             ])
             document.floatStyles += [.running(name: FloatStyle.headName), .running(name: FloatStyle.bottomName, placement: .pageBottom), pari,
                                      .running(name: "Apertura", pages: .first)]
-            document.sections = [Section(id: "c1", role: "capitolo",
+            document.sections = [Section(id: "c1", role: "chapter",
                                          title: Paragraph(inlines: [.text(TextRun("Primo", style: body)),
-                                                                    running("Intestazione pari", [field(.sectionTitle(role: "capitolo"))]),
+                                                                    running("Intestazione pari", [field(.sectionTitle(role: "chapter"))]),
                                                                     running("Apertura", [TextRun("Apertura del primo", style: body)])]),
                                          blocks: [.paragraph(paragraph(long))], start: .newPage)]
             return document
@@ -724,7 +724,7 @@ extension TypesettingSuite {
                                                TableRow(cells: [cell("Alfa", "seconda riga della cella"), cell("1")]),
                                                TableRow(cells: [cell("Beta"), cell("")])], headerRows: 1)
             var document = Document(blocks: [.paragraph(paragraph("Prima.")), .table(table), .paragraph(paragraph("Dopo."))])
-            document.sections = [Section(id: "c1", role: "capitolo", title: paragraph("Capitolo"),
+            document.sections = [Section(id: "c1", role: "chapter", title: paragraph("Capitolo"),
                                          blocks: [.table(Table(id: "t2", rows: [TableRow(cells: [cell("a"), cell("b")])]))])]
             return document
         }
@@ -772,7 +772,7 @@ extension TypesettingSuite {
         </row>
         </table>
         <p>Dopo.</p>
-        <section id="c1" role="capitolo">
+        <section id="c1" role="chapter">
         <title><p>Capitolo</p></title>
         <table id="t2">
         <row>
@@ -911,12 +911,12 @@ extension TypesettingSuite {
             // Dopo il titolo di una sezione: le celle non sono titoli e hanno lo stile del testo.
             let titled = editable()
             let title = try #require(SectionEditing.titles(in: titled).first)
-            TextStyling.restyle(titled, range: title.range, from: sheet, to: sheet) { $0.paragraph = "Titolo 1" }
+            TextStyling.restyle(titled, range: title.range, from: sheet, to: sheet) { $0.paragraph = "Heading 1" }
             let cellStart = try #require(TableEditing.insertTable(in: titled, after: title.range.location, sheet: sheet))
             #expect(titled.attribute(.sectionTitle, at: cellStart, effectiveRange: nil) == nil)
             #expect(SectionEditing.titles(in: titled).count == SectionEditing.titles(in: editable()).count)
-            #expect(titled.attribute(.paragraphStyleName, at: title.range.location, effectiveRange: nil) as? String == "Titolo 1")
-            #expect(titled.attribute(.paragraphStyleName, at: cellStart, effectiveRange: nil) as? String == "Testo")
+            #expect(titled.attribute(.paragraphStyleName, at: title.range.location, effectiveRange: nil) as? String == "Heading 1")
+            #expect(titled.attribute(.paragraphStyleName, at: cellStart, effectiveRange: nil) as? String == "Body")
         }
 
         /// «Prima.», una tabella 2 × 2 (a b / c d, una riga d'intestazione), «Dopo.»: Prima.\na\nb\nc\nd\nDopo.
@@ -1141,21 +1141,21 @@ extension TypesettingSuite {
             var page = layout(grid(3, 2))
             #expect(horizontal(page).count == 8 && vertical(page).count == 9)
             // Tre filetti: sopra, sotto l'intestazione, in fondo; nessun verticale; lo spessore dello stile.
-            page = layout(grid(3, 2, headerRows: 1, style: "Tre filetti"))
+            page = layout(grid(3, 2, headerRows: 1, style: "Three Rules"))
             #expect(vertical(page).isEmpty)
             #expect(Set(horizontal(page).map { ($0.midY * 100).rounded() }).count == 3)
             #expect(horizontal(page).allSatisfy { abs($0.height - 0.75) < 0.01 })
             // Solo il bordo, nessun filetto.
-            page = layout(grid(3, 2, style: "Bordo"))
+            page = layout(grid(3, 2, style: "Frame"))
             #expect(horizontal(page).count == 4 && vertical(page).count == 6)
-            #expect(layout(grid(3, 2, style: "Senza filetti")).rules.isEmpty)
+            #expect(layout(grid(3, 2, style: "No Rules")).rules.isEmpty)
             // Un lato detto vince sullo schema: in griglia, niente filetto tra le due celle della prima riga.
             var sides = grid(2, 2)
             sides.rows[0].cells[0].values.right = CellBorder.none
             page = layout(sides)
             #expect(vertical(page).count == 5)
             // Senza filetti, un lato di 2 punti sopra una cella.
-            var thick = grid(2, 2, style: "Senza filetti")
+            var thick = grid(2, 2, style: "No Rules")
             thick.rows[1].cells[1].values.top = .rule(2)
             page = layout(thick)
             #expect(page.rules.count == 1 && abs(page.rules[0].height - 2) < 0.01)
@@ -1190,8 +1190,8 @@ extension TypesettingSuite {
 
         /// Uno stile di flottante «Tabella» (didascalia sopra, numerata con «Tabelle»), con le posizioni date.
         private func floatingDocument(_ blocks: [Block], positions: [FloatStyle.FigurePosition] = [.here, .top, .bottom, .page]) -> Document {
-            var document = Document(lists: [ListDefinition(name: "Tabelle", counter: .decimal, prefix: "Tabella ", suffix: ".", continues: true)], blocks: blocks)
-            document.floatStyles.append(FloatStyle(name: "Tabella", placement: .figure, listName: "Tabelle", reference: .none, showsRule: false,
+            var document = Document(lists: [ListDefinition(name: "Tables", counter: .decimal, prefix: "Tabella ", suffix: ".", continues: true)], blocks: blocks)
+            document.floatStyles.append(FloatStyle(name: "Table", placement: .figure, listName: "Tables", reference: .none, showsRule: false,
                                                    positions: positions, caption: .above))
             return document
         }
@@ -1199,12 +1199,12 @@ extension TypesettingSuite {
         @Test("Una tabella flottante: nel file con la didascalia; composta con il numero della sua Lista davanti; collocata come una figura")
         func floatingTable() throws {
             func table(_ id: String, caption: String, rows: Int = 2) -> Table {
-                Table(id: id, rows: (0..<rows).map { r in TableRow(cells: [cell("a\(r)"), cell("b\(r)")]) }, floatStyle: "Tabella", caption: [paragraph(caption)])
+                Table(id: id, rows: (0..<rows).map { r in TableRow(cells: [cell("a\(r)"), cell("b\(r)")]) }, floatStyle: "Table", caption: [paragraph(caption)])
             }
             // Il file.
             let document = floatingDocument([.paragraph(paragraph("Prima.")), .table(table("t1", caption: "Popolazione")), .paragraph(paragraph("Dopo."))])
             let written = DocumentFormat.string(for: document)
-            #expect(written.contains("<table id=\"t1\" float=\"Tabella\">\n<caption><p>Popolazione</p></caption>"))
+            #expect(written.contains("<table id=\"t1\" float=\"Table\">\n<caption><p>Popolazione</p></caption>"))
             let read = try DocumentFormat.document(from: written)
             #expect(read.blocks == document.blocks)
             #expect(Document(attributedString: document.attributedString().text, settings: document.settingsOnly).blocks == document.blocks)
@@ -1245,10 +1245,10 @@ extension TypesettingSuite {
             #expect(tallLayout.pages.count >= 2)
             // Il comando: diventare flottante dà una didascalia vuota; smettere la toglie.
             let editable = NSMutableAttributedString(attributedString: Document(blocks: [.table(Table(id: "e", rows: [TableRow(cells: [cell("x")])]))]).attributedString().text)
-            let captionStart = try #require(TableEditing.setFloat("Tabella", ofTableAt: 0, in: editable))
+            let captionStart = try #require(TableEditing.setFloat("Table", ofTableAt: 0, in: editable))
             #expect(captionStart == 0 && TableEditing.cell(at: 0, in: editable)?.isCaption == true && editable.string == "\nx")
             guard case .table(let floated) = Document(attributedString: editable).blocks.first else { Issue.record("niente tabella"); return }
-            #expect(floated.floatStyle == "Tabella" && floated.caption.count == 1 && floated.rows.count == 1)
+            #expect(floated.floatStyle == "Table" && floated.caption.count == 1 && floated.rows.count == 1)
             TableEditing.setFloat(nil, ofTableAt: 1, in: editable)
             #expect(editable.string == "x")
             guard case .table(let plain) = Document(attributedString: editable).blocks.first else { Issue.record("niente tabella"); return }
@@ -1398,18 +1398,18 @@ extension TypesettingSuite {
         private let returning = """
         <document version="1" font="HoeflerText-Regular" size="12">
         <p>Premessa.</p>
-        <section id="c" role="capitolo">
+        <section id="c" role="chapter">
         <title><p>Capitolo</p></title>
         <p>Primo.</p>
-        <section id="s" role="sezione">
+        <section id="s" role="section">
         <title><p>Sotto</p></title>
         <p>Testo di sotto.</p>
         </section>
         <p>Secondo.</p>
         <p>Terzo.</p>
-        <section id="t" role="sezione">
+        <section id="t" role="section">
         <title><p>Sotto due</p></title>
-        <section id="u" role="sezione">
+        <section id="u" role="section">
         <title><p>Sotto sotto</p></title>
         <p>Profondo.</p>
         </section>

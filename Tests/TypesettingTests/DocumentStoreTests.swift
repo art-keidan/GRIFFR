@@ -89,14 +89,14 @@ extension TypesettingSuite {
         @Test("Dal modello al deposito e ritorno: contenuto e impostazioni restano gli stessi")
         func documentRoundTrip() throws {
             let sheet = StyleSheet.builtIn
-            let style = sheet.resolveCharacter(paragraphStyle: "Esempio", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
-            let document = Document(language: "it", styles: sheet, lists: ListDefinition.builtIn, noteList: "Note", blocks: [
-                .paragraph(Paragraph(styleName: "Esempio", style: sheet.resolveParagraph(styleName: "Esempio"), list: ListItem(listName: "Esempi"),
+            let style = sheet.resolveCharacter(paragraphStyle: "Example", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
+            let document = Document(language: "it", styles: sheet, lists: ListDefinition.builtIn, noteList: "Notes", blocks: [
+                .paragraph(Paragraph(styleName: "Example", style: sheet.resolveParagraph(styleName: "Example"), list: ListItem(listName: "Examples"),
                                      inlines: [.text(TextRun("Un esempio", style: style)), .floating(FloatingObject(runs: [TextRun("Nota", style: style)]))])),
             ])
             let store = DocumentStore(document: document)
             #expect(store.document == document)
-            #expect(store.settings.noteList == "Note")
+            #expect(store.settings.noteList == "Notes")
         }
 
         @Test("Il primo punto in cui due testi differiscono: per un carattere, per un attributo, per la lunghezza")
@@ -117,15 +117,15 @@ extension TypesettingSuite {
         func linesCacheIsNeverStale() {
             let body = CharacterStyle(fontName: "HoeflerText-Regular", size: 12), small = CharacterStyle(fontName: "HoeflerText-Regular", size: 10)
             let long = "Parole che riempiono più righe di un paragrafo giustificato, per vedere se gli a capo cambiano davvero. "
-            let text = NSMutableAttributedString(attributedString: Document(lists: ListDefinition.builtIn, noteList: "Note a simboli", blocks: (0..<12).map { index in
+            let text = NSMutableAttributedString(attributedString: Document(lists: ListDefinition.builtIn, noteList: "Symbol Notes", blocks: (0..<12).map { index in
                 .paragraph(Paragraph(style: { var style = ParagraphStyle(); style.alignment = .justified; return style }(),
-                                     list: index % 4 == 0 ? ListItem(listName: "Esempi") : nil, inlines: [
+                                     list: index % 4 == 0 ? ListItem(listName: "Examples") : nil, inlines: [
                     .text(TextRun(String(repeating: long, count: 2 + index % 3), style: body)),
                     .floating(FloatingObject(runs: [TextRun("Nota \(index).", style: small)])),
                 ]))
             }).attributedString().text)
             let options = LayoutOptions(appliesFontTracking: true, usesOpticalMargins: true, hyphenationLanguage: "it",
-                                        lists: ListDefinition.builtIn, noteList: "Note a simboli")
+                                        lists: ListDefinition.builtIn, noteList: "Symbol Notes")
             func fingerprint(_ layout: DocumentLayout) -> [String] {
                 layout.pages.enumerated().flatMap { page, content in
                     content.lines.map { "\(page) \($0.range) \(Int($0.origin.x * 100)) \(Int($0.origin.y * 100))" } + content.markers.map { "\(page) segno \(Int($0.origin.y))" }
@@ -136,7 +136,7 @@ extension TypesettingSuite {
             let edits: [(NSMutableAttributedString) -> Void] = [
                 { $0.replaceCharacters(in: NSRange(location: 30, length: 0), with: "inserito qui ") },
                 { $0.deleteCharacters(in: NSRange(location: 0, length: 80)) },
-                { TextStyling.setList(in: $0, range: NSRange(location: 900, length: 0)) { _ in ListItem(listName: "Esempi") } },
+                { TextStyling.setList(in: $0, range: NSRange(location: 900, length: 0)) { _ in ListItem(listName: "Examples") } },
                 { $0.replaceCharacters(in: NSRange(location: 500, length: 0), with: NSAttributedString(string: Self.anchor + "Nota nuova", attributes: [.font: Self.regular, .footnote: true])) },
             ]
             for (index, edit) in edits.enumerated() {

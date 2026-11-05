@@ -8,7 +8,7 @@ extension TypesettingSuite {
     struct RuleTests {
         private let body = CharacterStyle(fontName: "HoeflerText-Regular", size: 12)
 
-        private func paragraph(_ text: String, style: String = "Testo", runs: [TextRun]? = nil) -> Block {
+        private func paragraph(_ text: String, style: String = "Body", runs: [TextRun]? = nil) -> Block {
             .paragraph(Paragraph(styleName: style, style: StyleSheet.builtIn.resolveParagraph(styleName: style),
                                  inlines: (runs ?? [TextRun(text, style: body)]).map(Inline.text)))
         }
@@ -39,9 +39,9 @@ extension TypesettingSuite {
         @Test("Due regole condividono una selezione composta anche dopo la riapertura")
         func sharedSelection() throws {
             let selection = WordSelection(name: "Richiamo", source: .words, index: 2)
-            var doc = document([paragraph("uno due tre"), paragraph("alfa beta gamma", style: "Titolo 1")], rules: [
-                TextRule(target: .selection(selection.id), paragraphStyle: "Testo", styleName: "Maiuscoletto"),
-                TextRule(target: .selection(selection.id), paragraphStyle: "Titolo 1", styleName: "Maiuscoletto")
+            var doc = document([paragraph("uno due tre"), paragraph("alfa beta gamma", style: "Heading 1")], rules: [
+                TextRule(target: .selection(selection.id), paragraphStyle: "Body", styleName: "Small Caps"),
+                TextRule(target: .selection(selection.id), paragraphStyle: "Heading 1", styleName: "Small Caps")
             ])
             doc.styles.selections = [selection]
             let xml = DocumentFormat.string(for: doc)
@@ -80,21 +80,21 @@ extension TypesettingSuite {
         @Test("Il testo delle note non conta e non si tocca")
         func notesAreSkipped() {
             let note = FloatingObject(runs: [TextRun("Una nota lunga.", style: body)])
-            let doc = document([.paragraph(Paragraph(styleName: "Testo", inlines: [
+            let doc = document([.paragraph(Paragraph(styleName: "Body", inlines: [
                 .text(TextRun("Prima", style: body)), .floating(note), .text(TextRun(" seconda terza.", style: body)),
-            ]))], rules: [TextRule(target: .firstWords(2), styleName: "Maiuscoletto")])
+            ]))], rules: [TextRule(target: .firstWords(2), styleName: "Small Caps")])
             #expect(smallCapsPieces(doc) == ["Prima", " seconda"], "le due parole del corpo, senza la nota in mezzo")
         }
 
         @Test("Dentro quali paragrafi: di uno stile, primo dopo uno stile, primo del documento")
         func positions() {
-            let blocks = [paragraph("Inizio del documento."), paragraph("Capitolo", style: "Titolo 1"), paragraph("Dopo il titolo."),
-                          paragraph("Il secondo dopo."), paragraph("Una citazione.", style: "Citazione")]
-            #expect(smallCapsPieces(document(blocks, rules: [TextRule(target: .firstWords(1), paragraphStyle: "Testo", position: .firstAfter("Titolo 1"),
-                                                                      styleName: "Maiuscoletto")])) == ["Dopo"])
-            #expect(smallCapsPieces(document(blocks, rules: [TextRule(target: .firstWords(1), position: .sequenceStart, styleName: "Maiuscoletto")])) == ["Inizio"])
-            #expect(smallCapsPieces(document(blocks, rules: [TextRule(target: .firstLetter, paragraphStyle: "Citazione", styleName: "Maiuscoletto")])) == ["U"])
-            #expect(smallCapsPieces(document(blocks, rules: [TextRule(target: .firstLetter, paragraphStyle: "Citazione", styleName: "Maiuscoletto",
+            let blocks = [paragraph("Inizio del documento."), paragraph("Capitolo", style: "Heading 1"), paragraph("Dopo il titolo."),
+                          paragraph("Il secondo dopo."), paragraph("Una citazione.", style: "Quotation")]
+            #expect(smallCapsPieces(document(blocks, rules: [TextRule(target: .firstWords(1), paragraphStyle: "Body", position: .firstAfter("Heading 1"),
+                                                                      styleName: "Small Caps")])) == ["Dopo"])
+            #expect(smallCapsPieces(document(blocks, rules: [TextRule(target: .firstWords(1), position: .sequenceStart, styleName: "Small Caps")])) == ["Inizio"])
+            #expect(smallCapsPieces(document(blocks, rules: [TextRule(target: .firstLetter, paragraphStyle: "Quotation", styleName: "Small Caps")])) == ["U"])
+            #expect(smallCapsPieces(document(blocks, rules: [TextRule(target: .firstLetter, paragraphStyle: "Quotation", styleName: "Small Caps",
                                                                       isEnabled: false)])).isEmpty, "una regola spenta non si applica")
         }
 
@@ -128,7 +128,7 @@ extension TypesettingSuite {
             let font = CTFontCreateWithName("HoeflerText-Regular" as CFString, 12, nil)
             let small = FontFeatures.font(font, with: SmallCaps.lowercaseForms)
             #expect(Shaper.glyphIDs(for: "abc", font: small) != Shaper.glyphIDs(for: "abc", font: font))
-            let doc = document([paragraph("Primo paragrafo del documento.")], rules: [TextRule(target: .firstWords(1), styleName: "Maiuscoletto")])
+            let doc = document([paragraph("Primo paragrafo del documento.")], rules: [TextRule(target: .firstWords(1), styleName: "Small Caps")])
             let layout = PageLayout.layout(doc.attributedString().text, options: doc.layoutOptions)
             let line = try #require(layout.pages.first?.lines.first?.line)
             let runs = CTLineGetGlyphRuns(line) as? [CTRun] ?? []
@@ -151,25 +151,25 @@ extension TypesettingSuite {
         @Test("Nel file: la sezione delle regole; quelle senza stile non si scrivono; i refusi sono errori")
         func fileRoundTrip() throws {
             let rules = [
-                TextRule(target: .firstWords(2), paragraphStyle: "Testo", position: .firstAfter("Titolo 1"), styleName: "Maiuscoletto"),
-                TextRule(target: .firstLetter, position: .sequenceStart, styleName: "Forte", isEnabled: false),
-                TextRule(target: .firstSentence, styleName: "Enfasi"),
-                TextRule(target: .words(.capitals), styleName: "Maiuscoletto"),
-                TextRule(target: .words(.romanNumerals), styleName: "Maiuscoletto"),
-                TextRule(target: .words(.numbers), styleName: "Latino"),
-                TextRule(target: .words(.listed(["ibid.", "cit."])), paragraphStyle: "Citazione", styleName: "Enfasi"),
+                TextRule(target: .firstWords(2), paragraphStyle: "Body", position: .firstAfter("Heading 1"), styleName: "Small Caps"),
+                TextRule(target: .firstLetter, position: .sequenceStart, styleName: "Strong", isEnabled: false),
+                TextRule(target: .firstSentence, styleName: "Emphasis"),
+                TextRule(target: .words(.capitals), styleName: "Small Caps"),
+                TextRule(target: .words(.romanNumerals), styleName: "Small Caps"),
+                TextRule(target: .words(.numbers), styleName: "Latin"),
+                TextRule(target: .words(.listed(["ibid.", "cit."])), paragraphStyle: "Quotation", styleName: "Emphasis"),
             ]
             let doc = document([paragraph("Testo.")], rules: rules)
             let written = DocumentFormat.string(for: doc)
-            #expect(written.contains("<rule find=\"first-words\" count=\"2\" in=\"Testo\" after=\"Titolo 1\" style=\"Maiuscoletto\"/>"))
-            #expect(written.contains("position=\"sequence-start\" style=\"Forte\" enabled=\"off\""))
+            #expect(written.contains("<rule find=\"first-words\" count=\"2\" in=\"Body\" after=\"Heading 1\" style=\"Small Caps\"/>"))
+            #expect(written.contains("position=\"sequence-start\" style=\"Strong\" enabled=\"off\""))
             #expect(try DocumentFormat.document(from: written) == doc)
 
             let orphan = document([paragraph("Testo.")], rules: [TextRule(target: .firstLetter, styleName: "Inesistente")])
             #expect(!DocumentFormat.string(for: orphan).contains("<rules>"))
             #expect(!DocumentFormat.string(for: document([paragraph("Testo.")], rules: [])).contains("<rules>"), "un documento senza regole non cambia")
 
-            let wrong = written.replacingOccurrences(of: "style=\"Forte\"", with: "style=\"Testo\"")
+            let wrong = written.replacingOccurrences(of: "style=\"Strong\"", with: "style=\"Body\"")
             #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: wrong) }
             let typo = written.replacingOccurrences(of: "find=\"first-sentence\"", with: "find=\"first-sentense\"")
             #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: typo) }
@@ -211,7 +211,7 @@ extension TypesettingSuite {
         @Test("Prima riga: tutta nello stile, e la seconda comincia esattamente dove la prima finisce")
         func firstLine() {
             let plain = lines([])
-            let ruled = lines([TextRule(target: .firstLines(1), styleName: "Maiuscoletto")])
+            let ruled = lines([TextRule(target: .firstLines(1), styleName: "Small Caps")])
             #expect(plain.count >= 3)
             #expect(ruled[0].all, "la prima riga è tutta in maiuscoletto")
             #expect(noneStyled(ruled.dropFirst()), "le altre no")
@@ -221,20 +221,20 @@ extension TypesettingSuite {
 
         @Test("Prime N righe; un paragrafo più corto di N righe è tutto nello stile")
         func firstLines() {
-            let two = lines([TextRule(target: .firstLines(2), styleName: "Maiuscoletto")])
+            let two = lines([TextRule(target: .firstLines(2), styleName: "Small Caps")])
             #expect(two[0].all && two[1].all && noneStyled(two.dropFirst(2)))
             #expect(contiguous(two, length: Self.paragraphLength))
-            let short = lines([TextRule(target: .firstLines(3), styleName: "Maiuscoletto")], text: "Breve.")
+            let short = lines([TextRule(target: .firstLines(3), styleName: "Small Caps")], text: "Breve.")
             #expect(short.count == 1 && short[0].all)
         }
 
         @Test("Ultima riga: solo lei nello stile; con la prima riga insieme")
         func lastLine() {
-            let ruled = lines([TextRule(target: .lastLine, styleName: "Maiuscoletto")])
+            let ruled = lines([TextRule(target: .lastLine, styleName: "Small Caps")])
             #expect(ruled.last?.all == true)
             #expect(noneStyled(ruled.dropLast()))
             #expect(contiguous(ruled, length: Self.paragraphLength))
-            let both = lines([TextRule(target: .firstLines(1), styleName: "Maiuscoletto"), TextRule(target: .lastLine, styleName: "Maiuscoletto")])
+            let both = lines([TextRule(target: .firstLines(1), styleName: "Small Caps"), TextRule(target: .lastLine, styleName: "Small Caps")])
             // Il testo dell'ultima riga naturale, in maiuscoletto, è più largo: può andare su due righe, tutte e due nello stile.
             let styledTail = both.reversed().prefix { $0.all }.count
             #expect(both.first?.all == true && styledTail >= 1 && noneStyled(both.dropFirst().dropLast(styledTail)))
@@ -243,11 +243,11 @@ extension TypesettingSuite {
 
         @Test("Le regole di riga nel file")
         func lineRulesInFile() throws {
-            let doc = document([paragraph("Testo.")], rules: [TextRule(target: .firstLines(2), paragraphStyle: "Testo", styleName: "Maiuscoletto"),
-                                                              TextRule(target: .lastLine, styleName: "Enfasi")])
+            let doc = document([paragraph("Testo.")], rules: [TextRule(target: .firstLines(2), paragraphStyle: "Body", styleName: "Small Caps"),
+                                                              TextRule(target: .lastLine, styleName: "Emphasis")])
             let written = DocumentFormat.string(for: doc)
-            #expect(written.contains("<rule find=\"first-lines\" count=\"2\" in=\"Testo\" style=\"Maiuscoletto\"/>"))
-            #expect(written.contains("<rule find=\"last-line\" style=\"Enfasi\"/>"))
+            #expect(written.contains("<rule find=\"first-lines\" count=\"2\" in=\"Body\" style=\"Small Caps\"/>"))
+            #expect(written.contains("<rule find=\"last-line\" style=\"Emphasis\"/>"))
             #expect(try DocumentFormat.document(from: written) == doc)
         }
 
@@ -266,7 +266,7 @@ extension TypesettingSuite {
 
         @Test("Paragrafi di una sola riga → centrati; gli altri no; senza regola nessuno")
         func oneLineParagraphsCentered() throws {
-            let rule = TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centrato")
+            let rule = TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centered")
             let texts = ["Una riga sola.", Self.long, "Un'altra riga sola."]
             let (ruled, doc) = layout(texts, rules: [rule])
             let placed = ruled.pages[0].lines
@@ -300,7 +300,7 @@ extension TypesettingSuite {
         @Test("Primo della pagina: solo i paragrafi con cui comincia una pagina")
         func firstOnPage() throws {
             let texts = (1...120).map { "Paragrafo numero \($0), di una riga." }
-            let rule = TextRule(target: .paragraph, position: .firstOnPage, styleName: "Maiuscoletto")
+            let rule = TextRule(target: .paragraph, position: .firstOnPage, styleName: "Small Caps")
             let (ruled, _) = layout(texts, rules: [rule])
             #expect(ruled.pages.count >= 2)
             let starts = Set(ruled.pages.compactMap { $0.lines.first?.paragraphLocation })
@@ -312,10 +312,10 @@ extension TypesettingSuite {
 
         @Test("Una condizione anche su una regola di contenuto; una regola di riga con condizione")
         func conditionOnContentAndLineRules() throws {
-            let letter = TextRule(target: .firstLetter, condition: .init(.lines, .greaterOrEqual, 3), styleName: "Maiuscoletto")
+            let letter = TextRule(target: .firstLetter, condition: .init(.lines, .greaterOrEqual, 3), styleName: "Small Caps")
             let (ruled, _) = layout(["Breve.", Self.long], rules: [letter])
             #expect(ruled.layoutRulesApplied.keys.sorted() == [("Breve.\n" as NSString).length], "solo il paragrafo lungo")
-            let line = TextRule(target: .firstLines(1), condition: .init(.words, .greater, 10), styleName: "Maiuscoletto")
+            let line = TextRule(target: .firstLines(1), condition: .init(.words, .greater, 10), styleName: "Small Caps")
             let (lined, _) = layout(["Breve.", Self.long], rules: [line])
             let longLines = lined.pages[0].lines.filter { $0.paragraphLocation == ("Breve.\n" as NSString).length }
             let runs = CTLineGetGlyphRuns(longLines[0].line) as! [CTRun]
@@ -325,12 +325,12 @@ extension TypesettingSuite {
         @Test("Nel file: paragrafo intero, primo della pagina, condizioni")
         func conditionsInFile() throws {
             var doc = document([paragraph("Testo.")], rules: [
-                TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centrato"),
-                TextRule(target: .firstLetter, paragraphStyle: "Testo", position: .firstOnPage, condition: .init(.lastLineFill, .less, 20), styleName: "Forte"),
+                TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centered"),
+                TextRule(target: .firstLetter, paragraphStyle: "Body", position: .firstOnPage, condition: .init(.lastLineFill, .less, 20), styleName: "Strong"),
             ])
-            doc.styles.styles += StyleSheet.ruleStyles.filter { $0.name == "Centrato" }
+            doc.styles.styles += StyleSheet.ruleStyles.filter { $0.name == "Centered" }
             let written = DocumentFormat.string(for: doc)
-            #expect(written.contains("<rule find=\"paragraph\" if=\"lines\" compare=\"eq\" value=\"1\" style=\"Centrato\"/>"))
+            #expect(written.contains("<rule find=\"paragraph\" if=\"lines\" compare=\"eq\" value=\"1\" style=\"Centered\"/>"))
             #expect(written.contains("position=\"page-start\" if=\"last-line-fill\" compare=\"lt\" value=\"20\""))
             #expect(try DocumentFormat.document(from: written) == doc)
             let wrong = written.replacingOccurrences(of: "find=\"paragraph\"", with: "find=\"first-letter\"")
@@ -339,11 +339,11 @@ extension TypesettingSuite {
 
         @Test("Un allineamento dato a mano vale sopra la regola di paragrafo")
         func ownAlignmentWins() throws {
-            var right = StyleSheet.builtIn.resolveParagraph(styleName: "Testo")
+            var right = StyleSheet.builtIn.resolveParagraph(styleName: "Body")
             right.alignment = .right
-            var doc = document([.paragraph(Paragraph(styleName: "Testo", style: right, inlines: [.text(TextRun("A destra.", style: body))]))],
-                               rules: [TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centrato")])
-            doc.styles.styles += StyleSheet.ruleStyles.filter { $0.name == "Centrato" }
+            var doc = document([.paragraph(Paragraph(styleName: "Body", style: right, inlines: [.text(TextRun("A destra.", style: body))]))],
+                               rules: [TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centered")])
+            doc.styles.styles += StyleSheet.ruleStyles.filter { $0.name == "Centered" }
             let layout = PageLayout.layout(doc.attributedString().text, setup: doc.pageSetup, options: doc.layoutOptions)
             let line = layout.pages[0].lines[0]
             #expect(abs(line.origin.x + line.width - layout.setup.textRect.maxX) < 1.5, "resta a destra")

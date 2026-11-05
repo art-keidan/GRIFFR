@@ -18,7 +18,7 @@ struct PageStartSpacingTests {
         }
         let top = try pdfTop()
         let gap = PageSetup.points(fromMillimetres: 30)
-        h.editor.stylesTab.onPageStart?("Testo", .distance(gap))
+        h.editor.stylesTab.onPageStart?("Body", .distance(gap))
         h.step()
         #expect(try abs(pdfTop() - top + gap) < 0.1)
         h.undo()
@@ -44,13 +44,13 @@ struct PageStartSpacingTests {
         try v1.write(to: original)
         h.document.fileURL = original
         try h.document.read(from: v1, ofType: type)
-        h.editor.stylesTab.onPageStart?("Testo", .distance(45))
+        h.editor.stylesTab.onPageStart?("Body", .distance(45))
         #expect(throws: NSError.self) { try h.document.writeSafely(to: original, ofType: type, for: .saveOperation) }
         try h.document.writeSafely(to: copy, ofType: type, for: .saveAsOperation)
         #expect(try Data(contentsOf: original) == v1)
         let saved = try DocumentFormat.document(from: Data(contentsOf: copy))
         #expect(saved.sourceVersion == 8)
-        #expect(saved.styles.values(of: "Testo").pageStartSpacing == .distance(45))
+        #expect(saved.styles.values(of: "Body").pageStartSpacing == .distance(45))
     }
 
     @Test("Eredità, disattivazione, zero esplicito e versione XML")
@@ -93,7 +93,7 @@ struct ComposerBoardTests {
         h.editor.openStyleComposer(nil)
         #expect(h.editor.composerController?.window === board)
         let sheet = h.editor.settings.styles
-        let model = ComposerBoardModel(sheet: sheet, rules: [], owner: "Testo", sample: h.text)
+        let model = ComposerBoardModel(sheet: sheet, rules: [], owner: "Body", sample: h.text)
         model.showingStyles = false
         model.commit = { base, rules, updated, updatedRules in
             guard h.editor.settings.styles == base, h.editor.settings.rules == rules else { return "Conflitto" }
@@ -135,7 +135,7 @@ struct StyleFormulaEditorTests {
         let h = EditorHarness(paragraphs: ["Prova"])
         defer { h.close() }
         var sheet = h.editor.settings.styles
-        let index = try #require(sheet.styles.firstIndex { $0.name == "Testo" })
+        let index = try #require(sheet.styles.firstIndex { $0.name == "Body" })
         sheet.styles[index].formulas = [StyleFormula(operation: StylePropertyOperation(.add, .size, .length(2, .points)))]
         h.editor.changeStyles(to: sheet, restyle: true, actionName: "Formula corpo")
         func size() -> CGFloat {

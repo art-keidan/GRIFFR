@@ -26,7 +26,7 @@ struct Measurements {
         h.editor.showDefinitions(.styles)
         h.step()
         let tab = h.editor.stylesTab
-        tab.selection = "Testo"
+        tab.selection = "Body"
         var totals: [Double] = [], layouts: [Double] = []
         for size in [13.0, 12.0, 13.0, 12.0, 13.0] {
             totals.append(milliseconds(clock.measure {
@@ -79,8 +79,8 @@ struct Measurements {
         }
         let storeLayout = clock.measure { _ = PageLayout.layout(store, options: options) }
         // Con due regole: una sulle prime parole di ogni paragrafo, una su tutte le parole (sigle).
-        h.editor.changeRules([TextRule(target: .firstWords(2), paragraphStyle: "Testo", styleName: "Maiuscoletto"),
-                              TextRule(target: .words(.capitals), styleName: "Maiuscoletto")], styles: h.editor.styleSheet)
+        h.editor.changeRules([TextRule(target: .firstWords(2), paragraphStyle: "Body", styleName: "Small Caps"),
+                              TextRule(target: .words(.capitals), styleName: "Small Caps")], styles: h.editor.styleSheet)
         var ruleLayouts: [Double] = []
         for _ in 0..<5 {
             h.editor.pagesInsert("x", replacementRange: h.editor.pagesSelectedRange)
@@ -90,7 +90,7 @@ struct Measurements {
         // Con la prima riga in maiuscoletto in ogni paragrafo: composta insieme agli a capo.
         // (Cambiare le regole ricompone già tutto: si misura quello.)
         let firstLineOpen = clock.measure {
-            h.editor.changeRules([TextRule(target: .firstLines(1), paragraphStyle: "Testo", styleName: "Maiuscoletto")], styles: h.editor.styleSheet)
+            h.editor.changeRules([TextRule(target: .firstLines(1), paragraphStyle: "Body", styleName: "Small Caps")], styles: h.editor.styleSheet)
         }
         let styledFirstLines = h.editor.currentLayout()?.pages.flatMap(\.lines).filter { placed in
             guard let run = (CTLineGetGlyphRuns(placed.line) as? [CTRun])?.first else { return false }
@@ -105,8 +105,8 @@ struct Measurements {
         }
         // Con una regola che dipende dalla composizione: i paragrafi di una riga centrati (ogni paragrafo si controlla).
         var centeredStyles = h.editor.styleSheet
-        centeredStyles.styles += StyleSheet.ruleStyles.filter { $0.name == "Centrato" && centeredStyles.style(named: $0.name) == nil }
-        h.editor.changeRules([TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centrato")], styles: centeredStyles)
+        centeredStyles.styles += StyleSheet.ruleStyles.filter { $0.name == "Centered" && centeredStyles.style(named: $0.name) == nil }
+        h.editor.changeRules([TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centered")], styles: centeredStyles)
         var conditionLayouts: [Double] = []
         for _ in 0..<5 {
             h.editor.pagesInsert("x", replacementRange: h.editor.pagesSelectedRange)
@@ -156,7 +156,7 @@ struct Measurements {
         for index in 0..<1000 {
             if index % 10 == 0 { xml += "<p style=\"Titolo\">Parte \(index / 10 + 1)</p>\n" }
             let note = index % 5 == 2 ? "<note>Una nota a piè di pagina, abbastanza lunga da occupare più di una riga in fondo alla pagina.</note>" : ""
-            xml += "<p style=\"Testo\">\(index + 1). " + String(repeating: sentence, count: 2 + index % 4) + note + "</p>\n"
+            xml += "<p style=\"Body\">\(index + 1). " + String(repeating: sentence, count: 2 + index % 4) + note + "</p>\n"
         }
         return try DocumentFormat.document(from: xml + "</document>")
     }

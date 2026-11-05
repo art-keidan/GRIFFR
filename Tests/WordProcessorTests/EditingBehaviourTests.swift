@@ -73,13 +73,13 @@ struct EditingBehaviourTests {
         let h = EditorHarness(paragraphs: ["ab"])
         defer { h.close() }
         h.select(1, length: 1)
-        h.editor.applyNamedStyle(.character, name: "Enfasi")
+        h.editor.applyNamedStyle(.character, name: "Emphasis")
         h.step()
         h.select(2)
         h.type("c")
         let font = h.attributed.attribute(.font, at: 2, effectiveRange: nil) as? NSFont
         #expect(font?.fontName == "HoeflerText-Italic")
-        #expect(h.attributed.attribute(.characterStyleName, at: 2, effectiveRange: nil) as? String == "Enfasi")
+        #expect(h.attributed.attribute(.characterStyleName, at: 2, effectiveRange: nil) as? String == "Emphasis")
     }
 
     @Test("S6 · Maiuscole+Invio diventa l'a capo nello stesso paragrafo; Invio da solo, o con anche Comando, no")
@@ -366,9 +366,9 @@ struct EditingBehaviourTests {
         #expect(h.list(at: 0)?.level == 2)
         h.press(#selector(NSResponder.insertBacktab(_:)))
         #expect(h.list(at: 0)?.level == 1)
-        _ = h.editor.changeList(actionName: "Lista") { _ in ListItem(listName: "Esempi") }
+        _ = h.editor.changeList(actionName: "Lista") { _ in ListItem(listName: "Examples") }
         h.press(#selector(NSResponder.insertTab(_:)))
-        #expect(h.list(at: 0) == ListItem(listName: "Esempi"))
+        #expect(h.list(at: 0) == ListItem(listName: "Examples"))
     }
 
     // MARK: Stili
@@ -378,13 +378,13 @@ struct EditingBehaviourTests {
         let h = EditorHarness(paragraphs: ["Frase"])
         defer { h.close() }
         h.select(2)
-        h.editor.applyNamedStyle(.paragraph, name: "Esempio")
+        h.editor.applyNamedStyle(.paragraph, name: "Example")
         h.step()
-        #expect(h.attributed.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String == "Esempio")
-        #expect(h.list(at: 0) == ListItem(listName: "Esempi"))
+        #expect(h.attributed.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String == "Example")
+        #expect(h.list(at: 0) == ListItem(listName: "Examples"))
         #expect(h.editor.currentLayout()?.pages.first?.markers.count == 1)
         h.undo()
-        #expect(h.attributed.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String == "Testo")
+        #expect(h.attributed.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String == "Body")
         #expect(h.list(at: 0) == nil)
     }
 
@@ -486,9 +486,9 @@ struct EditingBehaviourTests {
         let h = EditorHarness(paragraphs: ["Capitolo", "Primo paragrafo del capitolo.", "Secondo paragrafo."])
         defer { h.close() }
         h.select(0)
-        h.editor.applyNamedStyle(.paragraph, name: "Titolo 1")
+        h.editor.applyNamedStyle(.paragraph, name: "Heading 1")
         h.step()
-        h.editor.changeRules([TextRule(target: .firstWords(1), paragraphStyle: "Testo", position: .firstAfter("Titolo 1"), styleName: "Maiuscoletto")],
+        h.editor.changeRules([TextRule(target: .firstWords(1), paragraphStyle: "Body", position: .firstAfter("Heading 1"), styleName: "Small Caps")],
                              styles: h.editor.styleSheet)
         h.step()
         #expect(smallCapsText(h) == ["Primo"])
@@ -510,7 +510,7 @@ struct EditingBehaviourTests {
         let long = "Un paragrafo abbastanza lungo da occupare più righe della pagina, per vedere che il maiuscoletto copre sempre e solo la prima riga, qualunque cosa si scriva in testa."
         let h = EditorHarness(paragraphs: [long, "Breve."])
         defer { h.close() }
-        h.editor.changeRules([TextRule(target: .firstLines(1), paragraphStyle: "Testo", styleName: "Maiuscoletto")], styles: h.editor.styleSheet)
+        h.editor.changeRules([TextRule(target: .firstLines(1), paragraphStyle: "Body", styleName: "Small Caps")], styles: h.editor.styleSheet)
         h.step()
         func firstLineText() -> String {
             guard let line = h.editor.currentLayout()?.pages.first?.lines.first else { return "" }
@@ -549,8 +549,8 @@ struct EditingBehaviourTests {
         let h = EditorHarness(paragraphs: ["Breve.", "Altro."])
         defer { h.close() }
         var styles = h.editor.styleSheet
-        styles.styles += StyleSheet.ruleStyles.filter { $0.name == "Centrato" }
-        h.editor.changeRules([TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centrato")], styles: styles)
+        styles.styles += StyleSheet.ruleStyles.filter { $0.name == "Centered" }
+        h.editor.changeRules([TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centered")], styles: styles)
         h.step()
         func centered() -> Bool {
             // L'ultima riga del primo paragrafo: una riga piena e giustificata sembrerebbe centrata anche senza esserlo.
@@ -669,7 +669,7 @@ struct EditingBehaviourTests {
         bold.performClick(nil)
         h.step()
         #expect(TextStyling.traits(ofFace: font(at: 1).fontName)?.bold == true && bold.state == .on)
-        #expect(h.editor.styleMonitor.style == "Testo" && h.editor.styleMonitor.additions.contains("char. bold"))
+        #expect(h.editor.styleMonitor.style == "Body" && h.editor.styleMonitor.additions.contains("char. bold"))
         h.undo()
         #expect(TextStyling.traits(ofFace: font(at: 1).fontName)?.bold == false)
         h.select(0, length: 3)
@@ -867,13 +867,13 @@ struct EditingBehaviourTests {
         defer { h.close() }
         for location in [0, 22] {
             h.select(location)
-            h.editor.applyNamedStyle(.paragraph, name: "Esempio")
+            h.editor.applyNamedStyle(.paragraph, name: "Example")
         }
         h.select(2)
         let ruler = try #require(h.editor.rulerGeometry)
         #expect(ruler.markerWidth != nil && abs(ruler.left - 24) < 0.01, "una voce: il testo comincia a 24 pt")
         h.editor.dragRulerForTests(.left, to: 40)
-        #expect(h.editor.currentDocument().lists.first { $0.name == "Esempi" }?.textIndent == 40)
+        #expect(h.editor.currentDocument().lists.first { $0.name == "Examples" }?.textIndent == 40)
         #expect(TextStyling.listItem(in: h.attributed, at: 2)?.textIndent == nil, "la misura è della Lista, non della voce")
         h.editor.dragRulerForTests(.left, to: 60, modifiers: .option)
         #expect(TextStyling.listItem(in: h.attributed, at: 2)?.textIndent == 60)
@@ -882,10 +882,10 @@ struct EditingBehaviourTests {
         let marker = try #require(h.editor.rulerGeometry)
         #expect(abs(marker.firstLine - 18) < 0.01 && abs(marker.left - 40) < 0.01, "il segno finisce a 18 pt, il testo comincia a 40")
         h.editor.dragRulerForTests(.firstLine, to: 30)
-        let esempi = h.editor.currentDocument().lists.first { $0.name == "Esempi" }
+        let esempi = h.editor.currentDocument().lists.first { $0.name == "Examples" }
         #expect(esempi?.markerPosition == 30 && esempi?.textIndent == 40, "il segno si sposta, il testo resta")
         h.editor.dragRulerForTests(.left, to: 50)
-        let after = h.editor.currentDocument().lists.first { $0.name == "Esempi" }
+        let after = h.editor.currentDocument().lists.first { $0.name == "Examples" }
         #expect(after?.textIndent == 50 && after?.markerPosition == 30, "il testo si sposta, il segno resta")
     }
 
@@ -1083,7 +1083,7 @@ struct EditingBehaviourTests {
         let h = EditorHarness(paragraphs: ["Primo paragrafo di prova.", "Secondo paragrafo.", "Terzo."])
         defer { h.close() }
         h.select(5, length: 4)
-        h.editor.applyNamedStyle(.paragraph, name: "Titolo 1")
+        h.editor.applyNamedStyle(.paragraph, name: "Heading 1")
         h.step()
         h.undo()
         #expect(h.selection == NSRange(location: 5, length: 4), "prima il cursore andava nel terzo paragrafo: \(h.selection)")
@@ -1227,15 +1227,15 @@ struct EditingBehaviourTests {
         #expect(hidden.items.map(\.title) == ["Remove", "Put into the Style", "New Style…"])
         menu.performActionForItem(at: 1)
         h.step()
-        #expect(h.editor.currentDocument().styles.style(named: "Testo")?.formulas.contains { $0.operation == StylePropertyOperation(.add, .font, .font(.italic)) } == true)
-        #expect(h.editor.currentDocument().styles.style(named: "Testo")?.values.decorations == nil)
+        #expect(h.editor.currentDocument().styles.style(named: "Body")?.formulas.contains { $0.operation == StylePropertyOperation(.add, .font, .font(.italic)) } == true)
+        #expect(h.editor.currentDocument().styles.style(named: "Body")?.values.decorations == nil)
         #expect(h.editor.styleMonitor.additions.count == 2, "restano sottolineato e apice, dati qui")
         #expect(h.editor.styleMonitor.additions.contains("char. underline"))
         let elsewhere = try #require(h.attributed.attribute(.font, at: 21, effectiveRange: nil) as? NSFont)
         #expect(TextStyling.traits(ofFace: elsewhere.fontName)?.italic == true, "lo stile cambia anche altrove")
         #expect((h.attributed.attribute(.lineDecorations, at: 21, effectiveRange: nil) as? String) == nil)
         h.undo()
-        #expect(h.editor.currentDocument().styles.style(named: "Testo")?.values.italic != true)
+        #expect(h.editor.currentDocument().styles.style(named: "Body")?.values.italic != true)
         #expect(h.editor.styleMonitor.additions.count == 3, "un solo Annulla ripristina tutte le aggiunte")
     }
 
@@ -1256,7 +1256,7 @@ struct EditingBehaviourTests {
 
         h.editor.additionMonitorMenu(at: 0).performActionForItem(at: 1)
         h.step()
-        let textStyle = try #require(h.editor.currentDocument().styles.style(named: "Testo"))
+        let textStyle = try #require(h.editor.currentDocument().styles.style(named: "Body"))
         #expect(textStyle.formulas.contains { $0.operation == StylePropertyOperation(.set, .family, .family("Times New Roman")) })
         #expect(textStyle.values.italic == nil)
         #expect(textStyle.values.decorations == nil)
@@ -1282,14 +1282,14 @@ struct EditingBehaviourTests {
         let h = EditorHarness()
         defer { h.close() }
         var document = h.editor.currentDocument()
-        let position = try #require(document.styles.styles.firstIndex { $0.name == "Testo" })
+        let position = try #require(document.styles.styles.firstIndex { $0.name == "Body" })
         document.styles.styles[position].values.family = "Hoefler Text"
         document.styles.styles[position].values.bold = true
-        let character = document.styles.resolveCharacter(paragraphStyle: "Testo", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
-        let paragraph = document.styles.resolveParagraph(styleName: "Testo")
+        let character = document.styles.resolveCharacter(paragraphStyle: "Body", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
+        let paragraph = document.styles.resolveParagraph(styleName: "Body")
         document.blocks = [
-            .paragraph(Paragraph(styleName: "Testo", style: paragraph, inlines: [.text(TextRun("Una prova di testo.", style: character))])),
-            .paragraph(Paragraph(styleName: "Testo", style: paragraph, inlines: [.text(TextRun("Altro.", style: character))])),
+            .paragraph(Paragraph(styleName: "Body", style: paragraph, inlines: [.text(TextRun("Una prova di testo.", style: character))])),
+            .paragraph(Paragraph(styleName: "Body", style: paragraph, inlines: [.text(TextRun("Altro.", style: character))])),
         ]
         h.editor.replaceContent(document)
         h.select(4, length: 5)
@@ -1302,8 +1302,8 @@ struct EditingBehaviourTests {
 
         h.editor.additionMonitorMenu(at: 0).performActionForItem(at: 1)
         h.step()
-        let values = try #require(h.editor.currentDocument().styles.style(named: "Testo")?.values)
-        #expect(h.editor.currentDocument().styles.style(named: "Testo")?.formulas.contains { $0.operation == StylePropertyOperation(.set, .family, .family("Baskerville")) } == true)
+        let values = try #require(h.editor.currentDocument().styles.style(named: "Body")?.values)
+        #expect(h.editor.currentDocument().styles.style(named: "Body")?.formulas.contains { $0.operation == StylePropertyOperation(.set, .family, .family("Baskerville")) } == true)
         #expect(values.bold == true && values.fontName == nil)
         #expect(h.editor.styleMonitor.additions.isEmpty)
         #expect((h.attributed.attribute(.font, at: 21, effectiveRange: nil) as? NSFont)?.fontName == "Baskerville-SemiBold")
@@ -1315,7 +1315,7 @@ struct EditingBehaviourTests {
     func newStyleFromSingleAddition() throws {
         let h = EditorHarness(paragraphs: ["Una prova di testo.", "Altro."])
         defer { h.close() }
-        let original = h.editor.currentDocument().styles.style(named: "Testo")
+        let original = h.editor.currentDocument().styles.style(named: "Body")
         h.select(4, length: 5)
         h.editor.toggleItalic(nil)
         h.step()
@@ -1334,7 +1334,7 @@ struct EditingBehaviourTests {
         #expect(h.attributed.attribute(.characterStyleName, at: 8, effectiveRange: nil) as? String == "Corsivo speciale")
         #expect(h.attributed.attribute(.characterStyleName, at: 9, effectiveRange: nil) as? String == nil)
         #expect(h.editor.styleMonitor.additions == ["char. underline"], "il corsivo è dello stile, il sottolineato resta manuale")
-        #expect(h.editor.currentDocument().styles.style(named: "Testo") == original, "lo stile di partenza non cambia")
+        #expect(h.editor.currentDocument().styles.style(named: "Body") == original, "lo stile di partenza non cambia")
         let elsewhere = try #require(h.attributed.attribute(.font, at: 21, effectiveRange: nil) as? NSFont)
         #expect(TextStyling.traits(ofFace: elsewhere.fontName)?.italic == false, "il resto del documento non cambia")
         #expect(h.undoActionName == "New Style “Corsivo speciale”")
@@ -1491,7 +1491,7 @@ struct EditingBehaviourTests {
         h.select(6)
         let menu = h.editor.styleMonitorMenu()
         #expect(menu.items[0].title == "Remove All Additions" && menu.items[0].isEnabled)
-        #expect(menu.items[1].title == "Move the Additions into the Style “Testo”" && menu.items[1].isEnabled)
+        #expect(menu.items[1].title == "Move the Additions into the Style “Body”" && menu.items[1].isEnabled)
         menu.performActionForItem(at: 1)
         h.step()
         #expect(h.editor.styleMonitor.additions.isEmpty, "il corsivo ora è dello stile")
@@ -1514,10 +1514,10 @@ struct EditingBehaviourTests {
         #expect(panel.tab == .lists)
         let lists = try #require(panel.lists)
         let before = h.editor.currentDocument().lists
-        let index = try #require(lists.rows.firstIndex { $0.definition.name == "Esempi" })
+        let index = try #require(lists.rows.firstIndex { $0.definition.name == "Examples" })
         lists.rows[index].definition.prefix = "["
         lists.rows[index].definition.suffix = "]"
-        #expect(h.editor.currentDocument().lists.first { $0.name == "Esempi" }?.prefix == "[", "al salvataggio ciò che è in attesa va nel documento")
+        #expect(h.editor.currentDocument().lists.first { $0.name == "Examples" }?.prefix == "[", "al salvataggio ciò che è in attesa va nel documento")
         // Una seconda modifica, applicata dalla pausa.
         lists.rows[index].definition.name = "Esempi numerati"
         RunLoop.main.run(until: Date(timeIntervalSinceNow: DefinitionsPanel.pause + 0.3))
@@ -1526,7 +1526,7 @@ struct EditingBehaviourTests {
         h.undo()
         h.undo()
         #expect(h.editor.currentDocument().lists == before)
-        #expect(panel.lists?.rows.contains { $0.definition.name == "Esempi" && $0.definition.prefix != "[" } == true, "Annulla ricarica la scheda")
+        #expect(panel.lists?.rows.contains { $0.definition.name == "Examples" && $0.definition.prefix != "[" } == true, "Annulla ricarica la scheda")
 
         // Regole: uno stile predefinito usato da una regola entra una volta sola, anche applicando più volte.
         h.editor.editRules(nil)
@@ -1552,7 +1552,7 @@ struct EditingBehaviourTests {
         h.step()
         let tab = h.editor.stylesTab
         #expect(h.editor.definitionsPanel.tab == .styles)
-        #expect(tab.selection == "Testo", "si parte dal primo stile di paragrafo")
+        #expect(tab.selection == "Body", "si parte dal primo stile di paragrafo")
         #expect(tab.inspector.values.contains { $0.property == .size })
         let before = size(at: 0)
 
@@ -1583,35 +1583,35 @@ struct EditingBehaviourTests {
         h.menu(#selector(PagesView.undo(_:)))
         pause()
         #expect(size(at: 0) == before)
-        #expect(h.editor.styleSheet.style(named: "Testo")?.values.size != 18)
+        #expect(h.editor.styleSheet.style(named: "Body")?.values.size != 18)
 
         // Rinominare: il testo segue il nome nuovo.
         h.select(5)
-        h.editor.applyNamedStyle(.paragraph, name: "Citazione")
+        h.editor.applyNamedStyle(.paragraph, name: "Quotation")
         h.step()
-        tab.selection = "Citazione"
+        tab.selection = "Quotation"
         tab.nameDraft = "Citazione lunga"
         tab.commitName()
         h.step()
-        #expect(paragraphStyle(at: 5) == "Citazione lunga" && h.editor.styleSheet.style(named: "Citazione") == nil)
+        #expect(paragraphStyle(at: 5) == "Citazione lunga" && h.editor.styleSheet.style(named: "Quotation") == nil)
         #expect(tab.selection == "Citazione lunga")
 
         // Togliere: il testo passa allo stile su cui si basava.
         tab.onRemove?("Citazione lunga")
         h.step()
-        #expect(paragraphStyle(at: 5) == "Testo" && h.editor.styleSheet.style(named: "Citazione lunga") == nil)
+        #expect(paragraphStyle(at: 5) == "Body" && h.editor.styleSheet.style(named: "Citazione lunga") == nil)
         h.undo()
         #expect(paragraphStyle(at: 5) == "Citazione lunga" && h.editor.styleSheet.style(named: "Citazione lunga") != nil, "un passo solo")
 
         // Nuovo: basato su quello scelto; basato su: niente giri.
-        tab.selection = "Testo"
+        tab.selection = "Body"
         tab.onNew?(.paragraph)
         h.step()
         let created = try #require(tab.selection)
-        #expect(h.editor.styleSheet.style(named: created)?.basedOn == "Testo")
+        #expect(h.editor.styleSheet.style(named: created)?.basedOn == "Body")
         tab.onParent?("Testo", created)
         h.step()
-        #expect(h.editor.styleSheet.style(named: "Testo")?.basedOn == nil, "Testo non può basarsi su chi si basa su di lui")
+        #expect(h.editor.styleSheet.style(named: "Body")?.basedOn == nil, "Testo non può basarsi su chi si basa su di lui")
     }
 
     @Test("T1 · L'albero degli oggetti: i titoli fanno da rami; un clic porta il cursore; l'albero segue il cursore; si nasconde")
@@ -1624,7 +1624,7 @@ struct EditingBehaviourTests {
         h.editor.setInterfaceMode(.advanced)
         for start in [0, 35] {
             h.select(start)
-            h.editor.applyNamedStyle(.paragraph, name: "Titolo 1")
+            h.editor.applyNamedStyle(.paragraph, name: "Heading 1")
             h.step()
         }
         h.editor.refreshObjectTree()
@@ -1796,20 +1796,20 @@ struct EditingBehaviourTests {
         let titles = SectionEditing.titles(in: h.editor.store)
         #expect(titles.map(\.depth) == [1, 2, 3])
         #expect(titles.map { h.attributed.attribute(.paragraphStyleName, at: $0.range.location, effectiveRange: nil) as? String }
-                == [nil, "Titolo 2", "Titolo 3"], "Beta non cambia livello; Alfa e la sua interna scendono di uno")
+                == [nil, "Heading 2", "Heading 3"], "Beta non cambia livello; Alfa e la sua interna scendono di uno")
         #expect(titles.map { (h.attributed.attribute(.outlineLevel, at: $0.range.location, effectiveRange: nil) as? NSNumber)?.intValue }
                 == [1, 2, 3])
         let movedDocument = h.editor.currentDocument()
-        #expect(movedDocument.styles.style(named: "Titolo 3")?.values.outlineLevel == 3)
+        #expect(movedDocument.styles.style(named: "Heading 3")?.values.outlineLevel == 3)
         #expect(movedDocument.flatParagraphs.map(\.paragraph.style.outlineLevel) == [nil, nil, 2, nil, 3],
                 "nel modello un titolo porta il livello del suo stile; quello vero è la profondità")
         #expect(try DocumentFormat.document(from: DocumentFormat.data(for: movedDocument)) == movedDocument)
         h.undo()
         h.editor.refreshObjectTree()
         #expect(tree.items.map(\.title) == ["Alfa", "Beta"])
-        #expect(h.editor.currentDocument().styles.style(named: "Titolo 3") == nil, "Annulla toglie anche lo stile creato")
+        #expect(h.editor.currentDocument().styles.style(named: "Heading 3") == nil, "Annulla toglie anche lo stile creato")
         h.redo()
-        #expect(h.editor.currentDocument().styles.style(named: "Titolo 3")?.values.outlineLevel == 3, "Ripeti lo ripristina")
+        #expect(h.editor.currentDocument().styles.style(named: "Heading 3")?.values.outlineLevel == 3, "Ripeti lo ripristina")
     }
 
     @Test("I campi di misura dell'ispettore convertono le unità; i rientri possono essere negativi")
@@ -1916,7 +1916,7 @@ struct EditingBehaviourTests {
         h.editor.styleNameAnswerForTests = "Prime parole"
         h.editor.createRuleFromInspector()
         h.step()
-        #expect(h.editor.rules == [TextRule(target: .firstWords(1), paragraphStyle: "Testo", styleName: "Prime parole")])
+        #expect(h.editor.rules == [TextRule(target: .firstWords(1), paragraphStyle: "Body", styleName: "Prime parole")])
         let style = try #require(h.editor.styleSheet.style(named: "Prime parole"))
         #expect(style.target == .character && style.formulas.contains { $0.operation == StylePropertyOperation(.set, .size, .length(18, .points)) })
         #expect((h.attributed.attribute(.font, at: 1, effectiveRange: nil) as? NSFont)?.pointSize != 18,
@@ -1971,7 +1971,7 @@ struct EditingBehaviourTests {
         defer { InterfaceMode.lastChoice = saved }
         let h = EditorHarness(paragraphs: ["Roma, città aperta.", "Napoli, città bella."])
         defer { h.close() }
-        h.editor.changeRules([TextRule(target: .firstWords(1), paragraphStyle: "Testo", styleName: "Enfasi")], styles: h.editor.styleSheet)
+        h.editor.changeRules([TextRule(target: .firstWords(1), paragraphStyle: "Body", styleName: "Emphasis")], styles: h.editor.styleSheet)
         h.step()
         #expect(h.editor.provenanceMarks.rules.isEmpty, "spenti all'inizio")
         h.editor.setInterfaceMode(.simple)
@@ -2099,7 +2099,7 @@ struct EditingBehaviourTests {
         defer { h.close() }
         h.editor.showDefinitions(.styles)
         let tab = h.editor.stylesTab
-        tab.selection = "Testo"
+        tab.selection = "Body"
         h.step()
         let form = tab.inspector
         form.change(.shaping) { $0.graphite = "on" }
@@ -2204,16 +2204,16 @@ struct EditingBehaviourTests {
         h.editor.editFloatStylesForTests(h.editor.currentDocument().floatStyles + [.defaultFigure, second])
         let menu = try #require(h.editor.bandControls["illustrazione"]?.menu)
         menu.delegate?.menuNeedsUpdate?(menu)
-        #expect(menu.items.map(\.title).contains("Figura…") && menu.items.map(\.title).contains("Tavola…"))
+        #expect(menu.items.map(\.title).contains("Figure…") && menu.items.map(\.title).contains("Tavola…"))
 
         // Gli stili di carattere come comandi del Ribbon.
         h.select(0, length: 3)
         let runStyles = try #require(h.editor.bandControls["stileCarattere"]?.menu)
         runStyles.delegate?.menuNeedsUpdate?(runStyles)
-        let emphasis = try #require(runStyles.items.first { $0.title == "Enfasi" })
+        let emphasis = try #require(runStyles.items.first { $0.title == "Emphasis" })
         NSApp.sendAction(try #require(emphasis.action), to: emphasis.target, from: emphasis)
         h.step()
-        #expect(h.attributed.attribute(.characterStyleName, at: 1, effectiveRange: nil) as? String == "Enfasi")
+        #expect(h.attributed.attribute(.characterStyleName, at: 1, effectiveRange: nil) as? String == "Emphasis")
     }
 
     @Test("G6b · Ogni livello ha i suoi gruppi; si spostano interi senza modificare il documento")
@@ -2305,8 +2305,8 @@ struct EditingBehaviourTests {
         #expect(h.undoActionName == "Section")
         h.type("Capitolo uno")
         let document = h.editor.currentDocument()
-        #expect(outline(document.sections) == ["1 capitolo Capitolo uno"])
-        #expect(document.sections[0].title.styleName == "Titolo 1" && document.sections[0].blocks.count == 2)
+        #expect(outline(document.sections) == ["1 chapter Capitolo uno"])
+        #expect(document.sections[0].title.styleName == "Heading 1" && document.sections[0].blocks.count == 2)
         #expect(document.blocks.count == 1, "«Primo» resta prima della sezione")
         #expect(enabled(h, #selector(EditorWindowController.insertSectionInside(_:))) && !enabled(h, #selector(EditorWindowController.insertSectionOutside(_:))))
         h.undo()
@@ -2324,12 +2324,12 @@ struct EditingBehaviourTests {
         h.select((h.text as NSString).range(of: "Altro").location)
         h.editor.insertSectionInside(nil)
         h.type("Uno.1")
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Uno", "2 sezione Uno.1"])
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Uno", "2 section Uno.1"])
         #expect(enabled(h, #selector(EditorWindowController.insertSectionOutside(_:))))
         h.select(h.text.utf16.count)
         h.editor.insertSectionOutside(nil)
         h.type("Due")
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Uno", "2 sezione Uno.1", "1 capitolo Due"])
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Uno", "2 section Uno.1", "1 chapter Due"])
     }
 
     @Test("SZ6 · Invio nel titolo: in fondo o in mezzo il seguito va nel corpo; all'inizio il titolo resta titolo")
@@ -2343,14 +2343,14 @@ struct EditingBehaviourTests {
         h.press(#selector(NSResponder.insertNewline(_:)))
         h.type("X")
         var document = h.editor.currentDocument()
-        #expect(outline(document.sections) == ["1 capitolo Capi"])
+        #expect(outline(document.sections) == ["1 chapter Capi"])
         #expect(document.sections[0].blocks.count == 2, "«Xtolo» e «Dopo.» sono testo del capitolo")
         let marks = (0..<h.attributed.length).filter { h.attributed.attribute(.sectionTitle, at: $0, effectiveRange: nil) != nil }
         #expect(marks == Array(7..<12), "il segno resta solo sul titolo")
         h.select(7)
         h.press(#selector(NSResponder.insertNewline(_:)))
         document = h.editor.currentDocument()
-        #expect(outline(document.sections) == ["1 capitolo Capi"], "il titolo scende di una riga e resta titolo")
+        #expect(outline(document.sections) == ["1 chapter Capi"], "il titolo scende di una riga e resta titolo")
         #expect(document.blocks.count == 2 && h.selection == NSRange(location: 8, length: 0))
     }
 
@@ -2365,7 +2365,7 @@ struct EditingBehaviourTests {
         h.editor.insertSectionInside(nil)
         h.type("Sezione")
         let before = h.text
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo", "2 sezione Sezione"])
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo", "2 section Sezione"])
 
         h.editor.sectionRemovalAnswerForTests = false
         h.select(7)
@@ -2379,10 +2379,10 @@ struct EditingBehaviourTests {
         h.select(7)
         h.press(#selector(NSResponder.deleteBackward(_:)))
         #expect(h.text.hasPrefix("Prima.Capitolo\nTesto."), "il titolo si unisce al paragrafo prima")
-        #expect(outline(h.editor.currentDocument().sections) == ["1 sezione Sezione"], "la sezione interna sale al primo livello")
+        #expect(outline(h.editor.currentDocument().sections) == ["1 section Sezione"], "la sezione interna sale al primo livello")
         #expect(h.undoActionName == "Remove Section")
         h.undo()
-        #expect(h.text == before && outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo", "2 sezione Sezione"])
+        #expect(h.text == before && outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo", "2 section Sezione"])
     }
 
     @Test("SZ8 · Inserisci › Togli la sezione toglie la più interna in cui sta il cursore, senza chiedere")
@@ -2400,10 +2400,10 @@ struct EditingBehaviourTests {
         #expect(h.editor.validateMenuItem(item) && item.title == "Remove the Section “Sezione”")
         h.editor.removeEnclosingSection(nil)
         h.step()
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo"])
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo"])
         #expect(h.text.hasSuffix("Sezione\nFine."), "il titolo resta come paragrafo")
         h.undo()
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo", "2 sezione Sezione"])
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo", "2 section Sezione"])
     }
 
     // MARK: La sezione nell'ispettore (tappa S.2b)
@@ -2418,12 +2418,12 @@ struct EditingBehaviourTests {
         h.select((h.text as NSString).range(of: "Fine.").location)
         h.editor.insertSectionInside(nil)
         h.type("Sezione")
-        #expect(h.editor.sectionPathTitlesForTests == ["Capitolo “Capitolo”", "Sezione “Sezione”"])
+        #expect(h.editor.sectionPathTitlesForTests == ["Chapter “Capitolo”", "Section “Sezione”"])
 
         let inspector = h.editor.inspectorForTests
         h.editor.inspectSection(depth: nil)
         var info = try #require(inspector.section)
-        #expect(info.role == "sezione" && info.title == "“Sezione”" && info.depth == 2 && info.paragraphs == 1 && info.sections == 0)
+        #expect(info.role == "section" && info.title == "“Sezione”" && info.depth == 2 && info.paragraphs == 1 && info.sections == 0)
         #expect(!info.canMoveInside && info.canMoveOutside)
         #expect(h.editor.inspectorFacts == [InspectorModel.Fact(title: "Pages", value: "1")])
 
@@ -2434,23 +2434,23 @@ struct EditingBehaviourTests {
         h.editor.inspectSection(depth: nil)
         inspector.setSectionRole?("paragrafo")
         h.step()
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo", "2 paragrafo Sezione"])
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo", "2 paragrafo Sezione"])
         #expect(h.undoActionName == "Section Role")
         inspector.moveSection?(-1)
         h.step()
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo", "1 paragrafo Sezione"])
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo", "1 paragrafo Sezione"])
         #expect(inspector.section?.depth == 1 && inspector.section?.canMoveInside == true)
         inspector.moveSection?(1)
         h.step()
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo", "2 paragrafo Sezione"])
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo", "2 paragrafo Sezione"])
         inspector.removeSection?()
         h.step()
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo"] && h.editor.sectionPathTitlesForTests == ["Capitolo “Capitolo”"])
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo"] && h.editor.sectionPathTitlesForTests == ["Chapter “Capitolo”"])
         h.undo()
         h.undo()
         h.undo()
         h.undo()
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo", "2 sezione Sezione"], "quattro passi, all'indietro")
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo", "2 section Sezione"], "quattro passi, all'indietro")
     }
 
     // MARK: Lo stile che apre una sezione (tappa S.2c)
@@ -2461,33 +2461,33 @@ struct EditingBehaviourTests {
         defer { h.close() }
         func at(_ word: String) -> Int { (h.text as NSString).range(of: word).location }
         h.select(at("Primo capitolo"))
-        h.editor.applyNamedStyle(.paragraph, name: "Titolo 1")
+        h.editor.applyNamedStyle(.paragraph, name: "Heading 1")
         h.step()
         h.select(at("Una sezione"))
-        h.editor.applyNamedStyle(.paragraph, name: "Titolo 2")
+        h.editor.applyNamedStyle(.paragraph, name: "Heading 2")
         h.step()
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Primo capitolo", "2 sezione Una sezione"])
-        #expect(h.undoActionName == "Style “Titolo 2”")
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Primo capitolo", "2 section Una sezione"])
+        #expect(h.undoActionName == "Style “Heading 2”")
         h.type("X")
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Primo capitolo", "2 sezione XUna sezione"], "si scrive nel titolo")
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Primo capitolo", "2 section XUna sezione"], "si scrive nel titolo")
         h.select(at("Primo capitolo"))
-        h.editor.applyNamedStyle(.paragraph, name: "Testo")
+        h.editor.applyNamedStyle(.paragraph, name: "Body")
         h.step()
-        #expect(outline(h.editor.currentDocument().sections) == ["1 sezione XUna sezione"], "lo stile del corpo toglie il capitolo; la sezione interna sale")
+        #expect(outline(h.editor.currentDocument().sections) == ["1 section XUna sezione"], "lo stile del corpo toglie il capitolo; la sezione interna sale")
         let items = DocumentOutline.build(text: h.attributed, layout: nil, floatStyles: [])
         #expect(items.first { $0.title == "Primo capitolo" }?.kind == .paragraph)
-        #expect(items.first { $0.title == "Primo capitolo" }?.detail == "Testo")
+        #expect(items.first { $0.title == "Primo capitolo" }?.detail == "Body")
         h.undo()
         h.undo()
         h.undo()
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Primo capitolo"], "Annulla toglie la sezione con lo stile")
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Primo capitolo"], "Annulla toglie la sezione con lo stile")
 
-        h.editor.stylesTab.onOpensSection?("Titolo 2", "")
+        h.editor.stylesTab.onOpensSection?("Heading 2", "")
         h.step()
-        #expect(h.editor.currentDocument().styles.values(of: "Titolo 2").opensSection == "")
+        #expect(h.editor.currentDocument().styles.values(of: "Heading 2").opensSection == "")
         h.select(at("Una sezione"))
-        h.editor.applyNamedStyle(.paragraph, name: "Titolo 2")
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Primo capitolo"], "con «No» lo stile non apre più nulla")
+        h.editor.applyNamedStyle(.paragraph, name: "Heading 2")
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Primo capitolo"], "con «No» lo stile non apre più nulla")
     }
 
     // MARK: Dove comincia una sezione (tappa S.3a)
@@ -2529,7 +2529,7 @@ struct EditingBehaviourTests {
         defer { h.close() }
         let uno = (h.text as NSString).range(of: "Uno").location
         h.select(uno)
-        h.editor.applyNamedStyle(.paragraph, name: "Titolo 1")
+        h.editor.applyNamedStyle(.paragraph, name: "Heading 1")
         h.step()
         h.editor.inspectSection(depth: nil)
         h.editor.inspectorForTests.setSectionStart?(.newPage)
@@ -2558,12 +2558,12 @@ struct EditingBehaviourTests {
 
     @Test("SZ13 · Scheda Liste: «riparte a ogni sezione di ruolo…» e «numera le sezioni» si leggono e si riscrivono; i ruoli offerti")
     func listsTabSections() throws {
-        let lists = [ListDefinition(name: "Capitoli", counter: .decimal, suffix: ".", numbersSections: "capitolo"),
-                     ListDefinition(name: "Esempi", counter: .decimal, parent: .section("lezione"), showsParent: true)]
+        let lists = [ListDefinition(name: "Capitoli", counter: .decimal, suffix: ".", numbersSections: "chapter"),
+                     ListDefinition(name: "Examples", counter: .decimal, parent: .section("lezione"), showsParent: true)]
         let model = ListsSheetModel(lists: lists, noteList: nil)
-        model.documentRoles = ["capitolo", "tavola"]
+        model.documentRoles = ["chapter", "tavola"]
         #expect(model.rows[1].parent == .section("lezione"))
-        #expect(model.roles == ["parte", "capitolo", "sezione", "appendice", "tavola", "lezione"], "pronti, del documento, già usati")
+        #expect(model.roles == ["part", "chapter", "section", "appendix", "tavola", "lezione"], "pronti, del documento, già usati")
         #expect(model.definitions == lists, "riscritte uguali")
         model.rows[1].parent = .section("capitolo")
         model.rows[0].definition.numbersSections = nil
@@ -2585,7 +2585,7 @@ struct EditingBehaviourTests {
         document.pageTypes = [PageType(name: "Orizzontale", setup: landscape)]
         var flat = document.flatParagraphs
         flat[1].section = SectionMark(id: "t", role: "tavola", depth: 1, start: .newPage, pageTypes: SectionPageTypes(pages: "Orizzontale"))
-        flat[3].section = SectionMark(id: "d", role: "capitolo", depth: 1, start: .newPage, pageTypes: SectionPageTypes(pages: PageType.defaultName))
+        flat[3].section = SectionMark(id: "d", role: "chapter", depth: 1, start: .newPage, pageTypes: SectionPageTypes(pages: PageType.defaultName))
         document.setFlatParagraphs(flat)
         h.editor.replaceContent(document)
         h.step()
@@ -2613,7 +2613,7 @@ struct EditingBehaviourTests {
         document.pageTypes = [PageType(name: "Orizzontale", setup: landscape)]
         var flat = document.flatParagraphs
         flat[1].section = SectionMark(id: "t", role: "tavola", depth: 1, start: .newPage, pageTypes: SectionPageTypes(pages: "Orizzontale"))
-        flat[3].section = SectionMark(id: "d", role: "capitolo", depth: 1, start: .newPage)
+        flat[3].section = SectionMark(id: "d", role: "chapter", depth: 1, start: .newPage)
         document.setFlatParagraphs(flat)
         h.editor.replaceContent(document)
         h.step()
@@ -2668,7 +2668,7 @@ struct EditingBehaviourTests {
         let menu = NSMenu()
         FieldMenuFiller.shared.menuNeedsUpdate(menu)
         let titles = menu.items.map(\.title)
-        #expect(titles.prefix(2) == ["Page number", "Number of pages"] && titles.contains("Title of the current section: capitolo"))
+        #expect(titles.prefix(2) == ["Page number", "Number of pages"] && titles.contains("Title of the current section: chapter"))
         h.select(7)
         let item = try #require(menu.items.first)
         h.editor.insertField(item)
@@ -2710,14 +2710,14 @@ struct EditingBehaviourTests {
         h.select(h.text.utf16.count)
         h.editor.insertRunning(placement: .pageHead, pages: .all)
         h.step()
-        #expect(h.editor.currentDocument().floatStyles.contains(.running(name: "Intestazione")) && h.undoActionName == "Intestazione")
+        #expect(h.editor.currentDocument().floatStyles.contains(.running(name: "Header")) && h.undoActionName == "Header")
         h.type("Il libro")
         // Il cursore, mentre si scrive nell'intestazione, sta sulla sua riga in testa alla pagina, non sulla prima del corpo.
         let caretLayout = try #require(h.editor.currentLayout())
         let caret = try #require(caretLayout.caret(at: h.selection.location, affinity: .upstream))
         #expect(caret.rect.minY > caretLayout.pages[caret.page].setup.paperSize.height - caretLayout.pages[caret.page].setup.top, "il cursore è nell'intestazione")
         var placed = floats(in: try first())
-        #expect(placed.map(\.style) == ["Intestazione"] && placed.first?.runs.first?.text == "Il libro", "senza sezioni, nel primo paragrafo")
+        #expect(placed.map(\.style) == ["Header"] && placed.first?.runs.first?.text == "Il libro", "senza sezioni, nel primo paragrafo")
         let layout = try #require(h.editor.currentLayout())
         let setup = layout.pages[0].setup
         #expect(layout.pages[0].lines.contains { $0.noteRange != nil && $0.origin.y > setup.paperSize.height - setup.top }, "in testa alla pagina")
@@ -2730,10 +2730,10 @@ struct EditingBehaviourTests {
         h.editor.insertRunning(placement: .pageBottom, pages: .all)
         h.step()
         placed = floats(in: try first())
-        #expect(placed.last.map { $0.style == "Piè di pagina" && $0.runs.contains { $0.field == .page } } == true, "con il numero di pagina")
+        #expect(placed.last.map { $0.style == "Footer" && $0.runs.contains { $0.field == .page } } == true, "con il numero di pagina")
         h.undo()
         placed = floats(in: try first())
-        #expect(placed.count == 1 && !h.editor.currentDocument().floatStyles.contains { $0.name == "Piè di pagina" }, "un passo: stile e ancora")
+        #expect(placed.count == 1 && !h.editor.currentDocument().floatStyles.contains { $0.name == "Footer" }, "un passo: stile e ancora")
 
         // In una sezione: nel suo titolo.
         h.select((h.text as NSString).range(of: "Testo.").location)
@@ -2745,11 +2745,11 @@ struct EditingBehaviourTests {
         h.step()
         h.type("Apertura")
         let title = try #require(h.editor.currentDocument().sections.first?.title)
-        #expect(floats(in: title).map(\.style) == ["Intestazione della prima pagina"])
+        #expect(floats(in: title).map(\.style) == ["Header (first page)"])
         // L'aspetto del testo, non quello del titolo (Titolo 1, 18 pt in nero): cinque sesti del corpo del testo.
         let run = try #require(floats(in: title).first?.runs.first)
         #expect(run.text == "Apertura" && run.style.size == 10 && run.style.fontName == "HoeflerText-Regular")
-        #expect(h.editor.sectionPathTitlesForTests == ["Capitolo “Capitolo”"], "il nome della sezione non comprende l'intestazione")
+        #expect(h.editor.sectionPathTitlesForTests == ["Chapter “Capitolo”"], "il nome della sezione non comprende l'intestazione")
     }
 
     @Test("SZ18 · Scheda Liste › Pagine numerate con; ispettore della Sezione › Numeri di pagina ripartono")
@@ -2758,21 +2758,21 @@ struct EditingBehaviourTests {
         defer { h.close() }
         h.editor.definitionsPanel.show(.lists)
         let lists = try #require(h.editor.definitionsPanel.lists)
-        lists.pageList = lists.rows.first { $0.definition.name == "Esempi" }?.id
+        lists.pageList = lists.rows.first { $0.definition.name == "Examples" }?.id
         h.editor.definitionsPanel.flushPending()
         h.step()
-        #expect(h.editor.currentDocument().pageNumbering == "Esempi")
+        #expect(h.editor.currentDocument().pageNumbering == "Examples")
         var number = try #require(h.editor.currentLayout()).pages.first?.number
         #expect(number == "(1)", "con la Lista degli esempi: (1)")
         h.select((h.text as NSString).range(of: "Capitolo").location)
-        h.editor.applyNamedStyle(.paragraph, name: "Titolo 1")
+        h.editor.applyNamedStyle(.paragraph, name: "Heading 1")
         h.step()
         h.editor.inspectSection(depth: nil)
         let inspector = h.editor.inspectorForTests
-        #expect(inspector.section?.listNames.contains("Elenco numerato") == true && inspector.section?.pageNumbering == nil)
-        inspector.setSectionPageNumbering?("Elenco numerato")
+        #expect(inspector.section?.listNames.contains("Numbered List") == true && inspector.section?.pageNumbering == nil)
+        inspector.setSectionPageNumbering?("Numbered List")
         h.step()
-        #expect(h.editor.currentDocument().sections.first?.pageNumbering == "Elenco numerato")
+        #expect(h.editor.currentDocument().sections.first?.pageNumbering == "Numbered List")
         number = try #require(h.editor.currentLayout()).pages.first?.number
         #expect(number == "1.", "il capitolo comincia nella prima pagina e la fa ripartire")
         h.undo()
@@ -2953,9 +2953,9 @@ struct EditingBehaviourTests {
         h.editor.inspect(.table)
         #expect(inspector.table?.style == nil && inspector.table?.styleNames.count == 5 && inspector.table?.resolved == .initial)
         // Lo stile «Tre filetti»: niente filetti verticali.
-        inspector.setTableStyle?("Tre filetti")
+        inspector.setTableStyle?("Three Rules")
         h.step()
-        #expect(table?.styleName == "Tre filetti" && inspector.table?.style == "Tre filetti")
+        #expect(table?.styleName == "Three Rules" && inspector.table?.style == "Three Rules")
         #expect(page?.rules.allSatisfy { $0.width > $0.height } == true)
         // Un fondo solo per questa tabella; la selezione resta dov'era.
         let caret = h.selection
@@ -2986,7 +2986,7 @@ struct EditingBehaviourTests {
         // La scheda Tabelle: rinominare lo stile che la tabella usa, poi toglierlo.
         h.editor.definitionsPanel.show(.tables)
         let sheet = try #require(h.editor.definitionsPanel.tableStyles)
-        sheet.selection = sheet.rows.first { $0.style.name == "Tre filetti" }?.id
+        sheet.selection = sheet.rows.first { $0.style.name == "Three Rules" }?.id
         sheet.rename("Tre righe")
         h.editor.definitionsPanel.flushPending()
         h.step()
@@ -3029,7 +3029,7 @@ struct EditingBehaviourTests {
         // Nella pagina: la didascalia con il numero, sopra la tabella.
         let captionAt = (h.text as NSString).range(of: "Popolazione").location
         let line = try #require(h.editor.currentLayout()?.pages.first?.lines.first { $0.paragraphLocation == captionAt })
-        #expect(CTLineGetGlyphCount(line.line) == "Tabella 1. Popolazione".count + 1)
+        #expect(CTLineGetGlyphCount(line.line) == "Table 1. Popolazione".count + 1)
         // Spenta: torna nel testo e perde la didascalia; il cursore resta nella sua cella; Annulla la rimette.
         h.press(#selector(NSResponder.insertTab(_:)))
         h.type("Nome")
@@ -3128,14 +3128,14 @@ struct EditingBehaviourTests {
         // Scheda Liste: una Lista rinominata ancora in attesa, poi il ripristino.
         h.editor.definitionsPanel.show(.lists)
         let lists = try #require(h.editor.definitionsPanel.lists)
-        let index = try #require(lists.rows.firstIndex { $0.definition.name == "Esempi" })
+        let index = try #require(lists.rows.firstIndex { $0.definition.name == "Examples" })
         lists.rows[index].definition.name = "Esempi rinominati"
         h.step()
         h.editor.replaceContent(saved)
         pause()
         #expect(h.editor.currentDocument().lists == saved.lists, "la Lista rinominata è arrivata dopo il ripristino")
         // La scheda mostra il documento ripristinato.
-        #expect(h.editor.definitionsPanel.lists?.rows.contains { $0.definition.name == "Esempi" } == true)
+        #expect(h.editor.definitionsPanel.lists?.rows.contains { $0.definition.name == "Examples" } == true)
     }
 
     // MARK: Lo zoom allarga la finestra

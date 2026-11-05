@@ -15,19 +15,19 @@ struct HeadingCompositionTests {
         values.size = 20
         values.spaceBefore = 0
         values.spaceAfter = 0
-        values.opensSection = "capitolo"
+        values.opensSection = "chapter"
         values.openingDistance = opening
-        sheet.styles.append(NamedStyle(name: "Titolo capitolo", target: .paragraph, basedOn: "Testo", values: values, heading: heading))
+        sheet.styles.append(NamedStyle(name: "Titolo capitolo", target: .paragraph, basedOn: "Body", values: values, heading: heading))
         func paragraph(_ string: String, _ style: String) -> Paragraph {
             Paragraph(styleName: style, style: sheet.resolveParagraph(styleName: style),
                       inlines: [.text(TextRun(string, style: sheet.resolveCharacter(paragraphStyle: style, wordStyle: nil, characterStyle: nil, base: body)))])
         }
         let long = String(repeating: "Una frase abbastanza lunga da riempire molte righe di testo. ", count: 60)
-        var document = Document(styles: sheet, lists: ListDefinition.builtIn + [ListDefinition(name: "Capitoli", counter: .decimal, continues: true, numbersSections: "capitolo")],
+        var document = Document(styles: sheet, lists: ListDefinition.builtIn + [ListDefinition(name: "Capitoli", counter: .decimal, continues: true, numbersSections: "chapter")],
                                 blocks: [])
         document.pageSetup = PageSetup(paperSize: PageSetup.a4.paperSize, top: 72, bottom: 72, left: 72, right: 90, facing: facing)
         document.sections = (1...chapters).map { n in
-            Section(id: "c\(n)", role: "capitolo", title: paragraph(title, "Titolo capitolo"),
+            Section(id: "c\(n)", role: "chapter", title: paragraph(title, "Titolo capitolo"),
                     blocks: [.paragraph(paragraph(long, "Testo"))], start: .newPage)
         }
         return document

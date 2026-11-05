@@ -111,7 +111,7 @@ extension TypesettingSuite {
             let title = Paragraph(inlines: [.text(TextRun("Capitolo", style: body))])
             guard case .paragraph(let first) = lines(4, word: "Prova", keeping: LineKeeping(together: true, linesAtEnd: 2, linesAtStart: 2)),
                   case .paragraph(let after) = lines(4, word: "Dopo", keeping: standard) else { return }
-            document.sections = [Section(id: "c1", role: "capitolo", title: title,
+            document.sections = [Section(id: "c1", role: "chapter", title: title,
                                          blocks: [lines(n - 3, word: "Corpo"), .paragraph(first)], start: .newPage,
                                          afterward: [.paragraph(after)])]
             let text = document.attributedString().text

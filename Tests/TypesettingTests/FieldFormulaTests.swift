@@ -10,7 +10,7 @@ struct FieldFormulaTests {
     @Test("Ogni formula va e torna dall'attributo del testo; le forme storiche diventano formule")
     func encoding() {
         let all: [FieldFormula] = [.pageContainingNumber, .documentPageCount,
-                                   .sectionContainingTitle(role: "capitolo"), .sectionContainingNumber(role: "parte prima")]
+                                   .sectionContainingTitle(role: "chapter"), .sectionContainingNumber(role: "parte prima")]
         for formula in all {
             #expect(Field(encoded: Field.formula(formula).encoded) == .formula(formula))
             #expect(FieldFormula(expression: formula.expression, role: formula.role) == formula)
@@ -28,16 +28,16 @@ struct FieldFormulaTests {
         // Un file di prima: quello che si scrive oggi, con i tipi storici al posto delle formule e la versione 8.
         func run(_ field: Field?, _ text: String = Field.placeholder) -> Inline { .text(TextRun(text, style: body, field: field)) }
         let modern = DocumentFormat.string(for: Document(blocks: [.paragraph(Paragraph(inlines: [
-            run(nil, "Pagina "), run(.page), run(nil, " di "), run(.pageCount), run(nil, ", "), run(.sectionTitle(role: "capitolo"))]))]))
+            run(nil, "Pagina "), run(.page), run(nil, " di "), run(.pageCount), run(nil, ", "), run(.sectionTitle(role: "chapter"))]))]))
         let old = modern
             .replacingOccurrences(of: "kind=\"formula\" expression=\"position.page-containing.number.write-here\"", with: "kind=\"page\"")
             .replacingOccurrences(of: "kind=\"formula\" expression=\"document.page-count.write-here\"", with: "kind=\"pages\"")
             .replacingOccurrences(of: "kind=\"formula\" expression=\"position.section-containing.title.write-here\"", with: "kind=\"section-title\"")
             .replacingOccurrences(of: "version=\"13\"", with: "version=\"8\"")
-        #expect(old.contains("kind=\"page\"") && old.contains("kind=\"section-title\" role=\"capitolo\"") && old.contains("version=\"8\""))
+        #expect(old.contains("kind=\"page\"") && old.contains("kind=\"section-title\" role=\"chapter\"") && old.contains("version=\"8\""))
         let read = try DocumentFormat.document(from: old)
         let fields = read.flatParagraphs.flatMap { $0.paragraph.inlines.compactMap { if case .text(let run) = $0 { run.field } else { nil } } }
-        #expect(fields.map(\.asFormula) == [.pageContainingNumber, .documentPageCount, .sectionContainingTitle(role: "capitolo")])
+        #expect(fields.map(\.asFormula) == [.pageContainingNumber, .documentPageCount, .sectionContainingTitle(role: "chapter")])
         let written = DocumentFormat.string(for: read)
         #expect(written.contains("version=\"13\""))
         #expect(!written.contains("kind=\"page\"") && !written.contains("kind=\"pages\"") && !written.contains("kind=\"section-title\""))
@@ -59,11 +59,11 @@ struct FieldFormulaTests {
         func field(_ formula: FieldFormula) -> Inline { .text(TextRun(Field.placeholder, style: body, field: .formula(formula))) }
         func text(_ string: String) -> Inline { .text(TextRun(string, style: body)) }
         let long = String(repeating: "Una frase abbastanza lunga da riempire molte righe di testo. ", count: 120)
-        var document = Document(lists: [ListDefinition(name: "Capitoli", counter: .decimal, numbersSections: "capitolo")],
+        var document = Document(lists: [ListDefinition(name: "Capitoli", counter: .decimal, numbersSections: "chapter")],
                                 blocks: [.paragraph(Paragraph(inlines: [text("Premessa di "), field(.documentPageCount), text(" pagine.")]))])
-        document.sections = [Section(id: "c1", role: "capitolo", title: Paragraph(inlines: [text("Il mare")]),
-                                     blocks: [.paragraph(Paragraph(inlines: [text("Qui: "), field(.sectionContainingTitle(role: "capitolo")),
-                                                                              text(", capitolo "), field(.sectionContainingNumber(role: "capitolo")),
+        document.sections = [Section(id: "c1", role: "chapter", title: Paragraph(inlines: [text("Il mare")]),
+                                     blocks: [.paragraph(Paragraph(inlines: [text("Qui: "), field(.sectionContainingTitle(role: "chapter")),
+                                                                              text(", capitolo "), field(.sectionContainingNumber(role: "chapter")),
                                                                               text(", pagina "), field(.pageContainingNumber), text(".")])),
                                               .paragraph(Paragraph(inlines: [text(long)]))],
                                      start: .newPage)]

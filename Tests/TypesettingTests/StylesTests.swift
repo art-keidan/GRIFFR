@@ -32,17 +32,17 @@ extension TypesettingSuite {
 
         @Test("I valori passano dal paragrafo alla parola al carattere, e il più vicino vince")
         func cascade() {
-            let run = sheet.resolveCharacter(paragraphStyle: "Titolo 1", wordStyle: "Latino", characterStyle: "Enfasi", base: helvetica)
+            let run = sheet.resolveCharacter(paragraphStyle: "Heading 1", wordStyle: "Latin", characterStyle: "Emphasis", base: helvetica)
             // Titolo 1 (basato su Testo): Hoefler Text, nero, corpo 18; Latino: lingua latina; Enfasi: corsivo.
             #expect(run.fontName == "HoeflerText-BlackItalic")
             #expect(run.size == 18)
             #expect(run.language == "la")
-            #expect(sheet.resolveCharacter(paragraphStyle: "Testo", wordStyle: nil, characterStyle: nil, base: helvetica)
+            #expect(sheet.resolveCharacter(paragraphStyle: "Body", wordStyle: nil, characterStyle: nil, base: helvetica)
                     == CharacterStyle(fontName: "HoeflerText-Regular", size: 12))
             // Senza stili resta la base.
             #expect(sheet.resolveCharacter(paragraphStyle: nil, wordStyle: nil, characterStyle: nil, base: helvetica) == helvetica)
 
-            let quote = sheet.resolveParagraph(styleName: "Citazione")
+            let quote = sheet.resolveParagraph(styleName: "Quotation")
             #expect(quote.alignment == .justified, "ereditato da Testo")
             #expect(quote.leftIndent == 24 && quote.rightIndent == 24 && quote.spaceBefore == 6)
 
@@ -52,7 +52,7 @@ extension TypesettingSuite {
             big.alignment = .center  // uno stile di carattere non può fissare l'allineamento: viene ignorato
             var custom = sheet
             custom.styles.append(NamedStyle(name: "Grande", target: .character, values: big))
-            #expect(custom.resolveCharacter(paragraphStyle: "Titolo 1", wordStyle: nil, characterStyle: "Grande", base: helvetica).size == 30)
+            #expect(custom.resolveCharacter(paragraphStyle: "Heading 1", wordStyle: nil, characterStyle: "Grande", base: helvetica).size == 30)
             #expect(custom.values(of: "Grande").alignment == nil)
         }
 
@@ -76,16 +76,16 @@ extension TypesettingSuite {
         }
 
         private func sample() -> Document {
-            var indented = sheet.resolveParagraph(styleName: "Testo")
+            var indented = sheet.resolveParagraph(styleName: "Body")
             indented.firstLineIndent = 12
             return Document(styles: sheet, lists: ListDefinition.builtIn, blocks: [
-                .paragraph(Paragraph(styleName: "Titolo 1", style: sheet.resolveParagraph(styleName: "Titolo 1"), inlines: [run("Introduzione", paragraph: "Titolo 1")])),
-                .paragraph(Paragraph(styleName: "Testo", style: indented, inlines: [
-                    run("Un testo con ", paragraph: "Testo"), run("enfasi", paragraph: "Testo", character: "Enfasi"),
-                    run(", una citazione ", paragraph: "Testo"), run("veni vidi vici", paragraph: "Testo", word: "Latino"),
-                    run(" e una parola più grande", paragraph: "Testo", size: 14), run(" indivisibile", paragraph: "Testo", hyphenates: false),
+                .paragraph(Paragraph(styleName: "Heading 1", style: sheet.resolveParagraph(styleName: "Heading 1"), inlines: [run("Introduzione", paragraph: "Heading 1")])),
+                .paragraph(Paragraph(styleName: "Body", style: indented, inlines: [
+                    run("Un testo con ", paragraph: "Body"), run("enfasi", paragraph: "Body", character: "Emphasis"),
+                    run(", una citazione ", paragraph: "Body"), run("veni vidi vici", paragraph: "Body", word: "Latin"),
+                    run(" e una parola più grande", paragraph: "Body", size: 14), run(" indivisibile", paragraph: "Body", hyphenates: false),
                 ])),
-                .paragraph(Paragraph(styleName: "Citazione", style: sheet.resolveParagraph(styleName: "Citazione"), inlines: [run("Una citazione.", paragraph: "Citazione")])),
+                .paragraph(Paragraph(styleName: "Quotation", style: sheet.resolveParagraph(styleName: "Quotation"), inlines: [run("Una citazione.", paragraph: "Quotation")])),
             ])
         }
 
@@ -94,14 +94,14 @@ extension TypesettingSuite {
             let written = DocumentFormat.string(for: sample())
             #expect(written.contains("""
             <styles>
-            <style name="Testo" target="paragraph" family="Hoefler Text" size="12" align="justified"/>
-            <style name="Titolo 1" target="paragraph" based-on="Testo" bold="on" size="18" align="natural" space-before="18" space-after="6" opens-section="capitolo" outline-level="1"/>
+            <style name="Body" target="paragraph" family="Hoefler Text" size="12" align="justified"/>
+            <style name="Heading 1" target="paragraph" based-on="Body" bold="on" size="18" align="natural" space-before="18" space-after="6" opens-section="chapter" outline-level="1"/>
             """))
-            #expect(written.contains("<style name=\"Latino\" target=\"word\" lang=\"la\"/>"))
-            #expect(written.contains("<style name=\"Enfasi\" target=\"character\" italic=\"on\"/>"))
-            #expect(written.contains("<p style=\"Titolo 1\">Introduzione</p>"))
-            #expect(written.contains("<p style=\"Testo\" first-indent=\"12\">Un testo con <t char-style=\"Enfasi\">enfasi</t>, una citazione <t word-style=\"Latino\">veni vidi vici</t><t size=\"14\"> e una parola più grande</t><t hyphenation=\"off\"> indivisibile</t></p>"))
-            #expect(written.contains("<p style=\"Citazione\">Una citazione.</p>"))
+            #expect(written.contains("<style name=\"Latin\" target=\"word\" lang=\"la\"/>"))
+            #expect(written.contains("<style name=\"Emphasis\" target=\"character\" italic=\"on\"/>"))
+            #expect(written.contains("<p style=\"Heading 1\">Introduzione</p>"))
+            #expect(written.contains("<p style=\"Body\" first-indent=\"12\">Un testo con <t char-style=\"Emphasis\">enfasi</t>, una citazione <t word-style=\"Latin\">veni vidi vici</t><t size=\"14\"> e una parola più grande</t><t hyphenation=\"off\"> indivisibile</t></p>"))
+            #expect(written.contains("<p style=\"Quotation\">Una citazione.</p>"))
             #expect(try DocumentFormat.document(from: written) == sample())
         }
 
@@ -221,22 +221,22 @@ extension TypesettingSuite.StylesTests {
     func editorRoundTrip() throws {
         let written = DocumentFormat.string(for: try DocumentFormat.document(from: Data(DocumentFormat.string(for: Document(styles: Self.sheet, lists: ListDefinition.builtIn, blocks: [])).utf8)))
         #expect(written.contains("<styles>"))
-        let text = Self.editorText([("Titolo", "Titolo 1"), ("Corpo del testo", "Testo")])
-        #expect(text.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String == "Titolo 1")
+        let text = Self.editorText([("Titolo", "Heading 1"), ("Corpo del testo", "Body")])
+        #expect(text.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String == "Heading 1")
         #expect(Self.font(text, "Titolo").fontName == "HoeflerText-Black")
         let document = Document(attributedString: text, settings: Document(styles: Self.sheet, lists: ListDefinition.builtIn))
         #expect(Document(attributedString: document.attributedString().text, settings: document.settingsOnly) == document)
         guard case .paragraph(let second) = document.blocks[1] else { return }
-        #expect(second.styleName == "Testo")
+        #expect(second.styleName == "Body")
     }
 
     @Test("Cambiare lo stile di un paragrafo aggiorna ciò che era ereditato e lascia ciò che era dato a mano")
     func applyParagraphStyle() {
-        let text = Self.editorText([("Un paragrafo con una parola grande dentro.", "Testo")])
+        let text = Self.editorText([("Un paragrafo con una parola grande dentro.", "Body")])
         let big = (text.string as NSString).range(of: "grande")
         text.addAttribute(.font, value: NSFont(name: "HoeflerText-Regular", size: 20)!, range: big)  // dato a mano
-        TextStyling.restyle(text, range: TextStyling.paragraphRange(in: text, for: NSRange(location: 0, length: 0)), from: Self.sheet, to: Self.sheet) { $0.paragraph = "Titolo 1" }
-        #expect(text.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String == "Titolo 1")
+        TextStyling.restyle(text, range: TextStyling.paragraphRange(in: text, for: NSRange(location: 0, length: 0)), from: Self.sheet, to: Self.sheet) { $0.paragraph = "Heading 1" }
+        #expect(text.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String == "Heading 1")
         #expect(Self.font(text, "Un").fontName == "HoeflerText-Black" && Self.font(text, "Un").pointSize == 18)
         // Il corpo 20 era dato a mano e resta; il font era ereditato e diventa il nero.
         #expect(Self.font(text, "grande").pointSize == 20 && Self.font(text, "grande").fontName == "HoeflerText-Black")
@@ -245,12 +245,12 @@ extension TypesettingSuite.StylesTests {
 
     @Test("Stile di carattere e di parola su un pezzo di testo, e la loro rimozione")
     func applyRunStyles() {
-        let text = Self.editorText([("Testo con una citazione latina in mezzo.", "Testo")])
+        let text = Self.editorText([("Testo con una citazione latina in mezzo.", "Body")])
         let latin = (text.string as NSString).range(of: "citazione latina")
-        TextStyling.restyle(text, range: latin, from: Self.sheet, to: Self.sheet) { $0.character = "Enfasi"; $0.word = "Latino" }
+        TextStyling.restyle(text, range: latin, from: Self.sheet, to: Self.sheet) { $0.character = "Emphasis"; $0.word = "Latin" }
         #expect(Self.font(text, "citazione").fontName == "HoeflerText-Italic")
         #expect(text.attribute(.language, at: latin.location, effectiveRange: nil) as? String == "la")
-        #expect(text.attribute(.characterStyleName, at: latin.location, effectiveRange: nil) as? String == "Enfasi")
+        #expect(text.attribute(.characterStyleName, at: latin.location, effectiveRange: nil) as? String == "Emphasis")
         #expect(Self.font(text, "Testo").fontName == "HoeflerText-Regular", "fuori dal pezzo nulla cambia")
         TextStyling.restyle(text, range: latin, from: Self.sheet, to: Self.sheet) { $0.character = nil; $0.word = nil }
         #expect(Self.font(text, "citazione").fontName == "HoeflerText-Regular")
@@ -259,11 +259,11 @@ extension TypesettingSuite.StylesTests {
 
     @Test("Ridefinire uno stile aggiorna tutto il testo che lo usa, anche attraverso gli stili basati su di lui")
     func redefine() {
-        let text = Self.editorText([("Primo paragrafo di testo.", "Testo"), ("Una citazione.", "Citazione"), ("Un titolo", "Titolo 1")])
+        let text = Self.editorText([("Primo paragrafo di testo.", "Body"), ("Una citazione.", "Quotation"), ("Un titolo", "Heading 1")])
         let mark = (text.string as NSString).range(of: "Primo")
         text.addAttribute(.font, value: NSFont(name: "HoeflerText-Regular", size: 16)!, range: mark)  // dato a mano
         var newSheet = Self.sheet
-        let at = newSheet.styles.firstIndex { $0.name == "Testo" }!
+        let at = newSheet.styles.firstIndex { $0.name == "Body" }!
         newSheet.styles[at].values.size = 13
         newSheet.styles[at].values.family = "Baskerville"
         TextStyling.restyle(text, range: NSRange(location: 0, length: text.length), from: Self.sheet, to: newSheet)
@@ -276,12 +276,12 @@ extension TypesettingSuite.StylesTests {
 
     @Test("Uno stile nuovo preso dalla selezione registra solo ciò che differisce, con il font come famiglia e corsivo")
     func styleFromSelection() {
-        let text = Self.editorText([("Testo normale e testo speciale.", "Testo")])
+        let text = Self.editorText([("Testo normale e testo speciale.", "Body")])
         let special = (text.string as NSString).range(of: "speciale")
         text.addAttribute(.font, value: NSFont(name: "HoeflerText-Italic", size: 14)!, range: special)
         let values = TextStyling.styleValues(from: text, at: special.location, target: .character, sheet: Self.sheet, basedOn: nil)
         #expect(values.italic == true && values.size == 14 && values.family == nil && values.fontName == nil)
-        let paragraph = TextStyling.styleValues(from: text, at: 0, target: .paragraph, sheet: Self.sheet, basedOn: "Testo")
+        let paragraph = TextStyling.styleValues(from: text, at: 0, target: .paragraph, sheet: Self.sheet, basedOn: "Body")
         #expect(paragraph == StyleValues(), "il paragrafo non differisce da Testo")
     }
 

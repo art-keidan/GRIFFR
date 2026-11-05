@@ -16,7 +16,7 @@ struct ActionComposerTests {
         defer { h.close() }
         h.editor.openStyleComposer(nil)
         let board = try #require(h.editor.composerModel)
-        board.selectStyle("Testo")
+        board.selectStyle("Body")
         // La formula del documento, come la definisce la scheda Formule.
         let base = FormulaParameter(name: "Base", type: .length)
         let definition = ReusableFormula(name: "Rientro con margine", parameters: [base], resultType: .length,
@@ -51,7 +51,7 @@ struct ActionComposerTests {
         let xml = try #require(String(data: data, encoding: .utf8))
         #expect(xml.contains("version=\"12\"") && xml.contains("name=\"Distanza\""))
         let read = try DocumentFormat.document(from: data)
-        #expect(read.styles.resolveParagraph(styleName: "Testo").leftIndent == 22)
+        #expect(read.styles.resolveParagraph(styleName: "Body").leftIndent == 22)
         // Il ritorno a un valore fisso conserva il valore che la variabile dava.
         board.bind(action, to: nil)
         #expect(board.currentStyle?.formulas.first { $0.id == action }?.operation.argument == .length(22, .points))
@@ -63,7 +63,7 @@ struct ActionComposerTests {
         defer { h.close() }
         h.editor.openStyleComposer(nil)
         let board = try #require(h.editor.composerModel)
-        board.selectStyle("Testo")
+        board.selectStyle("Body")
         let variable = try #require(board.addVariable(named: "Spazio", expression: .constant(.length(6))))
         let before = try #require(board.addAction(.spaceBefore))
         board.bind(before, to: variable)
@@ -103,7 +103,7 @@ struct ActionComposerTests {
         defer { h.close() }
         h.editor.openStyleComposer(nil)
         let board = try #require(h.editor.composerModel)
-        board.selectStyle("Titolo 1")
+        board.selectStyle("Heading 1")
         board.useStandardHeading()
         #expect(board.currentHeading == .standard)
         board.addHeadingPart(.label(text: "Capitolo", style: nil, alignment: .center, minHeight: nil))
@@ -121,14 +121,14 @@ struct ActionComposerTests {
         #expect(board.currentHeading?.parts.last == .title, "tolto lo spazio dopo il titolo")
         #expect(board.validationIssue == nil, "\(board.validationIssue ?? "")")
         board.apply(); h.step()
-        let applied = try #require(h.editor.settings.styles.style(named: "Titolo 1")?.heading)
+        let applied = try #require(h.editor.settings.styles.style(named: "Heading 1")?.heading)
         #expect(applied == board.currentHeading)
         let xml = try #require(String(data: try h.document.data(ofType: TextDocument.typeName), encoding: .utf8))
         #expect(xml.contains("<heading encoding=\"json-v1\""))
         h.undo()
-        #expect(h.editor.settings.styles.style(named: "Titolo 1")?.heading == nil)
+        #expect(h.editor.settings.styles.style(named: "Heading 1")?.heading == nil)
         h.redo()
-        #expect(h.editor.settings.styles.style(named: "Titolo 1")?.heading == applied)
+        #expect(h.editor.settings.styles.style(named: "Heading 1")?.heading == applied)
         // Una seconda parte «titolo» è una diagnosi.
         board.updateHeadingPart(at: 0, to: .title)
         #expect(board.validationIssue?.contains("title") == true)
@@ -140,7 +140,7 @@ struct ActionComposerTests {
         defer { h.close() }
         h.editor.openStyleComposer(nil)
         let board = try #require(h.editor.composerModel)
-        board.selectStyle("Testo")
+        board.selectStyle("Body")
         _ = board.addVariable(named: "Distanza", expression: .add(.constant(.length(12)), .constant(.length(6))))
         _ = board.addAction(.leftIndent)
         let window = try #require(h.editor.composerController?.window)

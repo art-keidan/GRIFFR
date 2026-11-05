@@ -11,10 +11,10 @@ extension TypesettingSuite {
 
         @Test("La Lista delle note è la Lista dello stile «Nota a piè di pagina»")
         func noteListIsTheFootnoteStyleList() {
-            var document = Document(lists: ListDefinition.builtIn, noteList: "Note a simboli")
-            #expect(document.floatStyles == [FloatStyle.footnote(listName: "Note a simboli")])
-            document.noteList = "Note"
-            #expect(document.floatStyles.first?.listName == "Note")
+            var document = Document(lists: ListDefinition.builtIn, noteList: "Symbol Notes")
+            #expect(document.floatStyles == [FloatStyle.footnote(listName: "Symbol Notes")])
+            document.noteList = "Notes"
+            #expect(document.floatStyles.first?.listName == "Notes")
             #expect(document.layoutOptions.floatStyles == document.floatStyles)
         }
 
@@ -22,14 +22,14 @@ extension TypesettingSuite {
         func styleRoundTrip() throws {
             let note = FloatingObject(runs: [TextRun("Una nota.", style: small)])
             #expect(note.style == FloatStyle.footnoteName)
-            let document = Document(lists: ListDefinition.builtIn, noteList: "Note", blocks: [
+            let document = Document(lists: ListDefinition.builtIn, noteList: "Notes", blocks: [
                 .paragraph(Paragraph(inlines: [.text(TextRun("Testo", style: body)), .floating(note)])),
             ])
             let text = document.attributedString().text
             #expect(text.attribute(.footnote, at: 5, effectiveRange: nil) as? String == FloatStyle.footnoteName)
             #expect(Document(attributedString: text, settings: document.settingsOnly) == document)
             let written = DocumentFormat.string(for: document)
-            #expect(written.contains("notes=\"Note\"") && written.contains("<note"), "nel file resta <note>")
+            #expect(written.contains("notes=\"Notes\"") && written.contains("<note"), "nel file resta <note>")
             #expect(try DocumentFormat.document(from: written) == document)
         }
 
@@ -42,36 +42,36 @@ extension TypesettingSuite {
                 ])),
             ])
             let options = LayoutOptions(appliesFontTracking: false, usesOpticalMargins: false, lists: ListDefinition.builtIn,
-                                        floatStyles: [.footnote(listName: "Note"), FloatStyle(name: "Altro", listName: "Note a simboli")])
+                                        floatStyles: [.footnote(listName: "Notes"), FloatStyle(name: "Altro", listName: "Symbol Notes")])
             let layout = PageLayout.layout(document.attributedString().text, options: options)
             let pdf = try #require(PDFDocument(data: PDFRenderer.pdfData(for: layout))?.string)
             #expect(pdf.contains("\u{B9} prima") && pdf.contains("* seconda"), "la nota numera 1, l'altro stile con i simboli")
         }
         // MARK: Stili modificabili (tappa 5.2)
 
-        private var curator: FloatStyle { FloatStyle(name: "Note del curatore", listName: "Note", reference: .plain, showsRule: false, canSplit: false) }
+        private var curator: FloatStyle { FloatStyle(name: "Note del curatore", listName: "Notes", reference: .plain, showsRule: false, canSplit: false) }
 
         private func document(_ inlines: [Inline], styles: [FloatStyle]) -> Document {
-            var document = Document(styles: .builtIn, lists: ListDefinition.builtIn, noteList: "Note a simboli", blocks: [.paragraph(Paragraph(inlines: inlines))])
+            var document = Document(styles: .builtIn, lists: ListDefinition.builtIn, noteList: "Symbol Notes", blocks: [.paragraph(Paragraph(inlines: inlines))])
             for style in styles where style.name != FloatStyle.footnoteName { document.floatStyles.append(style) }
             return document
         }
 
         @Test("Nel file: la sezione degli stili di flottante e le note di un'altra serie; un documento normale non cambia")
         func fileFormat() throws {
-            var authorStyle = FloatStyle.footnote(listName: "Note a simboli")
+            var authorStyle = FloatStyle.footnote(listName: "Symbol Notes")
             authorStyle.ruleLength = 100
-            authorStyle.contentStyle = "Citazione"
+            authorStyle.contentStyle = "Quotation"
             var doc = document([.text(TextRun("Testo", style: body)), .floating(FloatingObject(runs: [TextRun("dell'autore", style: small)])),
                                 .text(TextRun(" altro", style: body)), .floating(FloatingObject(runs: [TextRun("del curatore", style: small)], style: "Note del curatore"))],
                                styles: [curator])
             doc.floatStyles[0] = authorStyle
             let written = DocumentFormat.string(for: doc)
-            #expect(written.contains("<float-style name=\"Nota a piè di pagina\" list=\"Note a simboli\" rule-length=\"100\" content=\"Citazione\"/>"))
-            #expect(written.contains("<float-style name=\"Note del curatore\" list=\"Note\" reference=\"plain\" rule=\"off\" split=\"off\"/>"))
+            #expect(written.contains("<float-style name=\"Footnote\" list=\"Symbol Notes\" rule-length=\"100\" content=\"Quotation\"/>"))
+            #expect(written.contains("<float-style name=\"Note del curatore\" list=\"Notes\" reference=\"plain\" rule=\"off\" split=\"off\"/>"))
             #expect(written.contains("<note style=\"Note del curatore\""))
             #expect(try DocumentFormat.document(from: written) == doc)
-            #expect(!DocumentFormat.string(for: Document(lists: ListDefinition.builtIn, noteList: "Note")).contains("float-styles"))
+            #expect(!DocumentFormat.string(for: Document(lists: ListDefinition.builtIn, noteList: "Notes")).contains("float-styles"))
         }
 
         @Test("Errori nel file: serie inesistente, stile del contenuto che non è di paragrafo, Lista inesistente")
@@ -81,8 +81,8 @@ extension TypesettingSuite {
                 catch { return error as? DocumentFormatError }
             }
             #expect(error("<p>x<note style=\"Nessuna\">y</note></p>") == .invalidValue(line: 2, attribute: "style", value: "Nessuna"))
-            #expect(error("<styles>\n<style name=\"Enfasi\" target=\"character\" italic=\"on\"/>\n</styles>\n<float-styles>\n<float-style name=\"A\" content=\"Enfasi\"/>\n</float-styles>")
-                    == .invalidValue(line: 6, attribute: "content", value: "Enfasi"))
+            #expect(error("<styles>\n<style name=\"Emphasis\" target=\"character\" italic=\"on\"/>\n</styles>\n<float-styles>\n<float-style name=\"A\" content=\"Emphasis\"/>\n</float-styles>")
+                    == .invalidValue(line: 6, attribute: "content", value: "Emphasis"))
             #expect(error("<float-styles>\n<float-style name=\"A\" list=\"Z\"/>\n</float-styles>") == .invalidValue(line: 3, attribute: "list", value: "Z"))
         }
 
@@ -146,7 +146,7 @@ extension TypesettingSuite {
         @Test("Lo stile del contenuto dà al testo della nota le misure di uno stile di paragrafo")
         func contentStyle() {
             var style = curator
-            style.contentStyle = "Citazione"   // rientri di 24 pt a sinistra e a destra
+            style.contentStyle = "Quotation"   // rientri di 24 pt a sinistra e a destra
             let doc = document([.text(TextRun("Testo", style: body)), .floating(FloatingObject(runs: [TextRun("nota rientrata", style: small)], style: style.name))],
                                styles: [style])
             let layout = PageLayout.layout(doc.attributedString().text, options: doc.layoutOptions)
@@ -169,7 +169,7 @@ extension TypesettingSuite {
         }
         // MARK: Note di chiusura (tappa 5.3)
 
-        private var endnotes: FloatStyle { FloatStyle(name: "Note di chiusura", placement: .documentEnd, listName: "Note", heading: "Note") }
+        private var endnotes: FloatStyle { FloatStyle(name: "Note di chiusura", placement: .documentEnd, listName: "Notes", heading: "Note") }
 
         @Test("Le note di chiusura stanno dopo il testo, con titolo e filetto, nell'ordine dei richiami; il cursore ci va")
         func endnotesAfterText() throws {
@@ -208,7 +208,7 @@ extension TypesettingSuite {
             #expect(layout.pages.count == 2)
             #expect(layout.pages[1].lines.contains(where: \.isNote) && !layout.pages[0].lines.contains(where: \.isNote))
             let written = DocumentFormat.string(for: doc)
-            #expect(written.contains("<float-style name=\"Note di chiusura\" placement=\"end\" heading=\"Note\" new-page=\"on\" list=\"Note\" rule=\"off\"/>"))
+            #expect(written.contains("<float-style name=\"Note di chiusura\" placement=\"end\" heading=\"Note\" new-page=\"on\" list=\"Notes\" rule=\"off\"/>"))
             #expect(try DocumentFormat.document(from: written) == doc)
         }
         // MARK: Note a margine (tappa 5.4)

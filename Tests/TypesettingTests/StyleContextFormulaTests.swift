@@ -89,8 +89,8 @@ extension TypesettingSuite {
         @Test("Incollare importa e rinomina anche stili e selezioni richiamati dalle formule")
         func importingReferences() throws {
             let selection = WordSelection(name: "Quinta", index: 5)
-            let formulas = [formula(.nextStyle, .styleName("Testo")),
-                formula(.applyStyle, .styleName("Forte"), when: StyleCondition(position: .firstAfter("Titolo")), target: .selection(selection.id))]
+            let formulas = [formula(.nextStyle, .styleName("Body")),
+                formula(.applyStyle, .styleName("Strong"), when: StyleCondition(position: .firstAfter("Titolo")), target: .selection(selection.id))]
             var sourceSheet = StyleSheet.builtIn
             sourceSheet.selections = [selection]
             sourceSheet.styles.append(NamedStyle(name: "Titolo", target: .paragraph, formulas: formulas))
@@ -107,7 +107,7 @@ extension TypesettingSuite {
             #expect(id != selection.id)
             #expect(merged.styles.selections.first { $0.id == id }?.index == 5)
             #expect(merged.styles.formulaReferenceProblem() == nil)
-            let renamed = source.renamingStyle("Testo", to: "Corpo")
+            let renamed = source.renamingStyle("Body", to: "Corpo")
             #expect(renamed.styles.values(of: "Titolo").nextStyle == "Corpo")
         }
 
