@@ -68,7 +68,7 @@ struct ActionComposerTests {
         let before = try #require(board.addAction(.spaceBefore))
         board.bind(before, to: variable)
         board.removeVariable(variable)
-        #expect(board.problem?.contains("usata") == true)
+        #expect(board.problem?.contains("used by") == true)
         #expect(board.currentStyle?.variables.contains { $0.id == variable } == true)
         // Una direttiva (stile dopo Invio) e una formattazione non si scambiano di posto.
         let next = try #require(board.addAction(.nextStyle))
@@ -84,7 +84,7 @@ struct ActionComposerTests {
         board.moveAction(next, to: size)
         #expect(board.currentStyle?.formulas.map(\.id) == order, "fra fasi diverse non si sposta")
         board.applyCondition(.firstOnPage, to: next)
-        #expect(board.problem?.contains("non accetta") == true)
+        #expect(board.problem?.contains("does not accept") == true)
         board.applyCondition(.firstOnPage, to: size)
         #expect(board.problem == nil)
         #expect(board.currentStyle?.formulas.first { $0.id == size }?.when.position == .firstOnPage)
@@ -131,7 +131,7 @@ struct ActionComposerTests {
         #expect(h.editor.settings.styles.style(named: "Titolo 1")?.heading == applied)
         // Una seconda parte «titolo» è una diagnosi.
         board.updateHeadingPart(at: 0, to: .title)
-        #expect(board.validationIssue?.contains("titolo") == true)
+        #expect(board.validationIssue?.contains("title") == true)
     }
 
     @Test("La finestra del compositore si disegna anche stretta, con le tre aree e le azioni aperte")
@@ -144,7 +144,7 @@ struct ActionComposerTests {
         _ = board.addVariable(named: "Distanza", expression: .add(.constant(.length(12)), .constant(.length(6))))
         _ = board.addAction(.leftIndent)
         let window = try #require(h.editor.composerController?.window)
-        #expect(window.title.hasPrefix("Compositore di stili"))
+        #expect(window.title.hasPrefix("Style Composer"))
         for width in [740.0, 1000, 1400] {
             window.setContentSize(NSSize(width: width, height: 560))
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))

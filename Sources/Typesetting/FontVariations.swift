@@ -88,6 +88,9 @@ public enum FontVariations {
     private static let axisLock = NSLock()
     nonisolated(unsafe) private static var axisCache: [String: [FontAxis]] = [:]
 
+    /// Gli assi registrati di OpenType, con il loro nome inglese.
+    static let registeredAxisNames = ["wght": "Weight", "wdth": "Width", "ital": "Italic", "slnt": "Slant", "opsz": "Optical size", "GRAD": "Grade"]
+
     private static func readAxes(of font: CTFont) -> [FontAxis] {
         guard let raw = CTFontCopyVariationAxes(font) as? [[CFString: Any]] else { return [] }
         return raw.compactMap { axis in
@@ -96,7 +99,9 @@ public enum FontVariations {
                   let maximum = axis[kCTFontVariationAxisMaximumValueKey] as? NSNumber,
                   let defaultValue = axis[kCTFontVariationAxisDefaultValueKey] as? NSNumber else { return nil }
             let tag = tag(identifier.uint32Value)
-            return FontAxis(tag: tag, name: axis[kCTFontVariationAxisNameKey] as? String ?? tag, minimum: minimum.doubleValue, maximum: maximum.doubleValue,
+            // I nomi degli assi registrati non dipendono dalla lingua del sistema (macOS li darebbe localizzati).
+            let name = registeredAxisNames[tag] ?? axis[kCTFontVariationAxisNameKey] as? String ?? tag
+            return FontAxis(tag: tag, name: name, minimum: minimum.doubleValue, maximum: maximum.doubleValue,
                             defaultValue: defaultValue.doubleValue, isHidden: (axis[kCTFontVariationAxisHiddenKey] as? NSNumber)?.boolValue ?? false)
         }
     }

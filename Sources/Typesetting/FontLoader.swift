@@ -7,8 +7,8 @@ public enum FontLoadingError: Error, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .unreadable(let url): "Nessun font leggibile in \(url.path)"
-        case .noSuchFace(let url, let face): "\(url.path) non contiene la faccia \(face)"
+        case .unreadable(let url): "No readable font in \(url.path)"
+        case .noSuchFace(let url, let face): "\(url.path) does not contain the face \(face)"
         }
     }
 }

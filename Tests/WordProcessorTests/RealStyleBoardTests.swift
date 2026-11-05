@@ -136,7 +136,7 @@ struct RealStyleBoardTests {
         model.updateFormula(id, operation: StylePropertyOperation(.add, .size, .length(-100, .points)))
         #expect(!model.valid)
         model.selectStyle("B")
-        #expect(!model.valid && model.validationIssue?.contains("«A»") == true)
+        #expect(!model.valid && model.validationIssue?.contains("“A”") == true)
         model.selectStyle("A")
         model.updateFormula(id, operation: StylePropertyOperation(.add, .size, .length(2, .points)))
         #expect(model.valid)

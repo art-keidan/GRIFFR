@@ -69,34 +69,34 @@ extension StyleSheet {
         do { _ = try resolvingReusable() } catch { return reusableProblem(error) }
         let library = ReusableFormulaLibrary(definitions: reusableFormulas)
         for owner in styles {
-            if let problem = owner.heading?.problem { return "«\(owner.name)»: " + problem }
+            if let problem = owner.heading?.problem { return "“\(owner.name)”: " + problem }
             let names = owner.variables.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
             if names.contains("") || Set(names).count != names.count {
-                return "Le variabili di «\(owner.name)» hanno bisogno di nomi non vuoti e diversi."
+                return "The variables of “\(owner.name)” need names that are not empty and all different."
             }
             for variable in owner.variables {
                 do { _ = try library.evaluate(variable.expression.substitutingVariables(owner.variables)) }
-                catch { return "La variabile «\(variable.name)» di «\(owner.name)»: " + reusableProblem(error) }
+                catch { return "The variable “\(variable.name)” of “\(owner.name)”: " + reusableProblem(error) }
             }
-            if let next = owner.values.nextStyle, !next.isEmpty, style(named: next)?.target != .paragraph { return "Lo stile dopo Invio di «\(owner.name)» non esiste o non è di paragrafo." }
+            if let next = owner.values.nextStyle, !next.isEmpty, style(named: next)?.target != .paragraph { return "The style after Return of “\(owner.name)” does not exist or is not a paragraph style." }
             for formula in owner.formulas {
                 if case .firstAfter(let name) = formula.when.position, style(named: name)?.target != .paragraph {
-                    return "La condizione di «\(owner.name)» richiama un paragrafo sconosciuto: «\(name)»."
+                    return "The condition of “\(owner.name)” refers to an unknown paragraph style: “\(name)”."
                 }
                 if case .selection(let id) = formula.target, !selections.contains(where: { $0.id == id }) {
-                    return "La formula di «\(owner.name)» richiama una selezione inesistente."
+                    return "The formula of “\(owner.name)” refers to a selection that does not exist."
                 }
                 if case .styleName(let name) = formula.operation.argument, let name, !name.isEmpty {
-                    guard let target = style(named: name) else { return "Lo stile «\(name)» richiamato da «\(owner.name)» non esiste." }
+                    guard let target = style(named: name) else { return "The style “\(name)” referred to by “\(owner.name)” does not exist." }
                     if formula.operation.property == .nextStyle, target.target != .paragraph {
-                        return "Lo stile dopo Invio deve essere uno stile di paragrafo."
+                        return "The style after Return must be a paragraph style."
                     }
                     if formula.operation.property == .applyStyle {
-                        if target.target == .paragraph && formula.target != .paragraph { return "Uno stile di paragrafo richiede il paragrafo intero." }
+                        if target.target == .paragraph && formula.target != .paragraph { return "A paragraph style needs the whole paragraph." }
                         var next: String? = target.name; var seen: Set<String> = []
                         while let current = next, seen.insert(current).inserted, let inherited = style(named: current) {
                             if inherited.formulas.contains(where: \.isRuntimeRule) {
-                                return "Il trattamento «\(name)» contiene altre regole contestuali: scegli uno stile di sola resa."
+                                return "The treatment “\(name)” contains other contextual rules: choose a rendering-only style."
                             }
                             next = inherited.basedOn
                         }

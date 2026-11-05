@@ -16,9 +16,9 @@ public enum SmallCaps: String, CaseIterable, Hashable, Sendable {
     public var title: String {
         switch self {
         case .off: "No"
-        case .lowercase: "Minuscole"
-        case .uppercase: "Sigle"
-        case .all: "Minuscole e sigle"
+        case .lowercase: "Lowercase"
+        case .uppercase: "Capitals"
+        case .all: "Lowercase and capitals"
         }
     }
 

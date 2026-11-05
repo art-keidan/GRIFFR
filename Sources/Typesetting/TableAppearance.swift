@@ -15,11 +15,11 @@ public enum TableRuleScheme: String, CaseIterable, Sendable {
 
     public var title: String {
         switch self {
-        case .grid: "Griglia completa"
-        case .threeRules: "Tre filetti"
-        case .horizontal: "Solo orizzontali"
-        case .frame: "Solo il bordo"
-        case .none: "Nessun filetto"
+        case .grid: "Full grid"
+        case .threeRules: "Three rules"
+        case .horizontal: "Horizontal only"
+        case .frame: "Frame only"
+        case .none: "No rules"
         }
     }
 }
@@ -30,9 +30,9 @@ public enum CellVerticalAlignment: String, CaseIterable, Sendable {
 
     public var title: String {
         switch self {
-        case .top: "In alto"
-        case .middle: "Al centro"
-        case .bottom: "In basso"
+        case .top: "Top"
+        case .middle: "Middle"
+        case .bottom: "Bottom"
         }
     }
 }

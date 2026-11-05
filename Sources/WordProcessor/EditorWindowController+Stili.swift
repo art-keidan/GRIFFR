@@ -11,7 +11,7 @@ extension EditorWindowController {
         settings.styles.styles.filter { $0.target == target }.map(\.name)
     }
 
-    static let noStyleTitle = "Nessuno"
+    static let noStyleTitle = "None"
 
     func reloadStylePopup() {
         stylePopup.removeAllItems()
@@ -72,7 +72,7 @@ extension EditorWindowController {
             typingAttributes = probe.attributes(at: 0, effectiveRange: nil)
             // Lo stile di paragrafo può dare una Lista anche al paragrafo vuoto in fondo.
             let newList = (probe.attribute(.listItem, at: 0, effectiveRange: nil) as? String).flatMap(ListItem.init(encoded:))
-            if target == .paragraph, newList != currentList { changeList(actionName: name == nil ? "Togli stile" : "Stile «\(name!)»") { _ in newList } }
+            if target == .paragraph, newList != currentList { changeList(actionName: name == nil ? "Remove Style" : "Style “\(name!)”") { _ in newList } }
             refreshFromSelection()
             return
         }
@@ -88,7 +88,7 @@ extension EditorWindowController {
         case .some(let role): role
         case .none: level > 0 ? SectionEditing.defaultRole(forLevel: level) : nil
         }
-        writeStore(actionName: name == nil ? "Togli stile" : "Stile «\(name!)»") {
+        writeStore(actionName: name == nil ? "Remove Style" : "Style “\(name!)”") {
             TextStyling.restyle($0, range: range, from: sheet, to: sheet, resolver: fontRoleResolver, base: settings.formulaBase ?? TextStyling.styleBase, assigning: target, rename: rename)
             if let opens {
                 // Prima i paragrafi diventano titoli, poi i titoli vanno al loro livello: dopo uno spostamento
@@ -129,9 +129,9 @@ extension EditorWindowController {
     @objc func newStyleFromSelection(_ sender: Any?) {
         guard let storage = textStorage, storage.length > 0 else { return }
         let kind = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 240, height: 26))
-        kind.addItems(withTitles: ["Stile di paragrafo", "Stile di parola", "Stile di carattere"])
-        askStyleName(title: "Nuovo stile dalla selezione",
-                     message: "Lo stile prende l'aspetto del testo selezionato: per un paragrafo, ciò che lo distingue dal suo stile attuale; per una parola o un carattere, ciò che lo distingue dal testo attorno.",
+        kind.addItems(withTitles: ["Paragraph Style", "Word Style", "Character Style"])
+        askStyleName(title: "New Style from Selection",
+                     message: "The style takes the look of the selected text: for a paragraph, what sets it apart from its current style; for a word or character, what sets it apart from the surrounding text.",
                      suggestion: nil, extra: kind) { [weak self] styleName in
             self?.createStyleFromSelection(named: styleName, target: [.paragraph, .word, .character][max(kind.indexOfSelectedItem, 0)])
         }
@@ -148,7 +148,7 @@ extension EditorWindowController {
         alert.messageText = title
         alert.informativeText = message
         let name = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
-        name.placeholderString = "Nome dello stile"
+        name.placeholderString = "Style name"
         // Nella pila la casella non ha una larghezza sua: senza questo vincolo si stringeva a due punti.
         name.widthAnchor.constraint(equalToConstant: 240).isActive = true
         if let suggestion { name.stringValue = settings.styles.freeName(suggestion) }
@@ -157,8 +157,8 @@ extension EditorWindowController {
         box.alignment = .leading
         box.frame = NSRect(x: 0, y: 0, width: 240, height: extra == nil ? 24 : 58)
         alert.accessoryView = box
-        alert.addButton(withTitle: "Crea")
-        alert.addButton(withTitle: "Annulla")
+        alert.addButton(withTitle: "Create")
+        alert.addButton(withTitle: "Cancel")
         alert.window.initialFirstResponder = name
         alert.beginSheetModal(for: window) { [weak self] response in
             guard response == .alertFirstButtonReturn, let self else { return }
@@ -190,10 +190,10 @@ extension EditorWindowController {
         endUndoStep(next: .none)
         document?.undoManager?.beginUndoGrouping()
         removeStyleAdditions([index])
-        changeStyles(to: sheet, restyle: false, actionName: "Nuovo stile")
+        changeStyles(to: sheet, restyle: false, actionName: "New Style")
         applyNamedStyle(property.level, name: styleName)
         document?.undoManager?.endUndoGrouping()
-        document?.undoManager?.setActionName("Nuovo stile «\(styleName)»")
+        document?.undoManager?.setActionName("New Style “\(styleName)”")
         window?.makeFirstResponder(pagesView)
     }
 
@@ -207,10 +207,10 @@ extension EditorWindowController {
         sheet.styles.append(NamedStyle(name: styleName, target: target, basedOn: basedOn, values: values))
         sheet.styles[sheet.styles.count - 1] = sheet.materializingFormulas(of: styleName) ?? sheet.styles[sheet.styles.count - 1]
         document?.undoManager?.beginUndoGrouping()
-        changeStyles(to: sheet, restyle: false, actionName: "Nuovo stile")
+        changeStyles(to: sheet, restyle: false, actionName: "New Style")
         applyNamedStyle(target, name: styleName)
         document?.undoManager?.endUndoGrouping()
-        document?.undoManager?.setActionName("Nuovo stile «\(styleName)»")
+        document?.undoManager?.setActionName("New Style “\(styleName)”")
         window?.makeFirstResponder(pagesView)
     }
 
@@ -218,12 +218,12 @@ extension EditorWindowController {
     func createStyleFromInspector() {
         guard let level = inspector.object.level, store.length > 0 else { return }
         let kind = switch level {
-        case .paragraph: "di paragrafo"
-        case .word: "di parola"
-        case .character: "di carattere"
+        case .paragraph: "paragraph"
+        case .word: "word"
+        case .character: "character"
         }
-        askStyleName(title: "Nuovo stile \(kind)",
-                     message: "Lo stile prende l'aspetto che \(inspector.object.title.lowercased()) ha qui, e lo riceve subito.",
+        askStyleName(title: "New \(kind) style",
+                     message: "The style takes the look this \(inspector.object.title.lowercased()) has here, and is applied to it at once.",
                      suggestion: nil) { [weak self] name in
             self?.createStyleFromSelection(named: name, target: level)
         }
@@ -237,8 +237,8 @@ extension EditorWindowController {
         guard let storage = textStorage, storage.length > 0 else { return }
         let range = selection.range
         guard range.length > 0, let target = Rules.guessTarget(for: range, in: storage) else {
-            explain("Seleziona il pezzo di testo che la regola deve trovare",
-                    "La prima lettera, le prime parole, la prima frase o il paragrafo intero; oppure una parola sola, che la regola troverà dappertutto.")
+            explain("Select the piece of text the rule should find",
+                    "The first letter, the first words, the first sentence or the whole paragraph; or a single word, which the rule will find everywhere.")
             return
         }
         let paragraphStyle = selectionStyleName(.paragraph)
@@ -255,8 +255,8 @@ extension EditorWindowController {
         let values = styleTarget == .word ? wordValues : TextStyling.styleValues(from: storage, at: at, target: .character, sheet: settings.styles, basedOn: nil)
         let rule = TextRule(target: target, paragraphStyle: paragraphStyle, styleName: "")
         let what = rule.summary.components(separatedBy: " → ").first ?? ""
-        askStyleName(title: "Nuova regola",
-                     message: "La regola troverà: \(what). Gli darà uno stile nuovo, con l'aspetto che il testo selezionato ha qui. Come si chiama lo stile?",
+        askStyleName(title: "New Rule",
+                     message: "The rule will find: \(what). It will give it a new style, with the look the selected text has here. What is the style called?",
                      suggestion: nil) { [weak self] name in
             guard let self else { return }
             var sheet = self.settings.styles
@@ -295,7 +295,7 @@ extension EditorWindowController {
             }
         }
         document?.undoManager?.endUndoGrouping()
-        document?.undoManager?.setActionName("Nuova regola")
+        document?.undoManager?.setActionName("New Rule")
         refreshFromSelection()
         if interfaceMode == .simple { setInterfaceMode(.advanced) }
         definitionsPanel.showRule(at: settings.rules.count - 1)
@@ -323,16 +323,16 @@ extension EditorWindowController {
             updated = TextStyling.updatingStyleFontDetails(updated, style: name, from: storage, at: at,
                 base: self.settings.formulaBase ?? TextStyling.styleBase, resolver: self.fontRoleResolver)
             self.endUndoStep(next: .none)
-            self.changeStyles(to: updated, restyle: true, actionName: "Aggiorna stile «" + name + "»")
+            self.changeStyles(to: updated, restyle: true, actionName: "Update Style “" + name + "”")
         }
         if calculated.isEmpty { apply(); return }
         if let answer = replaceFormulaAnswerForTests { if answer { apply() }; return }
         guard let window else { return }
         let alert = NSAlert()
-        alert.messageText = "Sostituire le formule modificate con valori fissi?"
-        alert.informativeText = "Nello stile «" + name + "» cambiano: " + calculated.map { $0.property.title }.joined(separator: ", ") + ". Le altre formule vengono conservate."
-        alert.addButton(withTitle: "Sostituisci con valori fissi")
-        alert.addButton(withTitle: "Annulla")
+        alert.messageText = "Replace the changed formulas with fixed values?"
+        alert.informativeText = "In the style “" + name + "” these change: " + calculated.map { $0.property.title }.joined(separator: ", ") + ". The other formulas are kept."
+        alert.addButton(withTitle: "Replace with Fixed Values")
+        alert.addButton(withTitle: "Cancel")
         alert.beginSheetModal(for: window) { response in
             MainActor.assumeIsolated { if response == .alertFirstButtonReturn { apply() } }
         }
@@ -345,8 +345,8 @@ extension EditorWindowController {
 
     /// La voce di menu di un segno d'elenco: il segno e il suo nome (con il solo «Puntato» le voci erano uguali).
     static func bulletTitle(_ marker: String) -> String {
-        let name = ["•": "pallino", "–": "lineetta", "◦": "cerchietto", "▪": "quadratino"][marker] ?? "segno"
-        return "\(marker)   Puntato, \(name)"
+        let name = ["•": "bullet", "–": "dash", "◦": "circle", "▪": "square"][marker] ?? "marker"
+        return "\(marker)   Bulleted, \(name)"
     }
     static let numberMarkers = ["1.", "1)", "(1)", "a)", "a.", "A.", "i.", "I."]
     static let lastListMarkerKey = "LastListMarker"
@@ -383,7 +383,7 @@ extension EditorWindowController {
     func applyListMarker(_ marker: String?) {
         if let marker { lastListMarker = marker }
         // Chi è già una voce conserva il suo livello.
-        changeList(actionName: marker == nil ? "Togli elenco" : "Elenco") { current in marker.map { ListItem(marker: $0, level: current?.level ?? 1) } }
+        changeList(actionName: marker == nil ? "Remove List" : "List") { current in marker.map { ListItem(marker: $0, level: current?.level ?? 1) } }
     }
 
     @objc func setListMarker(_ sender: NSMenuItem) {
@@ -398,13 +398,13 @@ extension EditorWindowController {
     @objc func chooseListMarker(_ sender: Any?) {
         guard let window else { return }
         let alert = NSAlert()
-        alert.messageText = "Segno dell'elenco"
-        alert.informativeText = "Scriva un simbolo (per esempio → oppure *), oppure un modello di numerazione: un contatore — 1, a, A, i, I — con la punteggiatura che vuole, per esempio 1), (a), I., §1."
+        alert.messageText = "List Marker"
+        alert.informativeText = "Type a symbol (for example → or *), or a numbering pattern: a counter — 1, a, A, i, I — with any punctuation, for example 1), (a), I., §1."
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
         field.stringValue = selectionListItem()?.marker ?? lastListMarker
         alert.accessoryView = field
         alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Annulla")
+        alert.addButton(withTitle: "Cancel")
         alert.window.initialFirstResponder = field
         alert.beginSheetModal(for: window) { [weak self] response in
             let marker = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -424,7 +424,7 @@ extension EditorWindowController {
     /// Fa dei paragrafi selezionati voci della Lista scelta nel menu.
     @objc func setNamedList(_ sender: NSMenuItem) {
         guard let name = sender.representedObject as? String else { return }
-        changeList(actionName: "Lista «\(name)»") { _ in ListItem(listName: name) }
+        changeList(actionName: "List “\(name)”") { _ in ListItem(listName: name) }
     }
 
     /// Apre la finestra in cui si creano, modificano e tolgono le Liste, e si sceglie quella delle note.
@@ -466,7 +466,7 @@ extension EditorWindowController {
             self.flushStyleChanges()
             let sheet = self.settings.styles.settingDirective(.pageStartSpacing, argument: value.map(StyleArgument.pageStart), inStyle: name)
             self.endUndoStep(next: .none)
-            self.changeStyles(to: sheet, restyle: false, actionName: "Distanza a inizio pagina")
+            self.changeStyles(to: sheet, restyle: false, actionName: "Page-Start Distance")
         }
         stylesTab.onOutlineLevel = { [unowned self] name, level in self.setStyleOutlineLevel(name, level) }
         definitionsPanel.settings = { [unowned self] in self.settings }
@@ -568,7 +568,7 @@ extension EditorWindowController {
         pendingStyles = nil
         guard pending.sheet != settings.styles else { return }
         endUndoStep(next: .none)
-        changeStyles(to: pending.sheet, restyle: true, actionName: "Stile «\(pending.name)»: \(pending.property.title.lowercased())")
+        changeStyles(to: pending.sheet, restyle: true, actionName: "Style “\(pending.name)”: \(pending.property.title.lowercased())")
     }
 
     /// Uno stile nuovo, vuoto: basato su quello scelto se è della stessa specie.
@@ -576,11 +576,11 @@ extension EditorWindowController {
         flushStyleChanges()
         var sheet = settings.styles
         let parent = stylesTab.selected?.target == target ? stylesTab.selection : nil
-        let kind = switch target { case .paragraph: "paragrafo"; case .word: "parola"; case .character: "carattere" }
-        let name = sheet.freeName("Stile di \(kind) nuovo")
+        let kind = switch target { case .paragraph: "paragraph"; case .word: "word"; case .character: "character" }
+        let name = sheet.freeName("New \(kind) style")
         sheet.styles.append(NamedStyle(name: name, target: target, basedOn: parent))
         endUndoStep(next: .none)
-        changeStyles(to: sheet, restyle: false, actionName: "Stile nuovo")
+        changeStyles(to: sheet, restyle: false, actionName: "New Style")
         stylesTab.selection = name
     }
 
@@ -590,10 +590,10 @@ extension EditorWindowController {
         var sheet = settings.styles
         guard let index = sheet.styles.firstIndex(where: { $0.name == name }) else { return }
         var copy = sheet.styles[index]
-        copy.name = sheet.freeName("\(name) copia")
+        copy.name = sheet.freeName("\(name) copy")
         sheet.styles.insert(copy, at: index + 1)
         endUndoStep(next: .none)
-        changeStyles(to: sheet, restyle: false, actionName: "Duplica lo stile")
+        changeStyles(to: sheet, restyle: false, actionName: "Duplicate Style")
         stylesTab.selection = copy.name
     }
 
@@ -602,7 +602,7 @@ extension EditorWindowController {
         flushStyleChanges()
         let updated = settings.renamingStyle(old, to: new)
         guard updated.styles != settings.styles else { return }
-        changeDefinitions(updated, renames: [old: new], actionName: "Rinomina lo stile")
+        changeDefinitions(updated, renames: [old: new], actionName: "Rename Style")
         stylesTab.selection = new
     }
 
@@ -611,7 +611,7 @@ extension EditorWindowController {
         flushStyleChanges()
         let (updated, replacement) = settings.removingStyle(name)
         guard updated.styles != settings.styles else { return }
-        changeDefinitions(updated, renames: [name: replacement], actionName: "Togli lo stile «\(name)»")
+        changeDefinitions(updated, renames: [name: replacement], actionName: "Remove Style “\(name)”")
         stylesTab.selection = replacement
     }
 
@@ -621,7 +621,7 @@ extension EditorWindowController {
         flushStyleChanges()
         let sheet = settings.styles.settingDirective(.opensSection, argument: role.map(StyleArgument.text), inStyle: name)
         endUndoStep(next: .none)
-        changeStyles(to: sheet, restyle: false, actionName: "Stile «\(name)»: apre una sezione")
+        changeStyles(to: sheet, restyle: false, actionName: "Style “\(name)”: opens a section")
     }
 
     /// Il livello di uno stile di paragrafo (`nil`: come lo stile di base; 0: nessuno). Lo stile comanda: i titoli che lo
@@ -631,7 +631,7 @@ extension EditorWindowController {
         let sheet = settings.styles.settingDirective(.outlineLevel, argument: level.map(StyleArgument.integer), inStyle: name)
         guard sheet != settings.styles else { return }
         endUndoStep(next: .none)
-        writeStore(actionName: "Stile «\(name)»: livello") { store in
+        writeStore(actionName: "Style “\(name)”: level") { store in
             store.replaceStyles(sheet)
             SectionEditing.moveTitlesToStyleLevels(in: store)
         }
@@ -648,7 +648,7 @@ extension EditorWindowController {
               parent.map({ sheet.possibleParents(of: name).contains($0) }) ?? true else { return }
         sheet.styles[index].basedOn = parent
         endUndoStep(next: .none)
-        changeStyles(to: sheet, restyle: true, actionName: "Stile «\(name)»: basato su")
+        changeStyles(to: sheet, restyle: true, actionName: "Style “\(name)”: based on")
     }
 
     /// Cambia insieme stili, regole e stili di flottante, e porta il testo dai nomi vecchi ai nuovi (`nil`: nessuno
@@ -700,7 +700,7 @@ extension EditorWindowController {
         document?.undoManager?.registerUndo(withTarget: self) { controller in
             MainActor.assumeIsolated { controller.changeRules(old.rules, styles: old.styles) }
         }
-        document?.undoManager?.setActionName("Regole")
+        document?.undoManager?.setActionName("Rules")
         settings.rules = rules
         if styles != settings.styles {
             settings.styles = styles
@@ -722,9 +722,9 @@ extension EditorWindowController {
         if store.length > 0, !result.renames.isEmpty {
             writeStore(actionName: nil) { TextStyling.renameFloatStyles(in: $0, result.renames) }
         }
-        changeListSettings(lists: settings.lists, noteList: nil, styles: settings.styles, floatStyles: result.floatStyles, actionName: "Stili di flottante")
+        changeListSettings(lists: settings.lists, noteList: nil, styles: settings.styles, floatStyles: result.floatStyles, actionName: "Float Styles")
         document?.undoManager?.endUndoGrouping()
-        document?.undoManager?.setActionName("Stili di flottante")
+        document?.undoManager?.setActionName("Float Styles")
         return true
     }
 
@@ -742,16 +742,16 @@ extension EditorWindowController {
                 SectionEditing.renameListsInSections(result.renames, in: $0)
             }
         }
-        change(\.pageNumbering, to: result.pageNumbering, actionName: "Liste")
+        change(\.pageNumbering, to: result.pageNumbering, actionName: "Lists")
         // Le serie di note seguono le Liste rinominate o tolte; quella delle note a piè di pagina prende la scelta fatta.
         var floatStyles = settings.floatStyles
         for index in floatStyles.indices {
             if let list = floatStyles[index].listName, let new = result.renames[list] { floatStyles[index].listName = new }
             if floatStyles[index].name == FloatStyle.footnoteName { floatStyles[index].listName = result.noteList }
         }
-        changeListSettings(lists: result.lists, noteList: result.noteList, styles: styles, floatStyles: floatStyles, actionName: "Liste")
+        changeListSettings(lists: result.lists, noteList: result.noteList, styles: styles, floatStyles: floatStyles, actionName: "Lists")
         document?.undoManager?.endUndoGrouping()
-        document?.undoManager?.setActionName("Liste")
+        document?.undoManager?.setActionName("Lists")
         return true
     }
 
@@ -801,14 +801,14 @@ extension EditorWindowController {
                 return
             }
             let alert = NSAlert()
-            alert.messageText = "La Lista «\(name)» ha finito i suoi segni"
-            alert.informativeText = "Dopo «\(lastMark)» non ci sono altri segni. Che cosa si usa dalla voce successiva? "
-                + "La scelta vale per tutta la Lista, e si può cambiare nella scheda Liste dell'interfaccia avanzata."
+            alert.messageText = "The list “\(name)” has run out of markers"
+            alert.informativeText = "After “\(lastMark)” there are no more markers. What should the next item use? "
+                + "The choice applies to the whole list, and can be changed in the Lists tab of the detailed interface."
             for choice in choices {
                 let title = switch choice {
-                case .restart: "Ricomincia: «\(next(.restart))»"
-                case .double: series ? "Raddoppia: «\(next(.double))»" : "Prosegue: «\(next(.double))»"
-                default: "Passa ai numeri: «\(next(.numbers))»"
+                case .restart: "Restart: “\(next(.restart))”"
+                case .double: series ? "Double: “\(next(.double))”" : "Continue: “\(next(.double))”"
+                default: "Switch to numbers: “\(next(.numbers))”"
                 }
                 alert.addButton(withTitle: title)
             }
@@ -818,7 +818,7 @@ extension EditorWindowController {
                 guard choices.indices.contains(picked), let index = self.settings.lists.firstIndex(where: { $0.name == name }) else { return }
                 var lists = self.settings.lists
                 lists[index].overflow = choices[picked]
-                self.changeListSettings(lists: lists, noteList: self.settings.noteList, styles: self.settings.styles, actionName: "Oltre l'ultimo segno")
+                self.changeListSettings(lists: lists, noteList: self.settings.noteList, styles: self.settings.styles, actionName: "Past the Last Marker")
             }
         }
     }
@@ -833,7 +833,7 @@ extension EditorWindowController {
         storage.enumerateAttribute(.listItem, in: affected) { value, _, _ in if value != nil { hasItem = true } }
         guard hasItem else { return false }
         // Le voci di una Lista con un nome hanno il livello della Lista: non si spostano.
-        return changeList(actionName: delta > 0 ? "Aumenta livello" : "Riduci livello") { $0.map { $0.listName != nil ? $0 : ListItem(marker: $0.marker, level: $0.level + delta) } }
+        return changeList(actionName: delta > 0 ? "Increase Level" : "Decrease Level") { $0.map { $0.listName != nil ? $0 : ListItem(marker: $0.marker, level: $0.level + delta) } }
     }
 
     /// Vero se la selezione tocca almeno una voce di un elenco semplice, l'unica che cambia livello.
@@ -888,17 +888,17 @@ extension EditorWindowController {
         let menu = NSMenu()
         menu.autoenablesItems = false
         guard styleAdditions.indices.contains(index) else { return menu }
-        let remove = menu.addItem(withTitle: "Togli", action: #selector(removeAdditionFromMenu(_:)), keyEquivalent: "")
+        let remove = menu.addItem(withTitle: "Remove", action: #selector(removeAdditionFromMenu(_:)), keyEquivalent: "")
         remove.target = self
         remove.tag = index
         let replacesFormula = styleAdditions[index].property.map { property in
             additionReceivers([index]).contains { settings.styles.formulaDefinition(for: property, inStyle: $0)?.isCalculated == true }
         } ?? false
-        let move = menu.addItem(withTitle: replacesFormula ? "Metti nello stile sostituendo la formula" : "Metti nello stile", action: #selector(moveAdditionToStyle(_:)), keyEquivalent: "")
+        let move = menu.addItem(withTitle: replacesFormula ? "Put into the Style, Replacing the Formula" : "Put into the Style", action: #selector(moveAdditionToStyle(_:)), keyEquivalent: "")
         move.target = self
         move.tag = index
         move.isEnabled = !additionReceivers([index]).isEmpty
-        let create = menu.addItem(withTitle: "Nuovo stile…", action: #selector(newStyleFromAddition(_:)), keyEquivalent: "")
+        let create = menu.addItem(withTitle: "New Style…", action: #selector(newStyleFromAddition(_:)), keyEquivalent: "")
         create.target = self
         create.tag = index
         create.isEnabled = styleAdditions[index].property != nil && store.length > 0
@@ -911,7 +911,7 @@ extension EditorWindowController {
     @objc func newStyleFromAddition(_ sender: NSMenuItem) {
         guard styleAdditions.indices.contains(sender.tag), styleAdditions[sender.tag].property != nil else { return }
         let index = sender.tag
-        askStyleName(title: "Nuovo stile", message: "Contiene solo questa aggiunta e viene applicato alla selezione.", suggestion: nil) { [weak self] name in
+        askStyleName(title: "New Style", message: "It contains only this addition and is applied to the selection.", suggestion: nil) { [weak self] name in
             self?.createStyleFromAddition(at: index, named: name)
         }
     }
@@ -920,25 +920,25 @@ extension EditorWindowController {
     func styleMonitorMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        let remove = menu.addItem(withTitle: "Togli tutte le aggiunte", action: #selector(removeAllStyleAdditions(_:)), keyEquivalent: "")
+        let remove = menu.addItem(withTitle: "Remove All Additions", action: #selector(removeAllStyleAdditions(_:)), keyEquivalent: "")
         remove.target = self
         remove.isEnabled = !styleAdditions.isEmpty
         let receivers = additionReceivers(Array(styleAdditions.indices))
-        let quoted = receivers.map { "«\($0)»" }
+        let quoted = receivers.map { "“\($0)”" }
         let title = switch quoted.count {
-        case 0: "Porta le aggiunte nello stile"
-        case 1: "Porta le aggiunte nello stile \(quoted[0])"
-        default: "Porta le aggiunte negli stili " + quoted.dropLast().joined(separator: ", ") + " e " + quoted.last!
+        case 0: "Move the Additions into the Style"
+        case 1: "Move the Additions into the Style \(quoted[0])"
+        default: "Move the Additions into the Styles " + quoted.dropLast().joined(separator: ", ") + " and " + quoted.last!
         }
         let replacesFormula = styleAdditions.contains { addition in
             guard let property = addition.property else { return false }
             return receivers.contains { settings.styles.formulaDefinition(for: property, inStyle: $0)?.isCalculated == true }
         }
-        let move = menu.addItem(withTitle: title + (replacesFormula ? " (sostituisce le formule modificate)" : ""), action: #selector(moveStyleAdditionsToStyles(_:)), keyEquivalent: "")
+        let move = menu.addItem(withTitle: title + (replacesFormula ? " (replaces the changed formulas)" : ""), action: #selector(moveStyleAdditionsToStyles(_:)), keyEquivalent: "")
         move.target = self
         move.isEnabled = !receivers.isEmpty
         menu.addItem(.separator())
-        let create = menu.addItem(withTitle: "Crea uno stile dalla selezione…", action: #selector(newStyleFromSelection(_:)), keyEquivalent: "")
+        let create = menu.addItem(withTitle: "Create a Style from the Selection…", action: #selector(newStyleFromSelection(_:)), keyEquivalent: "")
         create.target = self
         create.isEnabled = store.length > 0
         return menu
@@ -964,7 +964,7 @@ extension EditorWindowController {
         }
         guard sheet != settings.styles else { return NSSound.beep() }
         endUndoStep(next: .none)
-        changeStyles(to: sheet, restyle: true, actionName: receivers.count == 1 ? "Aggiunte nello stile «\(receivers[0])»" : "Aggiunte negli stili")
+        changeStyles(to: sheet, restyle: true, actionName: receivers.count == 1 ? "Additions into the Style “\(receivers[0])”" : "Additions into the Styles")
     }
 
     @objc func pagesScrolled(_ notification: Notification) { refreshRuler() }
@@ -1065,15 +1065,15 @@ extension EditorWindowController {
             // Ogni triangolo sposta solo la sua cosa: l'altra posizione si fissa dov'è, perché non la segua.
             let text = Double(list.textStart - headIndent), marker = Double(list.markerEnd - headIndent)
             switch handle {
-            case .right: return paragraph(.rightIndent, "Rientro destro") { $0.rightIndent = Double(value) }
+            case .right: return paragraph(.rightIndent, "Right Indent") { $0.rightIndent = Double(value) }
             case .left: return listMeasureEdit(of: list.item, textIndent: Double(max(value - headIndent, 0)), markerPosition: marker, onlyThisItem: modifiers.contains(.option))
             case .firstLine: return listMeasureEdit(of: list.item, textIndent: text, markerPosition: Double(max(value - headIndent, 0)), onlyThisItem: modifiers.contains(.option))
             }
         }
         switch handle {
-        case .left: return paragraph(.leftIndent, "Rientro sinistro") { $0.leftIndent = Double(value) }
-        case .firstLine: return paragraph(.firstLineIndent, "Rientro della prima riga") { $0.firstLineIndent = Double(value - geometry.left) }
-        case .right: return paragraph(.rightIndent, "Rientro destro") { $0.rightIndent = Double(value) }
+        case .left: return paragraph(.leftIndent, "Left Indent") { $0.leftIndent = Double(value) }
+        case .firstLine: return paragraph(.firstLineIndent, "First-Line Indent") { $0.firstLineIndent = Double(value - geometry.left) }
+        case .right: return paragraph(.rightIndent, "Right Indent") { $0.rightIndent = Double(value) }
         }
     }
 
@@ -1086,7 +1086,7 @@ extension EditorWindowController {
             if let markerPosition { result.markerPosition = markerPosition }
             return result
         }
-        if onlyThisItem { return .listItems(selection.range, transform: { $0.map(updated) }, actionName: "Rientri della voce") }
+        if onlyThisItem { return .listItems(selection.range, transform: { $0.map(updated) }, actionName: "Item Indents") }
         if let name = item.listName, let index = settings.lists.firstIndex(where: { $0.name == name }) {
             var lists = settings.lists
             if let textIndent { lists[index].textIndent = textIndent }
@@ -1109,7 +1109,7 @@ extension EditorWindowController {
         return .listItems(NSRange(location: start, length: max(end - start, 1)), transform: { current in
             guard let current, current.listName == nil, current.level == level else { return current }
             return updated(current)
-        }, actionName: "Rientri dell'elenco")
+        }, actionName: "List Indents")
     }
 
     /// L'anteprima: la modifica applicata a una copia del testo (o delle Liste), e le pagine ricomposte da lì.
@@ -1135,7 +1135,7 @@ extension EditorWindowController {
             syncListTypingAttributes()
         case .lists(let lists, let name):
             endUndoStep(next: .none)
-            changeListSettings(lists: lists, noteList: nil, styles: settings.styles, floatStyles: settings.floatStyles, actionName: "Rientri della Lista «\(name)»")
+            changeListSettings(lists: lists, noteList: nil, styles: settings.styles, floatStyles: settings.floatStyles, actionName: "Indents of the List “\(name)”")
         }
         // Le pagine tornano a essere quelle del documento, anche se il valore finale è quello di partenza.
         layoutPages()

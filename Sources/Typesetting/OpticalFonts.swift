@@ -8,8 +8,8 @@ public enum StaticOpticalSize: String, Codable, Hashable, Sendable, CaseIterable
     public var title: String {
         switch self {
         case .caption: "Caption"
-        case .text: "Testo"
-        case .subhead: "Sottotitolo"
+        case .text: "Text"
+        case .subhead: "Subhead"
         case .display: "Display"
         }
     }

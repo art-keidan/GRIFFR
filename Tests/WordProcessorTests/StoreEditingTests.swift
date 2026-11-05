@@ -412,7 +412,7 @@ struct StoreEditingTests {
         #expect(h.editor.settings.styles.resolveParagraph(styleName: "Titolo 2").outlineLevel == 1)
         #expect(SectionEditing.titles(in: store).map { "\($0.mark.id)@\($0.depth)" } == ["a@1", "aa@1", "b@1"])
         #expect(levels(store)[2] == "Alfa interna|Titolo 2|1")
-        #expect(h.undoActionName == "Stile «Titolo 2»: livello")
+        #expect(h.undoActionName == "Style “Titolo 2”: level")
         h.undo()
         #expect(h.attributed.isEqual(to: original))
         #expect(h.editor.settings.styles == originalSheet, "Annulla rimette anche lo stile")
@@ -632,11 +632,11 @@ struct StoreEditingTests {
             h.select(at(word))
             return (h.editor.returnMenuTitle(), h.editor.joinMenuTitle())
         }
-        #expect(titles(at: "Testo di sotto.") == ("Torna a «Capitolo»", nil))
-        #expect(titles(at: "Secondo.") == (nil, "Entra in «Sotto»"), "dopo «Secondo.» il capitolo ha ancora Altra: non torna più su")
+        #expect(titles(at: "Testo di sotto.") == ("Back to “Capitolo”", nil))
+        #expect(titles(at: "Secondo.") == (nil, "Into “Sotto”"), "dopo «Secondo.» il capitolo ha ancora Altra: non torna più su")
         #expect(titles(at: "Primo.") == (nil, nil), "dopo «Primo.» il capitolo ha sezioni interne")
-        #expect(titles(at: "Postfazione.") == (nil, "Entra in «Altra»"))
-        #expect(titles(at: "Testo di dopo.") == ("Torna fuori dalle sezioni", nil))
+        #expect(titles(at: "Postfazione.") == (nil, "Into “Altra”"))
+        #expect(titles(at: "Testo di dopo.") == ("Back Out of the Sections", nil))
         #expect(titles(at: "Premessa.") == (nil, nil) && titles(at: "Sotto") == (nil, nil))
 
         // «Testo di sotto.» torna al capitolo: Sotto resta con il solo titolo.
@@ -644,7 +644,7 @@ struct StoreEditingTests {
         h.editor.returnToOuterSection(nil)
         h.step()
         #expect(owners(store, "Testo di sotto.") == ["c"] && owners(store, "Secondo.") == ["c"])
-        #expect(h.undoActionName == "Torna alla sezione esterna")
+        #expect(h.undoActionName == "Back to the Outer Section")
         h.undo()
         #expect(h.attributed.isEqual(to: original))
 

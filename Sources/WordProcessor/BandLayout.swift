@@ -23,34 +23,42 @@ struct BandLayout: Codable, Equatable {
 
     /// Le zone di sempre del carattere e del paragrafo.
     static let defaultCharacter: [Zone] = [
-        Zone(title: "famiglia", items: ["famiglia", "variabile"]),
-        Zone(title: "peso", items: ["faccia", "pesi"]),
-        Zone(title: "ruoli", items: ["ruoli"]),
-        Zone(title: "corpo", items: ["corpo", "corpoOttico", "corpoOtticoScelta"]),
-        Zone(title: "forma", items: ["corsivo", "maiuscoletto", "apice", "pedice"]),
-        Zone(title: "segni", items: ["sottolineato", "barrato", "colore"]),
-        Zone(title: "lingua", items: ["lingua"]),
-        Zone(title: "simboli", items: ["carattereSpeciale"]),
+        Zone(title: "family", items: ["famiglia", "variabile"]),
+        Zone(title: "weight", items: ["faccia", "pesi"]),
+        Zone(title: "roles", items: ["ruoli"]),
+        Zone(title: "size", items: ["corpo", "corpoOttico", "corpoOtticoScelta"]),
+        Zone(title: "form", items: ["corsivo", "maiuscoletto", "apice", "pedice"]),
+        Zone(title: "marks", items: ["sottolineato", "barrato", "colore"]),
+        Zone(title: "language", items: ["lingua"]),
+        Zone(title: "symbols", items: ["carattereSpeciale"]),
     ]
 
     static let defaultParagraph: [Zone] = [
-        Zone(title: "stili", items: ["stile", "stileCarattere", "stiliFlottanteBanda"]),
-        Zone(title: "allineamento", items: ["allineamento"]),
-        Zone(title: "spazi", items: ["interlinea", "spazi"]),
-        Zone(title: "elenchi", items: ["puntato", "numerato", "lista", "riduciLivello", "aumentaLivello"]),
-        Zone(title: "regole", items: ["regoleBanda"]),
+        Zone(title: "styles", items: ["stile", "stileCarattere", "stiliFlottanteBanda"]),
+        Zone(title: "alignment", items: ["allineamento"]),
+        Zone(title: "spacing", items: ["interlinea", "spazi"]),
+        Zone(title: "lists", items: ["puntato", "numerato", "lista", "riduciLivello", "aumentaLivello"]),
+        Zone(title: "rules", items: ["regoleBanda"]),
     ]
 
     /// I nomi dei controlli delle fasce, per la zona che nasce trascinandone uno fuori dalle zone.
     static let itemNames: [String: String] = [
-        "famiglia": "famiglia", "variabile": "variabile", "faccia": "faccia", "pesi": "pesi", "ruoli": "ruoli",
-        "corpo": "corpo", "corpoOttico": "corpo ottico", "corpoOtticoScelta": "disegno ottico",
-        "corsivo": "corsivo", "maiuscoletto": "maiuscoletto", "apice": "apice", "pedice": "pedice",
-        "sottolineato": "sottolineato", "barrato": "barrato", "colore": "colore", "lingua": "lingua",
-        "carattereSpeciale": "simboli", "stile": "stile", "stileCarattere": "stile di parola",
-        "stiliFlottanteBanda": "flottanti", "allineamento": "allineamento", "interlinea": "interlinea", "spazi": "spazi",
-        "puntato": "puntato", "numerato": "numerato", "lista": "lista", "riduciLivello": "livello", "aumentaLivello": "livello",
-        "regoleBanda": "regole",
+        "famiglia": "family", "variabile": "variable", "faccia": "face", "pesi": "weights", "ruoli": "roles",
+        "corpo": "size", "corpoOttico": "optical size", "corpoOtticoScelta": "optical design",
+        "corsivo": "italic", "maiuscoletto": "small caps", "apice": "superscript", "pedice": "subscript",
+        "sottolineato": "underline", "barrato": "strikethrough", "colore": "color", "lingua": "language",
+        "carattereSpeciale": "symbols", "stile": "style", "stileCarattere": "word style",
+        "stiliFlottanteBanda": "floats", "allineamento": "alignment", "interlinea": "line spacing", "spazi": "spacing",
+        "puntato": "bullets", "numerato": "numbers", "lista": "list", "riduciLivello": "level", "aumentaLivello": "level",
+        "regoleBanda": "rules",
+    ]
+
+    /// I nomi predefiniti delle zone nell'interfaccia italiana di prima, con quelli inglesi di adesso.
+    static let italianZoneTitles: [String: String] = [
+        "famiglia": "family", "peso": "weight", "ruoli": "roles", "corpo": "size", "forma": "form", "segni": "marks",
+        "lingua": "language", "simboli": "symbols", "stili": "styles", "allineamento": "alignment", "spazi": "spacing",
+        "elenchi": "lists", "regole": "rules", "stampa": "print", "modifica": "edit", "inserisci": "insert", "vista": "view",
+        "strumenti": "tools", "altro": "other",
     ]
 
     static func name(of item: String) -> String {
@@ -90,6 +98,13 @@ struct BandLayout: Codable, Equatable {
         let commands = EditorWindowController.toolbarItems(for: .advanced)
         guard let data = defaults.data(forKey: key), var layout = try? JSONDecoder().decode(BandLayout.self, from: data),
               layout.bands.count == Band.allCases.count else { return standard }
+        // Le disposizioni salvate quando l'interfaccia era in italiano: i nomi di sempre delle zone passano all'inglese,
+        // quelli scritti dall'autore restano.
+        for band in layout.bands.indices {
+            for zone in layout.bands[band].indices {
+                if let english = italianZoneTitles[layout.bands[band][zone].title] { layout.bands[band][zone].title = english }
+            }
+        }
         guard layout.toolbarItems != commands else { return layout.normalized() }
         let known = Set(EditorWindowController.toolbarCommands.map(\.id))
         let others = layout.bands[Band.tools.rawValue].flatMap(\.items).filter { !known.contains($0) }
@@ -100,7 +115,7 @@ struct BandLayout: Codable, Equatable {
                 tools[index].title = old.title
             }
         }
-        if !others.isEmpty { tools.append(Zone(title: "altro", items: others)) }
+        if !others.isEmpty { tools.append(Zone(title: "other", items: others)) }
         let inTools = Set(tools.flatMap(\.items))
         layout.bands[Band.tools.rawValue] = tools
         for band in [Band.character, .paragraph] {

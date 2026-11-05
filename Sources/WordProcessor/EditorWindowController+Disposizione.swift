@@ -60,7 +60,7 @@ extension EditorWindowController: BandLayoutDragging {
 
     private func interfaceZone() -> BandZone {
         layoutEditButton.isHidden = interfaceMode != .advanced
-        return Bands.zone("interfaccia", [layoutEditButton, modeButton])
+        return Bands.zone("interface", [layoutEditButton, modeButton])
     }
 
     private func setRow(of band: BandView, to views: [NSView]) {

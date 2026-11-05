@@ -81,8 +81,8 @@ struct DocumentFontRolesEditorTests {
         let e = h.editor
         h.select(0, length: 25)
         e.toggleItalic(nil); h.step()
-        #expect(e.styleMonitor.additions == ["car. corsivo"])
-        #expect(e.styleMonitorView.titles == ["corsivo"])
+        #expect(e.styleMonitor.additions == ["char. italic"])
+        #expect(e.styleMonitorView.titles == ["italic"])
         e.styleMonitorView.moveToStyle(pill: 1)
         h.step()
         #expect(e.styleMonitor.additions.isEmpty)

@@ -71,7 +71,7 @@ struct BandZoneTests {
             defer { w.h.close() }
             let e = w.h.editor
             let band = try #require(e.characterBand)
-            let standard = ["famiglia", "peso", "ruoli", "corpo", "forma", "segni", "lingua", "simboli"]
+            let standard = ["family", "weight", "roles", "size", "form", "marks", "language", "symbols"]
             #expect(w.zones(band).map(\.title) == standard)
             let forma = w.zones(band)[4]
             w.drag(from: caption(of: forma), to: w.zones(band)[0].convert(NSPoint(x: 3, y: 5), to: nil))
@@ -85,7 +85,7 @@ struct BandZoneTests {
             let takesClick = w.hit(center(of: italic)) === w.zones(band)[4]
             #expect(takesClick, "accesa, la zona prende il clic al posto del pulsante")
             w.drag(from: caption(of: w.zones(band)[4]), to: w.zones(band)[0].convert(NSPoint(x: 3, y: 5), to: nil))
-            let moved = ["forma", "famiglia", "peso", "ruoli", "corpo", "segni", "lingua", "simboli"]
+            let moved = ["form", "family", "weight", "roles", "size", "marks", "language", "symbols"]
             #expect(w.zones(band).map(\.title) == moved)
             #expect(BandLayout.load().bands[BandLayout.Band.character.rawValue].map(\.title) == moved)
 
@@ -111,11 +111,11 @@ struct BandZoneTests {
             BandLayoutEditing.isOn = true
             let lorem = try #require(e.bandControls["lorem"])
             let paragraph = try #require(e.paragraphBand)
-            let rules = try #require(w.zones(paragraph).first { $0.title == "regole" })
+            let rules = try #require(w.zones(paragraph).first { $0.title == "rules" })
             let target = rules.convert(NSPoint(x: rules.bounds.maxX - 8, y: rules.bounds.midY), to: nil)
             w.drag(from: center(of: lorem), to: target)
             let layout = BandLayout.load()
-            #expect(layout.bands[BandLayout.Band.paragraph.rawValue].first { $0.title == "regole" }?.items == ["regoleBanda", "lorem"])
+            #expect(layout.bands[BandLayout.Band.paragraph.rawValue].first { $0.title == "rules" }?.items == ["regoleBanda", "lorem"])
             #expect(layout.bands[BandLayout.Band.tools.rawValue].map(\.items) == [["salva"]], "la zona di Lorem, vuota, non c'è più")
             #expect(EditorWindowController.toolbarItems(for: .advanced) == ["salva"])
             #expect(w.zones(e.toolbarBand).map(\.title) == ["file"])
@@ -139,10 +139,10 @@ struct BandZoneTests {
             let famiglia = w.zones(band)[0], peso = w.zones(band)[1]
             let gap = famiglia.convert(NSPoint(x: famiglia.bounds.maxX + (peso.frame.minX - famiglia.frame.maxX) / 2, y: 10), to: nil)
             w.drag(from: center(of: superscript), to: gap)
-            #expect(w.zones(band).map(\.title).prefix(3) == ["famiglia", "apice", "peso"])
+            #expect(w.zones(band).map(\.title).prefix(3) == ["family", "superscript", "weight"])
             let fresh = w.zones(band)[1]
             #expect(BandLayout.load().bands[BandLayout.Band.character.rawValue][1].items == ["apice"])
-            #expect(w.zones(band).first { $0.title == "forma" }?.row.arrangedSubviews.count == 3)
+            #expect(w.zones(band).first { $0.title == "form" }?.row.arrangedSubviews.count == 3)
 
             w.window.makeKeyAndOrderFront(nil)
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.3))
@@ -172,7 +172,7 @@ struct BandZoneTests {
             @MainActor func check(_ label: String) throws {
                 band.layoutSubtreeIfNeeded()
                 let zones = w.zones(band).filter { !$0.isHidden }
-                let peso = try #require(zones.first { $0.title == "peso" })
+                let peso = try #require(zones.first { $0.title == "weight" })
                 let next = try #require(zones.firstIndex { $0 === peso }.map { zones[$0 + 1] })
                 let line = band.convert(peso.separator.frame, from: peso)
                 // A metà fra i pulsanti, non fra i bordi delle zone.

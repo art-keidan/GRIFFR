@@ -185,7 +185,7 @@ final class BandButton: NSButton {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     /// AppKit cambia lo stato di ogni pulsante a ogni clic, anche di quelli momentanei, e qui lo stato si disegna come
     /// «premuto»: un pulsante momentaneo (Regole…, Salva…) resterebbe acceso. La sua cella non lo cambia; quelli che
@@ -294,7 +294,7 @@ final class BandPopUp: NSPopUpButton {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     /// La voce su cui aprire il menu, sotto il pulsante (la famiglia attiva, o il gruppo che la contiene): un menu con
     /// sottomenu non sa da sé dove stia la scelta. Senza, il menu si apre come sempre.
@@ -469,7 +469,7 @@ final class BandSegments: NSControl {
     override func mouseExited(with event: NSEvent) { hoveredSegment = nil }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     private func width(of segment: Segment) -> CGFloat {
         let text = segment.label.map { ($0 as NSString).size(withAttributes: [.font: Theme.font]).width } ?? 0
@@ -562,12 +562,12 @@ final class BandSizeBox: NSControl, NSTextFieldDelegate {
             field.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
             field.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
-        toolTip = "Corpo"
-        setAccessibilityLabel("Corpo")
+        toolTip = "Size"
+        setAccessibilityLabel("Size")
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     override var stringValue: String {
         get { field.stringValue }
@@ -774,7 +774,7 @@ final class ToolbarGroupView: NSView {
             grip.isHidden = !showsGrip
             gripWidth?.constant = showsGrip ? 13 : 0
             gripGap?.constant = showsGrip ? 2 : 0
-            toolTip = showsGrip ? "Trascina la presa per spostare questo gruppo di strumenti" : nil
+            toolTip = showsGrip ? "Drag the grip to move this group of tools" : nil
             window?.invalidateCursorRects(for: self)
         }
     }
@@ -803,7 +803,7 @@ final class ToolbarGroupView: NSView {
         NSLayoutConstraint.activate([width, gap])
         gripWidth = width
         gripGap = gap
-        toolTip = "Trascina la presa per spostare questo gruppo di strumenti"
+        toolTip = "Drag the grip to move this group of tools"
     }
 
     /// Il trascinamento cominciato altrove (sul nome della zona): stessa presa e stesso rilascio della presa.
@@ -826,7 +826,7 @@ final class ToolbarGroupView: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     override var isFlipped: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
@@ -966,7 +966,7 @@ final class BandZone: NSView, NSDraggingSource, NSTextFieldDelegate {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     override var isFlipped: Bool { true }
 
@@ -1261,7 +1261,7 @@ final class StylePillsView: NSView {
     }
 
     private var pills: [(text: String, kind: Kind)] {
-        var result: [(String, Kind)] = [(styleName.isEmpty ? "Senza stile" : styleName, .style)]
+        var result: [(String, Kind)] = [(styleName.isEmpty ? "No style" : styleName, .style)]
         let shown = titles.count == additions.count ? titles : additions
         result += shown.prefix(maximumShown).enumerated().map { ($1, .addition($0)) }
         if additions.count > maximumShown { result.append(("+\(additions.count - maximumShown)", .more)) }
@@ -1293,15 +1293,15 @@ final class StylePillsView: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     private func refresh() {
         hovered = nil
         pressedPill = nil
         invalidateIntrinsicContentSize()
         needsDisplay = true
-        toolTip = additions.isEmpty ? "Stile «\(styleName)», senza aggiunte date a mano"
-            : "Stile «\(styleName)», più:\n" + additions.map { "· \($0)" }.joined(separator: "\n") + "\nFreccia: nello stile. ×: togli. Clic prolungato o destro: altre azioni."
+        toolTip = additions.isEmpty ? "Style “\(styleName)”, with no manual additions"
+            : "Style “\(styleName)”, plus:\n" + additions.map { "· \($0)" }.joined(separator: "\n") + "\nArrow: into the style. ×: remove. Long or right click: more actions."
         setAccessibilityLabel(toolTip)
     }
 
@@ -1392,7 +1392,7 @@ final class StylePillsView: NSView {
             item.submenu = additionMenu?(index)
         }
         menu.addItem(.separator())
-        let all = menu.addItem(withTitle: "Togli tutte le aggiunte", action: #selector(removeFromMenu(_:)), keyEquivalent: "")
+        let all = menu.addItem(withTitle: "Remove All Additions", action: #selector(removeFromMenu(_:)), keyEquivalent: "")
         all.target = self
         all.tag = -1
         return menu

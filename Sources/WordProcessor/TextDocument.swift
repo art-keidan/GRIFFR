@@ -77,8 +77,8 @@ final class TextDocument: NSDocument {
     override func prepareSavePanel(_ savePanel: NSSavePanel) -> Bool {
         let accepted = super.prepareSavePanel(savePanel)
         if let fileURL, DocumentFormat.writingVersion(for: snapshot) > backingVersion {
-            savePanel.message = "Gli stili o i campi del documento richiedono il formato \(DocumentFormat.writingVersion(for: snapshot)). Scegli un nome per la copia."
-            savePanel.nameFieldStringValue = fileURL.deletingPathExtension().lastPathComponent + " (stili).grx"
+            savePanel.message = "The document's styles or fields need format \(DocumentFormat.writingVersion(for: snapshot)). Choose a name for the copy."
+            savePanel.nameFieldStringValue = fileURL.deletingPathExtension().lastPathComponent + " (styles).grx"
         }
         return accepted
     }
@@ -87,7 +87,7 @@ final class TextDocument: NSDocument {
         let version = max(backingVersion, DocumentFormat.writingVersion(for: snapshot))
         if version > backingVersion, url.standardizedFileURL.resolvingSymlinksInPath() == fileURL?.standardizedFileURL.resolvingSymlinksInPath() {
             throw NSError(domain: NSCocoaErrorDomain, code: NSFileWriteNoPermissionError,
-                          userInfo: [NSLocalizedDescriptionKey: "Per conservare il documento originale, usa Salva con nome per creare una copia in formato \(version)."])
+                          userInfo: [NSLocalizedDescriptionKey: "To keep the original document, use Save As to create a copy in format \(version)."])
         }
         try super.writeSafely(to: url, ofType: typeName, for: saveOperation)
         if saveOperation == .saveOperation || saveOperation == .saveAsOperation { backingVersion = version }

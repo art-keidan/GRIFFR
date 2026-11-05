@@ -68,7 +68,7 @@ struct FontRoleSettingsTests {
         h.editor.reapplyFontRoles()
         h.step()
         #expect((h.attributed.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.fontName == "Baskerville-Bold")
-        #expect(h.undoActionName == "Equivalenze tipografiche")
+        #expect(h.undoActionName == "Typographic equivalences")
         h.undo()
         #expect((h.attributed.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.fontName == "Baskerville-SemiBold")
     }
@@ -132,6 +132,6 @@ struct FontRoleSettingsTests {
         h.step()
         let font = try #require(h.attributed.attribute(.font, at: 4, effectiveRange: nil) as? NSFont)
         #expect(font.fontName == "TimesNewRomanPSMT")
-        #expect(h.editor.styleMonitor.additions == ["car. Times New Roman"])
+        #expect(h.editor.styleMonitor.additions == ["char. Times New Roman"])
     }
 }

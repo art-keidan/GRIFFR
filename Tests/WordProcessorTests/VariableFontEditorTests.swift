@@ -51,7 +51,7 @@ struct VariableFontEditorTests {
         #expect(axes(h)["opsz"] == nil)
         e.toggleItalic(nil); h.step()
         #expect(font(h).postScriptName == "AdobeKisVF-BoldItalic")
-        #expect(e.styleMonitor.additions.contains("car. nero corsivo"))
+        #expect(e.styleMonitor.additions.contains("char. bold italic"))
         e.toggleBold(nil); h.step()
         e.toggleItalic(nil); h.step()
         #expect(font(h).postScriptName == "AdobeKisVF-Regular")
@@ -122,7 +122,7 @@ struct VariableFontEditorTests {
         let slider = e.faceStrip.weightSlider
         slider.doubleValue = 300
         send(slider, h)
-        #expect(e.styleMonitor.additions.contains("car. peso 300"))
+        #expect(e.styleMonitor.additions.contains("char. weight 300"))
         e.moveStyleAdditionsToStyles(nil); h.step()
         #expect(e.currentDocument().styles.values(of: "Testo").variations == [AxisValue(tag: "wght", value: 300)])
         #expect(axes(h, at: 30)["wght"] == 300, "l'altro capoverso dello stile resta a 300")
@@ -159,7 +159,7 @@ struct VariableFontEditorTests {
         #expect(axes(h, at: 40)["wght"] == 400, "anche l'altro capoverso dello stile")
         #expect(e.styleMonitor.additions.isEmpty)
         e.toggleBold(nil); h.step()
-        #expect(e.styleMonitor.additions == ["car. nero"])
+        #expect(e.styleMonitor.additions == ["char. bold"])
         e.toggleBold(nil); h.step()
         #expect(axes(h, at: 8)["wght"] == 400)
         #expect(e.styleMonitor.additions.isEmpty)

@@ -33,14 +33,14 @@ public struct HeadingComposition: Hashable, Sendable, Codable {
 
     /// Un problema della testata, se c'è: più di un titolo, misure non valide.
     public var problem: String? {
-        if parts.filter({ $0 == .title }).count > 1 { return "La testata ha più di una parte «titolo»." }
+        if parts.filter({ $0 == .title }).count > 1 { return "The heading has more than one “title” part." }
         for part in parts {
             switch part {
-            case .space(let length) where !length.isFinite || length < 0: return "Uno spazio della testata non è una misura valida."
+            case .space(let length) where !length.isFinite || length < 0: return "A space in the heading is not a valid measure."
             case .rule(let thickness, let length, _) where !thickness.isFinite || thickness <= 0 || (length.map { !$0.isFinite || $0 <= 0 } ?? false):
-                return "Un filetto della testata non ha misure valide."
+                return "A rule in the heading has no valid measures."
             case .label(_, _, _, let height?), .number(_, _, _, let height?) where !height.isFinite || height < 0:
-                return "Un'altezza minima della testata non è valida."
+                return "A minimum height in the heading is not valid."
             default: continue
             }
         }
@@ -63,11 +63,11 @@ public enum HeadingPart: Hashable, Sendable, Codable {
 
     public var title: String {
         switch self {
-        case .label: "Etichetta"
-        case .number: "Numero"
-        case .title: "Titolo"
-        case .rule: "Filetto"
-        case .space: "Spazio"
+        case .label: "Label"
+        case .number: "Number"
+        case .title: "Title"
+        case .rule: "Rule"
+        case .space: "Space"
         }
     }
 }
@@ -79,11 +79,11 @@ public enum HeadingAlignment: String, Hashable, Sendable, Codable, CaseIterable 
 
     public var title: String {
         switch self {
-        case .left: "A sinistra"
-        case .center: "Al centro"
-        case .right: "A destra"
-        case .outside: "Lato esterno"
-        case .inside: "Lato interno"
+        case .left: "Left"
+        case .center: "Center"
+        case .right: "Right"
+        case .outside: "Outside"
+        case .inside: "Inside"
         }
     }
 

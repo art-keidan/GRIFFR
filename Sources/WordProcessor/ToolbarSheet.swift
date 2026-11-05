@@ -69,7 +69,7 @@ struct ToolbarSheetView: View {
         HStack(spacing: 8) {
             if id == "|" {
                 Rectangle().frame(width: 1, height: 14).foregroundStyle(.secondary)
-                Text("Nuovo gruppo").foregroundStyle(.secondary)
+                Text("New Group").foregroundStyle(.secondary)
             } else if let command = model.command(id) {
                 Image(systemName: command.symbol).frame(width: 18)
                 Text(command.title)
@@ -79,10 +79,10 @@ struct ToolbarSheetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Personalizza gli strumenti").font(.headline)
+            Text("Customize Tools").font(.headline)
             HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Nella barra").font(.subheadline.bold())
+                    Text("In the toolbar").font(.subheadline.bold())
                     List(selection: $model.selection) {
                         ForEach(model.entries) { entry in label(entry.command).tag(entry.id) }
                             .onMove { model.entries.move(fromOffsets: $0, toOffset: $1) }
@@ -91,20 +91,20 @@ struct ToolbarSheetView: View {
                     HStack(spacing: 4) {
                         Button { model.removeSelected() } label: { Image(systemName: "minus") }
                             .disabled(model.selection == nil)
-                            .help("Togli dalla barra il comando scelto")
+                            .help("Remove the chosen command from the toolbar")
                         Spacer()
-                        Button("Ripristina") { model.reset() }.help("La barra come all'inizio")
+                        Button("Restore") { model.reset() }.help("The toolbar as it was at the start")
                     }
                 }
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Da aggiungere").font(.subheadline.bold())
+                    Text("To add").font(.subheadline.bold())
                     List {
                         ForEach(model.available, id: \.id) { command in
                             HStack {
                                 label(command.id)
                                 Spacer()
                                 Button { model.add(command.id) } label: { Image(systemName: "plus") }.buttonStyle(.borderless)
-                                    .help("Aggiungi dopo il comando scelto")
+                                    .help("Add after the chosen command")
                             }
                         }
                         HStack {
@@ -118,7 +118,7 @@ struct ToolbarSheetView: View {
             }
             HStack {
                 Spacer()
-                Button("Annulla") { model.finish?(nil) }.keyboardShortcut(.cancelAction)
+                Button("Cancel") { model.finish?(nil) }.keyboardShortcut(.cancelAction)
                 Button("OK") { model.finish?(model.entries.map(\.command)) }.keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
             }
         }

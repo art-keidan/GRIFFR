@@ -864,13 +864,13 @@ public enum DocumentFormat {
         let succeeded = parser.parse()
         if let error = reader.error { throw error }
         guard succeeded else {
-            throw DocumentFormatError.malformed(line: parser.lineNumber, detail: parser.parserError?.localizedDescription ?? "XML non valido")
+            throw DocumentFormatError.malformed(line: parser.lineNumber, detail: parser.parserError?.localizedDescription ?? "Invalid XML")
         }
-        guard reader.sawDocument else { throw DocumentFormatError.malformed(line: 1, detail: "manca l'elemento <document>") }
+        guard reader.sawDocument else { throw DocumentFormatError.malformed(line: 1, detail: "the <document> element is missing") }
         var document = reader.settings
         if let problem = document.styles.formulaReferenceProblem() { throw DocumentFormatError.malformed(line: 1, detail: problem) }
         do { try ReusableFormulaLibrary(definitions: document.styles.reusableFormulas).validate() }
-        catch { throw DocumentFormatError.malformed(line: 1, detail: "Formule riutilizzabili non valide: \(error)") }
+        catch { throw DocumentFormatError.malformed(line: 1, detail: "Invalid reusable formulas: \(error)") }
         if document.sourceVersion >= 4, reader.documentStyle.fontName != nil, reader.documentStyle.size != nil {
             document.formulaBase = try reader.documentStyle.resolved(line: 1)
         }
@@ -1279,7 +1279,7 @@ public enum DocumentFormat {
                 case ("page-types", "document"):
                     guard check(attributes, allowed: [], element: name, parser) else { return }
                     guard paragraphs.isEmpty, paragraph == nil, settings.pageTypes.isEmpty else {
-                        throw DocumentFormatError.malformed(line: line, detail: "<page-types> va prima dei paragrafi, e una volta sola")
+                        throw DocumentFormatError.malformed(line: line, detail: "<page-types> goes before the paragraphs, and only once")
                     }
 
                 case ("page-type", "page-types"):
@@ -1295,7 +1295,7 @@ public enum DocumentFormat {
                 case ("lists", "document"):
                     guard check(attributes, allowed: [], element: name, parser) else { return }
                     guard paragraphs.isEmpty, paragraph == nil, settings.lists.isEmpty, settings.styles.isEmpty else {
-                        throw DocumentFormatError.malformed(line: line, detail: "<lists> va prima degli stili e dei paragrafi, e una volta sola")
+                        throw DocumentFormatError.malformed(line: line, detail: "<lists> goes before the styles and the paragraphs, and only once")
                     }
 
                 case ("list", "lists"):
@@ -1304,7 +1304,7 @@ public enum DocumentFormat {
                 case ("styles", "document"):
                     guard check(attributes, allowed: [], element: name, parser) else { return }
                     guard paragraphs.isEmpty, paragraph == nil, settings.styles.isEmpty else {
-                        throw DocumentFormatError.malformed(line: line, detail: "<styles> va prima dei paragrafi, e una volta sola")
+                        throw DocumentFormatError.malformed(line: line, detail: "<styles> goes before the paragraphs, and only once")
                     }
 
                 case ("style", "styles"):
@@ -1313,7 +1313,7 @@ public enum DocumentFormat {
                 case ("float-styles", "document"):
                     guard check(attributes, allowed: [], element: name, parser) else { return }
                     guard paragraphs.isEmpty, paragraph == nil, !sawFloatStyles else {
-                        throw DocumentFormatError.malformed(line: line, detail: "<float-styles> va prima dei paragrafi, e una volta sola")
+                        throw DocumentFormatError.malformed(line: line, detail: "<float-styles> goes before the paragraphs, and only once")
                     }
                     sawFloatStyles = true
 
@@ -1329,7 +1329,7 @@ public enum DocumentFormat {
                           settings.styles.styles[index].target == .paragraph, attributes["encoding"] == "json-v1",
                           let encoded = attributes["data"], let heading = try? FormulaCodec.decode(HeadingComposition.self, encoded),
                           heading.problem == nil else {
-                        throw DocumentFormatError.malformed(line: line, detail: "Testata dello stile non valida, doppia o su uno stile che non è di paragrafo")
+                        throw DocumentFormatError.malformed(line: line, detail: "Style heading invalid, repeated, or on a style that is not a paragraph style")
                     }
                     settings.styles.styles[index].heading = heading
 
@@ -1341,14 +1341,14 @@ public enum DocumentFormat {
                           let encoded = attributes["expression"],
                           let expression = try? FormulaCodec.decode(FormulaExpression.self, encoded),
                           !settings.styles.styles[index].variables.contains(where: { $0.id == id || $0.name == label }) else {
-                        throw DocumentFormatError.malformed(line: line, detail: "Variabile dello stile non valida o duplicata")
+                        throw DocumentFormatError.malformed(line: line, detail: "Style variable invalid or duplicated")
                     }
                     settings.styles.styles[index].variables.append(StyleVariable(id: id, name: label, expression: expression))
 
                 case ("rules", "document"):
                     guard check(attributes, allowed: [], element: name, parser) else { return }
                     guard paragraphs.isEmpty, paragraph == nil, !sawRules else {
-                        throw DocumentFormatError.malformed(line: line, detail: "<rules> va prima dei paragrafi, e una volta sola")
+                        throw DocumentFormatError.malformed(line: line, detail: "<rules> goes before the paragraphs, and only once")
                     }
                     sawRules = true
 
@@ -1359,7 +1359,7 @@ public enum DocumentFormat {
                           let source = attributes["source"].flatMap(WordSelection.Source.init(rawValue:)),
                           let index = attributes["index"].flatMap(Int.init), index > 0,
                           !settings.styles.selections.contains(where: { $0.id == id || $0.name == label }) else {
-                        throw DocumentFormatError.malformed(line: line, detail: "Definizione di selezione non valida o duplicata")
+                        throw DocumentFormatError.malformed(line: line, detail: "Selection definition invalid or duplicated")
                     }
                     settings.styles.selections.append(WordSelection(id: id, name: label, source: source, index: index))
 
@@ -1367,12 +1367,12 @@ public enum DocumentFormat {
                     guard check(attributes, allowed: ["encoding", "data"], element: name, parser) else { return }
                     guard !sawReusableFormulas, attributes["encoding"] == "json-v1", let encoded = attributes["data"],
                           let data = Data(base64Encoded: encoded) else {
-                        throw DocumentFormatError.malformed(line: line, detail: "Definizioni di formule riutilizzabili non valide")
+                        throw DocumentFormatError.malformed(line: line, detail: "Invalid reusable formula definitions")
                     }
                     let decoder = JSONDecoder()
                     decoder.nonConformingFloatDecodingStrategy = .convertFromString(positiveInfinity: "+Infinity", negativeInfinity: "-Infinity", nan: "NaN")
                     do { settings.styles.reusableFormulas = try decoder.decode([ReusableFormula].self, from: data) }
-                    catch { throw DocumentFormatError.malformed(line: line, detail: "Definizioni di formule riutilizzabili non leggibili") }
+                    catch { throw DocumentFormatError.malformed(line: line, detail: "Unreadable reusable formula definitions") }
                     sawReusableFormulas = true
 
                 case ("rule", "rules"):
@@ -1384,7 +1384,7 @@ public enum DocumentFormat {
                         throw DocumentFormatError.invalidValue(line: line, attribute: "page-numbering", value: list)
                     }
                     if parent == "section" {
-                        guard openSections.last?.sawTitle == true else { throw DocumentFormatError.malformed(line: line, detail: "una sezione comincia con il suo <title>") }
+                        guard openSections.last?.sawTitle == true else { throw DocumentFormatError.malformed(line: line, detail: "a section starts with its <title>") }
                         openSections[openSections.count - 1].sawInner = true
                     }
                     let id = attributes["id"] ?? Section.newID()
@@ -1405,7 +1405,7 @@ public enum DocumentFormat {
                 case ("font-roles", "document"):
                     guard check(attributes, allowed: [], element: name, parser) else { return }
                     guard paragraphs.isEmpty, paragraph == nil, settings.fontRoles.isEmpty else {
-                        throw DocumentFormatError.malformed(line: line, detail: "<font-roles> va prima dei paragrafi, e una volta sola")
+                        throw DocumentFormatError.malformed(line: line, detail: "<font-roles> goes before the paragraphs, and only once")
                     }
 
                 case ("font-role", "font-roles"):
@@ -1433,17 +1433,17 @@ public enum DocumentFormat {
                         }
                         equivalence.variableInstance = VariableFontInstance(fontName: base, variations: variations, prefersVariableFont: prefersVariable)
                     } else if attributes["axes"] != nil || attributes["variable"] != nil {
-                        throw DocumentFormatError.malformed(line: line, detail: "axes e variable vanno con base")
+                        throw DocumentFormatError.malformed(line: line, detail: "axes and variable go with base")
                     }
                     guard settings.fontRoles.customization(family: family, role: role) == nil else {
-                        throw DocumentFormatError.malformed(line: line, detail: "il ruolo \(role.rawValue) di \(family) è già dato")
+                        throw DocumentFormatError.malformed(line: line, detail: "the role \(role.rawValue) of \(family) is already given")
                     }
                     settings.fontRoles.customize(family: family, role: role, to: equivalence)
 
                 case ("table-styles", "document"):
                     guard check(attributes, allowed: [], element: name, parser) else { return }
                     guard paragraphs.isEmpty, paragraph == nil, !sawTableStyles else {
-                        throw DocumentFormatError.malformed(line: line, detail: "<table-styles> va prima dei paragrafi, e una volta sola")
+                        throw DocumentFormatError.malformed(line: line, detail: "<table-styles> goes before the paragraphs, and only once")
                     }
                     sawTableStyles = true
                     settings.tableStyles = []
@@ -1469,7 +1469,7 @@ public enum DocumentFormat {
                     tableValues = try readTableValues(attributes, line: line)
                     if parent == "section" {
                         guard openSections.last?.sawTitle == true else {
-                            throw DocumentFormatError.malformed(line: line, detail: "in una sezione una tabella va dopo il titolo")
+                            throw DocumentFormatError.malformed(line: line, detail: "in a section a table goes after the title")
                         }
                     }
                     markReturn(parent: parent ?? "")
@@ -1486,7 +1486,7 @@ public enum DocumentFormat {
                 case ("caption", "table"):
                     guard check(attributes, allowed: [], element: name, parser) else { return }
                     guard table?.row == -1, !captionHasParagraph else {
-                        throw DocumentFormatError.malformed(line: line, detail: "la didascalia di una tabella va prima delle righe, e una volta sola")
+                        throw DocumentFormatError.malformed(line: line, detail: "a table caption goes before the rows, and only once")
                     }
                     inCaption = true
 
@@ -1516,7 +1516,7 @@ public enum DocumentFormat {
                         for r in current.row..<(current.row + cellSpans.rows) {
                             for c in column..<(column + cellSpans.columns) where r != current.row || c != column {
                                 guard coveredCells.insert([r, c]).inserted else {
-                                    throw DocumentFormatError.malformed(line: line, detail: "due celle unite si sovrappongono")
+                                    throw DocumentFormatError.malformed(line: line, detail: "two merged cells overlap")
                                 }
                             }
                         }
@@ -1526,7 +1526,7 @@ public enum DocumentFormat {
 
                 case ("title", "section"):
                     guard check(attributes, allowed: [], element: name, parser) else { return }
-                    guard openSections.last?.sawTitle == false else { throw DocumentFormatError.malformed(line: line, detail: "una sezione ha un solo <title>, all'inizio") }
+                    guard openSections.last?.sawTitle == false else { throw DocumentFormatError.malformed(line: line, detail: "a section has a single <title>, at the start") }
                     openSections[openSections.count - 1].sawTitle = true
                     inTitle = true
                     titleHasParagraph = false
@@ -1540,10 +1540,10 @@ public enum DocumentFormat {
                     case "document":
                         markReturn(parent: parent ?? "")
                     case "section":
-                        guard openSections.last?.sawTitle == true else { throw DocumentFormatError.malformed(line: line, detail: "una sezione comincia con il suo <title>") }
+                        guard openSections.last?.sawTitle == true else { throw DocumentFormatError.malformed(line: line, detail: "a section starts with its <title>") }
                         markReturn(parent: parent ?? "")
                     default:
-                        guard !titleHasParagraph else { throw DocumentFormatError.malformed(line: line, detail: "il titolo di una sezione è un solo paragrafo") }
+                        guard !titleHasParagraph else { throw DocumentFormatError.malformed(line: line, detail: "a section title is a single paragraph") }
                         titleHasParagraph = true
                     }
                     let measures = ["first-indent", "left-indent", "right-indent", "space-before", "space-after", "line-spacing", "line-height"]
@@ -1634,13 +1634,13 @@ public enum DocumentFormat {
                     case ("section-number"?, let role?) where !role.isEmpty: field = Field.sectionNumber(role: role).formula
                     case ("formula"?, let role):
                         guard settings.sourceVersion >= 9 else {
-                            throw DocumentFormatError.malformed(line: line, detail: "Questa formula inserita nel testo richiede il formato 9")
+                            throw DocumentFormatError.malformed(line: line, detail: "This formula in the text needs format 9")
                         }
                         guard let expression = attributes["expression"], let formula = FieldFormula(expression: expression, role: role) else {
                             throw DocumentFormatError.invalidValue(line: line, attribute: "expression", value: attributes["expression"] ?? "")
                         }
                         guard settings.sourceVersion >= formula.formatVersion else {
-                            throw DocumentFormatError.malformed(line: line, detail: "Questa formula inserita nel testo richiede il formato \(formula.formatVersion)")
+                            throw DocumentFormatError.malformed(line: line, detail: "This formula in the text needs format \(formula.formatVersion)")
                         }
                         field = .formula(formula)
                     default: throw DocumentFormatError.invalidValue(line: line, attribute: "kind", value: attributes["kind"] ?? "")
@@ -1654,7 +1654,7 @@ public enum DocumentFormat {
                     runAttributes["expression"] = nil
                     try startRun(from: note != nil ? noteStyle : paragraphStyle, runAttributes, line: line)
                     if note != nil, noteUsesParagraphs, !noteParagraphOpen {
-                        throw DocumentFormatError.malformed(line: line, detail: "in una nota con paragrafi un campo va dentro <p>")
+                        throw DocumentFormatError.malformed(line: line, detail: "in a note with paragraphs a field goes inside <p>")
                     }
                     try append(Field.placeholder, line: line, field: field)
 
@@ -1740,11 +1740,11 @@ public enum DocumentFormat {
                 let encoded = imageText.filter { !$0.isWhitespace }
                 let source: ImageObject.Source
                 if let path = image.src {
-                    guard encoded.isEmpty else { fail(.malformed(line: image.line, detail: "un'immagine collegata non contiene byte"), parser); return }
+                    guard encoded.isEmpty else { fail(.malformed(line: image.line, detail: "a linked image contains no bytes"), parser); return }
                     source = .linked(path)
                 } else {
                     guard let data = Data(base64Encoded: encoded), !data.isEmpty else {
-                        fail(.malformed(line: image.line, detail: "i byte dell'immagine non sono in base64"), parser)
+                        fail(.malformed(line: image.line, detail: "the image bytes are not base64"), parser)
                         return
                     }
                     source = .embedded(data)
@@ -1801,10 +1801,10 @@ public enum DocumentFormat {
             case "row":
                 // Una riga senza celle non si può rappresentare: non la si lascia sparire in silenzio.
                 if let table, table.column < 0, !coveredCells.contains(where: { $0[0] == table.row }) {
-                    fail(.malformed(line: rowLine, detail: "una riga di tabella ha almeno una cella"), parser)
+                    fail(.malformed(line: rowLine, detail: "a table row has at least one cell"), parser)
                 }
             case "table":
-                if table?.row ?? 0 < 0 { fail(.malformed(line: tableLine, detail: "una tabella ha almeno una riga"), parser) }
+                if table?.row ?? 0 < 0 { fail(.malformed(line: tableLine, detail: "a table has at least one row"), parser) }
                 table = nil
                 tableStyle = nil
                 tableValues = TableValues()
@@ -1821,7 +1821,7 @@ public enum DocumentFormat {
                 } catch let error as DocumentFormatError { fail(error, parser) } catch {}
             case "section":
                 guard let closed = openSections.popLast() else { return }
-                if !closed.sawTitle { fail(.malformed(line: closed.line, detail: "una sezione comincia con il suo <title>"), parser) }
+                if !closed.sawTitle { fail(.malformed(line: closed.line, detail: "a section starts with its <title>"), parser) }
                 afterClosedSection = true
             default:
                 break
@@ -1837,7 +1837,7 @@ public enum DocumentFormat {
             guard paragraph != nil else {
                 // Fuori dai paragrafi sono ammessi solo spazi e a capo, che servono a impaginare il file.
                 if !string.allSatisfy(\.isWhitespace) {
-                    fail(.malformed(line: parser.lineNumber, detail: "testo fuori da un paragrafo: «\(string.trimmingCharacters(in: .whitespacesAndNewlines))»"), parser)
+                    fail(.malformed(line: parser.lineNumber, detail: "text outside a paragraph: “\(string.trimmingCharacters(in: .whitespacesAndNewlines))”"), parser)
                 }
                 return
             }
@@ -1869,7 +1869,7 @@ public enum DocumentFormat {
                 facing: attributes["facing"] == "on")
             // Il foglio deve lasciare uno specchio: margini che si toccano o si incrociano non lasciano spazio al testo.
             guard page.paperSize.width - page.left - page.right >= 1, page.paperSize.height - page.top - page.bottom >= 1 else {
-                throw DocumentFormatError.malformed(line: line, detail: "i margini del foglio non lasciano spazio al testo")
+                throw DocumentFormatError.malformed(line: line, detail: "the paper margins leave no room for the text")
             }
             return page
         }
@@ -1915,18 +1915,18 @@ public enum DocumentFormat {
                   let predicate = attributes["predicate"].flatMap(StylePredicate.init(rawValue:)),
                   let property = attributes["property"].flatMap(StyleProperty.init(rawValue:)),
                   let value = attributes["value"] else {
-                throw DocumentFormatError.malformed(line: line, detail: "Formula incompleta, sconosciuta o con identità duplicata")
+                throw DocumentFormatError.malformed(line: line, detail: "Formula incomplete, unknown or with a duplicated identity")
             }
             let modern = property.isDirective || property == .applyStyle || ["when", "after-style", "if", "compare", "threshold", "find", "count", "selection", "pattern", "words"].contains { attributes[$0] != nil }
-            if settings.sourceVersion < 8, modern { throw DocumentFormatError.malformed(line: line, detail: "Questa formula richiede il formato 8") }
+            if settings.sourceVersion < 8, modern { throw DocumentFormatError.malformed(line: line, detail: "This formula needs format 8") }
             if settings.sourceVersion < 7, attributes["kind"] == "face" {
-                throw DocumentFormatError.malformed(line: line, detail: "La faccia precisa richiede il formato 7")
+                throw DocumentFormatError.malformed(line: line, detail: "The exact face needs format 7")
             }
             if settings.sourceVersion < 6, predicate == .subtract {
-                throw DocumentFormatError.malformed(line: line, detail: "Sottrai richiede il formato 6")
+                throw DocumentFormatError.malformed(line: line, detail: "Subtract needs format 6")
             }
             if settings.sourceVersion < 5, ["family", "color", "smallCaps", "hyphenates"].contains(attributes["kind"] ?? "") {
-                throw DocumentFormatError.malformed(line: line, detail: "Questo argomento richiede il formato 5")
+                throw DocumentFormatError.malformed(line: line, detail: "This argument needs format 5")
             }
             let argument: StyleArgument
             switch attributes["kind"] {
@@ -1978,14 +1978,14 @@ public enum DocumentFormat {
                 position = .firstAfter(name)
             default: throw DocumentFormatError.invalidValue(line: line, attribute: "when", value: attributes["when"] ?? "")
             }
-            if attributes["when"] != "after", attributes["after-style"] != nil { throw DocumentFormatError.malformed(line: line, detail: "after-style richiede when=after") }
+            if attributes["when"] != "after", attributes["after-style"] != nil { throw DocumentFormatError.malformed(line: line, detail: "after-style needs when=after") }
             let measurement: TextRule.Condition?
             if let raw = attributes["if"] {
                 guard let metric = TextRule.Condition.Property(rawValue: raw), let comparison = attributes["compare"].flatMap(TextRule.Condition.Comparison.init(rawValue:)),
-                      let threshold = attributes["threshold"].flatMap(DocumentFormat.finiteNumber) else { throw DocumentFormatError.malformed(line: line, detail: "Condizione numerica incompleta") }
+                      let threshold = attributes["threshold"].flatMap(DocumentFormat.finiteNumber) else { throw DocumentFormatError.malformed(line: line, detail: "Incomplete numeric condition") }
                 measurement = TextRule.Condition(metric, comparison, threshold)
             } else {
-                guard attributes["compare"] == nil && attributes["threshold"] == nil else { throw DocumentFormatError.malformed(line: line, detail: "Confronto privo di proprietà") }
+                guard attributes["compare"] == nil && attributes["threshold"] == nil else { throw DocumentFormatError.malformed(line: line, detail: "Comparison without a property") }
                 measurement = nil
             }
             let target: TextRule.Target
@@ -2010,18 +2010,18 @@ public enum DocumentFormat {
                 }
             default: throw DocumentFormatError.invalidValue(line: line, attribute: "find", value: attributes["find"] ?? "")
             }
-            if !["first-words", "first-lines"].contains(attributes["find"] ?? ""), attributes["count"] != nil { throw DocumentFormatError.malformed(line: line, detail: "count richiede parole o righe") }
-            if attributes["find"] != "selection", attributes["selection"] != nil { throw DocumentFormatError.malformed(line: line, detail: "Selezione fuori dal destinatario") }
-            if attributes["find"] != "words", attributes["pattern"] != nil || attributes["words"] != nil { throw DocumentFormatError.malformed(line: line, detail: "Modello fuori dalle parole") }
-            if attributes["pattern"] != "list", attributes["words"] != nil { throw DocumentFormatError.malformed(line: line, detail: "Elenco di parole privo del relativo modello") }
+            if !["first-words", "first-lines"].contains(attributes["find"] ?? ""), attributes["count"] != nil { throw DocumentFormatError.malformed(line: line, detail: "count needs words or lines") }
+            if attributes["find"] != "selection", attributes["selection"] != nil { throw DocumentFormatError.malformed(line: line, detail: "Selection outside the target") }
+            if attributes["find"] != "words", attributes["pattern"] != nil || attributes["words"] != nil { throw DocumentFormatError.malformed(line: line, detail: "Pattern outside the words") }
+            if attributes["pattern"] != "list", attributes["words"] != nil { throw DocumentFormatError.malformed(line: line, detail: "Word list without its pattern") }
             var formula = StyleFormula(id: id, operation: StylePropertyOperation(predicate, property, argument), when: StyleCondition(position: position, measurement: measurement), target: target)
             if let encoded = attributes["binding"] {
-                guard settings.sourceVersion >= 11 else { throw DocumentFormatError.malformed(line: line, detail: "I collegamenti richiedono il formato 11") }
+                guard settings.sourceVersion >= 11 else { throw DocumentFormatError.malformed(line: line, detail: "Links need format 11") }
                 do { formula.binding = try FormulaCodec.decode(FormulaExpression.self, encoded) }
-                catch { throw DocumentFormatError.malformed(line: line, detail: "Collegamento di formula non valido") }
+                catch { throw DocumentFormatError.malformed(line: line, detail: "Invalid formula link") }
             }
             do { try formula.validate(for: settings.styles.styles[index].target) }
-            catch { throw DocumentFormatError.malformed(line: line, detail: "Argomenti della formula incompatibili con il predicato o lo stile") }
+            catch { throw DocumentFormatError.malformed(line: line, detail: "Formula arguments incompatible with the predicate or the style") }
             settings.styles.styles[index].formulas.append(formula)
         }
 
@@ -2413,7 +2413,7 @@ public enum DocumentFormat {
                 if noteUsesParagraphs && !noteParagraphOpen {
                     // Tra un paragrafo e l'altro della nota sono ammessi solo spazi, che servono a impaginare il file.
                     guard text.allSatisfy(\.isWhitespace) else {
-                        throw DocumentFormatError.malformed(line: line, detail: "in una nota con paragrafi il testo va dentro <p>: «\(text.trimmingCharacters(in: .whitespacesAndNewlines))»")
+                        throw DocumentFormatError.malformed(line: line, detail: "in a note with paragraphs the text goes inside <p>: “\(text.trimmingCharacters(in: .whitespacesAndNewlines))”")
                     }
                     return
                 }
@@ -2454,13 +2454,13 @@ public enum DocumentFormatError: Error, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .malformed(let line, let detail): "Riga \(line): \(detail)"
+        case .malformed(let line, let detail): "Line \(line): \(detail)"
         case .unexpectedElement(let line, let element, let parent):
-            "Riga \(line): elemento <\(element)> non previsto " + (parent.map { "dentro <\($0)>" } ?? "come radice del documento")
-        case .unknownAttribute(let line, let element, let attribute): "Riga \(line): attributo «\(attribute)» sconosciuto in <\(element)>"
-        case .missingAttribute(let line, let attribute): "Riga \(line): manca «\(attribute)» (né qui né nei livelli superiori)"
-        case .invalidValue(let line, let attribute, let value): "Riga \(line): valore «\(value)» non valido per «\(attribute)»"
-        case .newerVersion(let version): "Il file è nella versione \(version) del formato, più recente di quella che questa app conosce (\(DocumentFormat.version))"
+            "Line \(line): unexpected element <\(element)> " + (parent.map { "inside <\($0)>" } ?? "as the document root")
+        case .unknownAttribute(let line, let element, let attribute): "Line \(line): unknown attribute “\(attribute)” in <\(element)>"
+        case .missingAttribute(let line, let attribute): "Line \(line): “\(attribute)” is missing (neither here nor in the outer levels)"
+        case .invalidValue(let line, let attribute, let value): "Line \(line): value “\(value)” is not valid for “\(attribute)”"
+        case .newerVersion(let version): "The file is in version \(version) of the format, newer than the one this app knows (\(DocumentFormat.version))"
         }
     }
 }

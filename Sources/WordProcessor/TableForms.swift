@@ -8,21 +8,21 @@ enum TableCommand: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .rowAbove: "Riga sopra"
-        case .rowBelow: "Riga sotto"
-        case .columnLeft: "Colonna a sinistra"
-        case .columnRight: "Colonna a destra"
-        case .removeRow: "Togli la riga"
-        case .removeColumn: "Togli la colonna"
-        case .removeTable: "Togli la tabella"
+        case .rowAbove: "Row Above"
+        case .rowBelow: "Row Below"
+        case .columnLeft: "Column to the Left"
+        case .columnRight: "Column to the Right"
+        case .removeRow: "Remove Row"
+        case .removeColumn: "Remove Column"
+        case .removeTable: "Remove Table"
         }
     }
 
     /// Il nome del passo di «Annulla».
     var actionName: String {
         switch self {
-        case .rowAbove, .rowBelow: "Riga"
-        case .columnLeft, .columnRight: "Colonna"
+        case .rowAbove, .rowBelow: "Row"
+        case .columnLeft, .columnRight: "Column"
         default: title
         }
     }
@@ -54,10 +54,10 @@ enum CellSide: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .top: "Sopra"
-        case .right: "A destra"
-        case .bottom: "Sotto"
-        case .left: "A sinistra"
+        case .top: "Above"
+        case .right: "Right"
+        case .bottom: "Below"
+        case .left: "Left"
         }
     }
 
@@ -108,12 +108,12 @@ struct InsetsFields: View {
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 6, verticalSpacing: 4) {
             GridRow {
-                field("Sopra", \.top)
-                field("Sotto", \.bottom)
+                field("Above", \.top)
+                field("Below", \.bottom)
             }
             GridRow {
-                field("Sinistra", \.left)
-                field("Destra", \.right)
+                field("Left", \.left)
+                field("Right", \.right)
             }
         }
     }
@@ -143,7 +143,7 @@ struct TableValuesForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            formLine("Filetti") {
+            formLine("Rules") {
                 HStack(spacing: 4) {
                     Picker("", selection: Binding(get: { resolved.rules ?? .grid }, set: { change(.rules($0)) })) {
                         ForEach(TableRuleScheme.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -152,7 +152,7 @@ struct TableValuesForm: View {
                     reset(values.rules != nil) { change(.rules(nil)) }
                 }
             }
-            formLine("Spessore") {
+            formLine("Thickness") {
                 HStack(spacing: 4) {
                     LengthField(points: CGFloat(resolved.ruleWidth ?? 0.5), unit: .points) { value in
                         if value > 0 { change(.ruleWidth(Double(value))) } else { NSSound.beep() }
@@ -160,13 +160,13 @@ struct TableValuesForm: View {
                     reset(values.ruleWidth != nil) { change(.ruleWidth(nil)) }
                 }
             }
-            formLine("Margini interni") {
+            formLine("Inner margins") {
                 HStack(alignment: .top, spacing: 4) {
                     InsetsFields(insets: resolved.padding ?? CellInsets(all: 4)) { change(.padding($0)) }
                     reset(values.padding != nil) { change(.padding(nil)) }
                 }
             }
-            formLine("Allineamento") {
+            formLine("Alignment") {
                 HStack(spacing: 4) {
                     Picker("", selection: Binding(get: { resolved.verticalAlignment ?? .top }, set: { change(.alignment($0)) })) {
                         ForEach(CellVerticalAlignment.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -175,7 +175,7 @@ struct TableValuesForm: View {
                     reset(values.verticalAlignment != nil) { change(.alignment(nil)) }
                 }
             }
-            formLine("Fondo") {
+            formLine("Background") {
                 HStack(spacing: 6) {
                     let background = resolved.background ?? ""
                     Toggle("", isOn: Binding(get: { !background.isEmpty }, set: { change(.background($0 ? "#eeeeee" : "")) })).labelsHidden()
@@ -210,59 +210,59 @@ struct TableForm: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                formLine("Flottante") {
+                formLine("Floating") {
                     Picker("", selection: Binding(get: { info.floatStyle }, set: { setFloat($0) })) {
-                        Text("no, sta nel testo").tag(String?.none)
-                        ForEach(info.floatChoices, id: \.self) { Text("sì, «\($0)»").tag(Optional($0)) }
+                        Text("no, it stays in the text").tag(String?.none)
+                        ForEach(info.floatChoices, id: \.self) { Text("yes, “\($0)”").tag(Optional($0)) }
                     }
                     .labelsHidden().fixedSize()
                 }
-                Text("Flottante, la tabella ha una didascalia numerata e va dove dice il suo stile di flottante (scheda Flottanti): qui, in cima, in fondo, in una pagina a parte.")
+                Text("When floating, the table has a numbered caption and goes where its float style says (Floats tab): here, at the top, at the bottom, on a separate page.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).padding(.leading, 122)
             }
-            formLine("Misure") { Text("\(info.rows) \(info.rows == 1 ? "riga" : "righe"), \(info.columns) \(info.columns == 1 ? "colonna" : "colonne")") }
-            formLine("Cursore") { Text("riga \(info.row), colonna \(info.column)") }
-            formLine("Stile") {
+            formLine("Size") { Text("\(info.rows) \(info.rows == 1 ? "row" : "rows"), \(info.columns) \(info.columns == 1 ? "column" : "columns")") }
+            formLine("Cursor") { Text("row \(info.row), column \(info.column)") }
+            formLine("Style") {
                 Picker("", selection: Binding(get: { info.style ?? Typesetting.TableStyle.defaultName }, set: { setStyle($0 == Typesetting.TableStyle.defaultName ? nil : $0) })) {
                     ForEach(info.styleNames, id: \.self) { Text($0).tag($0) }
                     if !info.styleNames.contains(info.style ?? Typesetting.TableStyle.defaultName) {
-                        Text("\(info.style ?? Typesetting.TableStyle.defaultName) (non c'è più)").tag(info.style ?? Typesetting.TableStyle.defaultName)
+                        Text("\(info.style ?? Typesetting.TableStyle.defaultName) (no longer exists)").tag(info.style ?? Typesetting.TableStyle.defaultName)
                     }
                 }
                 .labelsHidden().fixedSize()
             }
-            TableValuesForm(values: info.values, resolved: info.resolved, resetHelp: "Torna a ciò che dice lo stile", change: change)
-            Text("Ciò che si cambia qui vale solo per questa tabella. Scegliere i filetti toglie i lati detti per le singole celle.")
+            TableValuesForm(values: info.values, resolved: info.resolved, resetHelp: "Back to What the Style Says", change: change)
+            Text("What you change here applies only to this table. Choosing the rules removes the sides set for single cells.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).padding(.leading, 122)
             VStack(alignment: .leading, spacing: 3) {
-                formLine("Intestazione") {
+                formLine("Header") {
                     Stepper(value: Binding(get: { info.headerRows }, set: { setHeaderRows($0) }), in: 0...info.rows) {
-                        Text(info.headerRows == 0 ? "nessuna riga" : info.headerRows == 1 ? "la prima riga" : "le prime \(info.headerRows) righe")
+                        Text(info.headerRows == 0 ? "no rows" : info.headerRows == 1 ? "the first row" : "the first \(info.headerRows) rows")
                     }
                     .fixedSize()
                 }
-                Text("Le righe d'intestazione si ripetono in cima a ogni pagina in cui la tabella continua.")
+                Text("Header rows repeat at the top of every page the table continues on.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).padding(.leading, 122)
             }
-            formLine("Righe") {
+            formLine("Rows") {
                 HStack(spacing: 6) {
-                    Button("Sopra") { command(.rowAbove) }.help("Una riga vuota sopra quella del cursore")
-                    Button("Sotto") { command(.rowBelow) }.help("Una riga vuota sotto quella del cursore")
-                    Button("Togli") { command(.removeRow) }.help("Toglie la riga del cursore, con il suo testo")
+                    Button("Above") { command(.rowAbove) }.help("An empty row above the cursor's")
+                    Button("Below") { command(.rowBelow) }.help("An empty row below the cursor's")
+                    Button("Remove") { command(.removeRow) }.help("Removes the cursor's row, with its text")
                 }
                 .controlSize(.small)
             }
-            formLine("Colonne") {
+            formLine("Columns") {
                 HStack(spacing: 6) {
-                    Button("A sinistra") { command(.columnLeft) }.help("Una colonna vuota a sinistra di quella del cursore")
-                    Button("A destra") { command(.columnRight) }.help("Una colonna vuota a destra di quella del cursore")
-                    Button("Togli") { command(.removeColumn) }.help("Toglie la colonna del cursore, con il suo testo")
+                    Button("Left") { command(.columnLeft) }.help("An empty column to the left of the cursor's")
+                    Button("Right") { command(.columnRight) }.help("An empty column to the right of the cursor's")
+                    Button("Remove") { command(.removeColumn) }.help("Removes the cursor's column, with its text")
                 }
                 .controlSize(.small)
             }
-            Button("Togli la tabella") { command(.removeTable) }
+            Button("Remove Table") { command(.removeTable) }
                 .controlSize(.small)
-                .help("Toglie la tabella con tutto il suo testo (Annulla la rimette)")
+                .help("Removes the table with all its text (Undo brings it back)")
         }
     }
 }
@@ -278,20 +278,20 @@ struct CellForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            formLine("Cella") { Text("riga \(info.row), colonna \(info.column)") }
+            formLine("Cell") { Text("row \(info.row), column \(info.column)") }
             if info.columnSpan > 1 || info.rowSpan > 1 {
-                formLine("Unita") {
+                formLine("Merged") {
                     HStack(spacing: 8) {
-                        Text("copre \(info.columnSpan) \(info.columnSpan == 1 ? "colonna" : "colonne") e \(info.rowSpan) \(info.rowSpan == 1 ? "riga" : "righe")")
-                        Button("Dividi") { split() }.controlSize(.small).help("Torna a coprire una sola posizione; le altre ricevono celle vuote")
+                        Text("spans \(info.columnSpan) \(info.columnSpan == 1 ? "column" : "columns") and \(info.rowSpan) \(info.rowSpan == 1 ? "row" : "rows")")
+                        Button("Split") { split() }.controlSize(.small).help("Back to a single position; the others get empty cells")
                     }
                 }
             }
-            Text("Lati").font(.headline)
+            Text("Sides").font(.headline)
             ForEach(CellSide.allCases, id: \.self) { side in borderLine(side) }
-            Text("«Dalla tabella»: il lato che dà lo schema dei filetti. Dove due celle si toccano, un lato detto vince sullo schema, e il più spesso sull'altro.")
+            Text("“From the table”: the side given by the rule pattern. Where two cells touch, a side that is set wins over the pattern, and the thicker over the other.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).padding(.leading, 122)
-            formLine("Fondo") {
+            formLine("Background") {
                 HStack(spacing: 6) {
                     Picker("", selection: Binding(get: { backgroundChoice }, set: { choice in
                         switch choice {
@@ -300,9 +300,9 @@ struct CellForm: View {
                         case .color: change(.background(info.tableBackground.isEmpty ? "#eeeeee" : info.tableBackground))
                         }
                     })) {
-                        Text("dalla tabella").tag(BackgroundChoice.table)
-                        Text("nessuno").tag(BackgroundChoice.none)
-                        Text("un colore").tag(BackgroundChoice.color)
+                        Text("from the table").tag(BackgroundChoice.table)
+                        Text("none").tag(BackgroundChoice.none)
+                        Text("a color").tag(BackgroundChoice.color)
                     }
                     .labelsHidden().fixedSize()
                     if let background = info.values.background, !background.isEmpty {
@@ -312,16 +312,16 @@ struct CellForm: View {
                     }
                 }
             }
-            formLine("Allineamento") {
+            formLine("Alignment") {
                 Picker("", selection: Binding(get: { info.values.verticalAlignment }, set: { change(.alignment($0)) })) {
-                    Text("dalla tabella (\(info.tableAlignment.title.lowercased()))").tag(CellVerticalAlignment?.none)
+                    Text("from the table (\(info.tableAlignment.title.lowercased()))").tag(CellVerticalAlignment?.none)
                     ForEach(CellVerticalAlignment.allCases, id: \.self) { Text($0.title).tag(Optional($0)) }
                 }
                 .labelsHidden().fixedSize()
             }
-            formLine("Margini interni") {
+            formLine("Inner margins") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Propri della cella", isOn: Binding(get: { info.values.padding != nil },
+                    Toggle("The cell's own", isOn: Binding(get: { info.values.padding != nil },
                                                                set: { change(.padding($0 ? info.tablePadding : nil)) }))
                     if let padding = info.values.padding {
                         InsetsFields(insets: padding) { change(.padding($0)) }
@@ -355,8 +355,8 @@ struct CellForm: View {
                     case .rule: change(.border(side, .rule(info.tableRuleWidth)))
                     }
                 })) {
-                    Text("dalla tabella").tag(BorderChoice.table)
-                    Text("nessun filetto").tag(BorderChoice.none)
+                    Text("from the table").tag(BorderChoice.table)
+                    Text("no rule").tag(BorderChoice.none)
                     Text("filetto").tag(BorderChoice.rule)
                 }
                 .labelsHidden().fixedSize()
@@ -416,9 +416,9 @@ final class TableStylesSheetModel: ObservableObject {
         var seen: Set<String> = []
         for row in rows {
             let name = row.style.name.trimmingCharacters(in: .whitespaces)
-            if name.isEmpty { return "Ogni stile di tabella deve avere un nome." }
-            if name.contains("\n") { return "Il nome di uno stile sta su una riga." }
-            if !seen.insert(name).inserted { return "Ci sono due stili di tabella di nome «\(name)»." }
+            if name.isEmpty { return "Every table style needs a name." }
+            if name.contains("\n") { return "A style name fits on one line." }
+            if !seen.insert(name).inserted { return "There are two table styles named “\(name)”." }
         }
         return nil
     }
@@ -434,7 +434,7 @@ final class TableStylesSheetModel: ObservableObject {
     }
 
     func add() {
-        let row = TableStyleRow(original: nil, style: Typesetting.TableStyle(name: freeName("Stile di tabella"), values: TableValues()))
+        let row = TableStyleRow(original: nil, style: Typesetting.TableStyle(name: freeName("Table Style"), values: TableValues()))
         rows.append(row)
         selection = row.id
     }
@@ -475,11 +475,11 @@ struct TableStylesSheetView: View {
             }
             .frame(height: 140)
             HStack(spacing: 4) {
-                Button { model.add() } label: { Image(systemName: "plus") }.help("Uno stile di tabella nuovo")
+                Button { model.add() } label: { Image(systemName: "plus") }.help("A new table style")
                 Button { model.duplicateSelected() } label: { Image(systemName: "plus.square.on.square") }
-                    .disabled(model.selection == nil).help("Duplica lo stile scelto")
+                    .disabled(model.selection == nil).help("Duplicate the chosen style")
                 Button { model.removeSelected() } label: { Image(systemName: "minus") }
-                    .disabled(model.selection == nil).help("Togli lo stile: le tabelle che lo usavano tornano a «\(Typesetting.TableStyle.defaultName)»")
+                    .disabled(model.selection == nil).help("Remove the style: the tables that used it go back to “\(Typesetting.TableStyle.defaultName)”")
                 Spacer()
             }
             .padding(.horizontal, 10)
@@ -489,7 +489,7 @@ struct TableStylesSheetView: View {
             if let index = model.selectedIndex {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        formLine("Nome") {
+                        formLine("Name") {
                             TextField("", text: $nameDraft)
                                 .focused($nameFocused)
                                 .onSubmit { model.rename(nameDraft) }
@@ -497,8 +497,8 @@ struct TableStylesSheetView: View {
                         }
                         let style = model.rows[index].style
                         TableValuesForm(values: style.values, resolved: style.values.over(.initial),
-                                        resetHelp: "Torna al valore iniziale") { model.changeSelected($0) }
-                        Text("Le tabelle scelgono lo stile nell'ispettore della Tabella; lì possono cambiare qualcosa solo per sé. Senza stile, una tabella usa «\(Typesetting.TableStyle.defaultName)».")
+                                        resetHelp: "Back to the Initial Value") { model.changeSelected($0) }
+                        Text("Tables choose their style in the Table inspector; there they can change something just for themselves. With no style, a table uses “\(Typesetting.TableStyle.defaultName)”.")
                             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(14)
@@ -507,7 +507,7 @@ struct TableStylesSheetView: View {
                 .onAppear { nameDraft = model.rows[index].style.name }
                 .onChange(of: model.selection) { _, _ in nameDraft = model.selectedIndex.map { model.rows[$0].style.name } ?? "" }
             } else {
-                Text("Nessuno stile di tabella: le tabelle hanno l'aspetto iniziale (griglia di filetti). Con + se ne crea uno.")
+                Text("No table styles: tables have the initial look (a grid of rules). Create one with +.")
                     .foregroundStyle(.secondary).padding(14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }

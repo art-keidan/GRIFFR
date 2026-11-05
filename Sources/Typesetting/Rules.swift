@@ -138,12 +138,12 @@ public struct TextRule: Hashable, Sendable {
 
         public var summary: String {
             let name = switch property {
-            case .lines: "righe"
-            case .words: "parole"
-            case .lastLineFill: "ultima riga %"
-            case .hyphens: "trattini"
+            case .lines: "lines"
+            case .words: "words"
+            case .lastLineFill: "last line %"
+            case .hyphens: "hyphens"
             }
-            return "se \(name) \(comparison.symbol) \(value.formatted(.number.precision(.fractionLength(0...1))))"
+            return "if \(name) \(comparison.symbol) \(value.formatted(.number.precision(.fractionLength(0...1))))"
         }
     }
 
@@ -217,27 +217,27 @@ public struct TextRule: Hashable, Sendable {
 
     public func summary(selections: [WordSelection]) -> String {
         let what: String = switch target {
-        case .firstLetter: "Prima lettera"
-        case .selection(let id): selections.first { $0.id == id }?.name ?? "Selezione composta"
-        case .firstWords(let count): count == 1 ? "Prima parola" : "Prime \(count) parole"
-        case .firstSentence: "Prima frase"
-        case .words(.capitals): "Parole maiuscole"
-        case .words(.romanNumerals): "Numeri romani"
-        case .words(.numbers): "Numeri"
-        case .words(.listed(let words)): words.isEmpty ? "Parole date" : "Parole: " + words.joined(separator: " ")
-        case .firstLines(let count): count == 1 ? "Prima riga" : "Prime \(count) righe"
-        case .lastLine: "Ultima riga"
-        case .paragraph: "Paragrafo intero"
+        case .firstLetter: "First letter"
+        case .selection(let id): selections.first { $0.id == id }?.name ?? "Composed selection"
+        case .firstWords(let count): count == 1 ? "First word" : "First \(count) words"
+        case .firstSentence: "First sentence"
+        case .words(.capitals): "Capitalized words"
+        case .words(.romanNumerals): "Roman numerals"
+        case .words(.numbers): "Numbers"
+        case .words(.listed(let words)): words.isEmpty ? "Given words" : "Words: " + words.joined(separator: " ")
+        case .firstLines(let count): count == 1 ? "First line" : "First \(count) lines"
+        case .lastLine: "Last line"
+        case .paragraph: "Whole paragraph"
         }
-        var whereText = paragraphStyle.map { "paragrafi \($0)" } ?? "tutti i paragrafi"
+        var whereText = paragraphStyle.map { "\($0) paragraphs" } ?? "all paragraphs"
         switch position {
         case .any: break
-        case .firstAfter(let style): whereText = (paragraphStyle.map { "\($0), " } ?? "") + "primo dopo \(style)"
-        case .sequenceStart: whereText = (paragraphStyle.map { "\($0), " } ?? "") + "primo del documento"
-        case .firstOnPage: whereText = (paragraphStyle.map { "\($0), " } ?? "") + "primo della pagina"
+        case .firstAfter(let style): whereText = (paragraphStyle.map { "\($0), " } ?? "") + "first after \(style)"
+        case .sequenceStart: whereText = (paragraphStyle.map { "\($0), " } ?? "") + "first of the document"
+        case .firstOnPage: whereText = (paragraphStyle.map { "\($0), " } ?? "") + "first on the page"
         }
         if let condition { whereText += ", " + condition.summary }
-        let treatment = formulaOwner.map { "formula di «" + $0 + "»" } ?? styleName
+        let treatment = formulaOwner.map { "formula of “" + $0 + "”" } ?? styleName
         return "\(what) · \(whereText) → \(treatment)"
     }
 }

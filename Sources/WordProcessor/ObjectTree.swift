@@ -168,7 +168,7 @@ final class ObjectTreeView: NSVisualEffectView, NSOutlineViewDataSource, NSOutli
     let outline = NSOutlineView()
     private let scroll = NSScrollView()
     private let filterField = NSTextField()
-    private let emptyLabel = NSTextField(labelWithString: "Il documento è vuoto.")
+    private let emptyLabel = NSTextField(labelWithString: "The document is empty.")
     private(set) var roots: [Node] = []
     private var nodes: [OutlineItem.ID: Node] = [:]
     /// Durante la ricostruzione aprire i titoli non va registrato come scelta di chi scrive.
@@ -206,10 +206,10 @@ final class ObjectTreeView: NSVisualEffectView, NSOutlineViewDataSource, NSOutli
         scroll.drawsBackground = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
 
-        filterField.placeholderString = "Filtra"
+        filterField.placeholderString = "Filter"
         filterField.bezelStyle = .roundedBezel
         filterField.delegate = self
-        filterField.toolTip = "Mostra solo gli oggetti che contengono queste lettere (nelle prime parole, nel segno o nello stile)"
+        filterField.toolTip = "Show only the objects that contain these letters (in their first words, marker or style)"
         filterField.translatesAutoresizingMaskIntoConstraints = false
 
         emptyLabel.font = .preferredFont(forTextStyle: .caption1)
@@ -237,7 +237,7 @@ final class ObjectTreeView: NSVisualEffectView, NSOutlineViewDataSource, NSOutli
         reload()
     }
 
-    required init?(coder: NSCoder) { fatalError("init(coder:) non usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     // MARK: Contenuto
 
@@ -457,7 +457,7 @@ final class ObjectTreeCell: NSTableCellView {
         ])
     }
 
-    required init?(coder: NSCoder) { fatalError("init(coder:) non usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     func show(_ item: OutlineItem) {
         mark.stringValue = item.label

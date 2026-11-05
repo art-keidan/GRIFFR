@@ -26,7 +26,7 @@ extension EditorWindowController: PagesViewEditing {
             && TextStyling.bodyParagraph(in: store, at: range.location).range.location == range.location
             && store.attribute(.sectionTitle, at: range.location, effectiveRange: nil) != nil
         var start = range.location
-        writeStore(actionName: "Scrittura", breakingUndo: false) { store in
+        writeStore(actionName: "Typing", breakingUndo: false) { store in
             // Su una selezione che attraversa celle: le celle si svuotano, la tabella resta.
             start = TableEditing.replace(range, in: store, with: NSAttributedString(string: string, attributes: attributes))
             if beforeTitle { store.removeAttribute(.sectionTitle, range: NSRange(location: start, length: NSMaxRange(lastNewline))) }
@@ -49,7 +49,7 @@ extension EditorWindowController: PagesViewEditing {
         let attributes = typingAttributes
         let inNote = noteAnchor != nil
         var location = range.location
-        writeStore(actionName: "Scrittura", breakingUndo: false) { store in
+        writeStore(actionName: "Typing", breakingUndo: false) { store in
             location = TableEditing.replace(range, in: store, with: NSAttributedString(string: string, attributes: attributes))
         }
         let length = (string as NSString).length
@@ -111,7 +111,7 @@ extension EditorWindowController: PagesViewEditing {
                 guard let self, let layout = self.currentLayout() else { return }
                 let range = layout.deletionRange(for: self.selection, toward: movement)
                 self.endUndoStep(next: .none)
-                self.writeStore(actionName: "Togli la sezione") { store in
+                self.writeStore(actionName: "Remove Section") { store in
                     SectionEditing.removeSection(title, in: store)
                     if range.length > 0 { store.deleteCharacters(in: range) }
                 }
@@ -120,10 +120,10 @@ extension EditorWindowController: PagesViewEditing {
             }
         } else if command == #selector(NSResponder.deleteBackward(_:)), caretInListItem(atStart: true) {
             // Cancellare all'indietro dall'inizio di una voce toglie il segno: il paragrafo torna normale.
-            changeList(actionName: "Togli elenco") { _ in nil }
+            changeList(actionName: "Remove List") { _ in nil }
         } else if [#selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertParagraphSeparator(_:))].contains(command), caretInListItem(atStart: false) {
             // A capo in una voce vuota: esce di un livello, e dal primo livello chiude l'elenco.
-            changeList(actionName: "Fine elenco") { $0.flatMap { $0.level > 1 ? ListItem(marker: $0.marker, level: $0.level - 1) : nil } }
+            changeList(actionName: "End List") { $0.flatMap { $0.level > 1 ? ListItem(marker: $0.marker, level: $0.level - 1) : nil } }
         } else if [#selector(NSResponder.insertTab(_:)), #selector(NSResponder.insertBacktab(_:))].contains(command), noteAnchor == nil,
                   TableEditing.cell(at: selection.range.location, in: store) != nil {
             // In una tabella Tab e Maiusc-Tab passano alla cella dopo e prima (Opzione-Tab scrive un Tab).
@@ -139,7 +139,7 @@ extension EditorWindowController: PagesViewEditing {
             if range.length > 0, !TableEditing.deletablePieces(of: range, in: store).isEmpty {
                 endUndoStep(next: .deletion)
                 let inNote = noteAnchor != nil
-                writeStore(actionName: "Cancellazione", breakingUndo: false) { TableEditing.delete(range, in: $0) }
+                writeStore(actionName: "Delete", breakingUndo: false) { TableEditing.delete(range, in: $0) }
                 setSelection(caretAfterEdit(at: range.location, inNote: inNote))
             }
         } else if let text = Self.insertions[command] {
@@ -151,7 +151,7 @@ extension EditorWindowController: PagesViewEditing {
                 pagesInsert(text, replacementRange: selection.range)
                 applyNamedStyle(.paragraph, name: next)
                 document?.undoManager?.endUndoGrouping()
-                document?.undoManager?.setActionName("Nuovo paragrafo")
+                document?.undoManager?.setActionName("New Paragraph")
             } else { pagesInsert(text, replacementRange: selection.range) }
         } else if [#selector(NSResponder.pageDown(_:)), #selector(NSResponder.scrollPageDown(_:))].contains(command) {
             pagesView.enclosingScrollView?.pageDown(nil)
@@ -237,7 +237,7 @@ extension EditorWindowController: PagesViewEditing {
             guard copySelection() else { return false }
             endUndoStep(next: .none)
             let range = selection.range
-            writeStore(actionName: "Taglia") { TableEditing.delete(range, in: $0) }
+            writeStore(actionName: "Cut") { TableEditing.delete(range, in: $0) }
             setSelection(TextSelection(caret: range.location))
             return true
         case #selector(NSText.paste(_:)):
@@ -246,7 +246,7 @@ extension EditorWindowController: PagesViewEditing {
             let range = selection.range
             guard range.length > 0 else { return false }
             endUndoStep(next: .none)
-            writeStore(actionName: "Elimina") { TableEditing.delete(range, in: $0) }
+            writeStore(actionName: "Delete") { TableEditing.delete(range, in: $0) }
             setSelection(TextSelection(caret: range.location))
             return true
         case #selector(NSResponder.selectAll(_:)):
@@ -309,7 +309,7 @@ extension EditorWindowController: PagesViewEditing {
             let swapped = NSMutableAttributedString(attributedString: store.attributedSubstring(from: NSRange(location: location, length: 1)))
             swapped.append(store.attributedSubstring(from: NSRange(location: location - 1, length: 1)))
             endUndoStep(next: .none)
-            writeStore(actionName: "Scambia") { $0.replaceCharacters(in: pair, with: swapped) }
+            writeStore(actionName: "Transpose") { $0.replaceCharacters(in: pair, with: swapped) }
             setSelection(TextSelection(caret: NSMaxRange(pair)))
             return true
         case #selector(NSResponder.uppercaseWord(_:)), #selector(NSResponder.lowercaseWord(_:)), #selector(NSResponder.capitalizeWord(_:)):
@@ -320,7 +320,7 @@ extension EditorWindowController: PagesViewEditing {
                 : command == #selector(NSResponder.lowercaseWord(_:)) ? original.lowercased() : original.capitalized
             guard (changed as NSString).length == range.length, changed != original else { return changed == original }
             endUndoStep(next: .none)
-            writeStore(actionName: "Maiuscole e minuscole") { store in
+            writeStore(actionName: "Change Case") { store in
                 // Carattere per carattere, così ciascuno conserva i suoi attributi.
                 for offset in 0..<range.length {
                     let character = (changed as NSString).substring(with: NSRange(location: offset, length: 1))
@@ -372,19 +372,19 @@ extension EditorWindowController: PagesViewEditing {
         endUndoStep(next: .none)
         document?.undoManager?.beginUndoGrouping()
         if merged.styles != settings.styles || merged.lists != settings.lists || merged.floatStyles != settings.floatStyles {
-            changeListSettings(lists: merged.lists, noteList: nil, styles: merged.styles, floatStyles: merged.floatStyles, actionName: "Incolla")
+            changeListSettings(lists: merged.lists, noteList: nil, styles: merged.styles, floatStyles: merged.floatStyles, actionName: "Paste")
         }
         // La sezione a cui appartiene il testo che seguirà il pezzo, prima di incollare (dopo, il pezzo potrebbe averlo preso).
         let after = min(NSMaxRange(range), store.length)
         let owner = joinsParagraph || store.length == 0 ? nil : SectionEditing.enclosing(in: store, at: after).last?.mark.id ?? ""
-        insertFormatted(text, replacing: range, actionName: "Incolla")
+        insertFormatted(text, replacing: range, actionName: "Paste")
         // Il testo che seguiva resta alla sua sezione: una sezione incollata porta solo il suo contenuto.
         if let owner, text.string.last.map({ $0.isNewline }) == true {
             let end = range.location + text.length
             writeStore(actionName: nil, breakingUndo: false) { SectionEditing.keepParagraph(at: end, in: owner, text: $0) }
         }
         document?.undoManager?.endUndoGrouping()
-        document?.undoManager?.setActionName("Incolla")
+        document?.undoManager?.setActionName("Paste")
         apply(TextSelection(caret: range.location + text.length))
     }
 
@@ -401,21 +401,21 @@ extension EditorWindowController: PagesViewEditing {
         guard let window else { return finish(.keepDestination) }
         func describe(_ conflict: DefinitionImport.Conflict) -> String {
             switch conflict.kind {
-            case .style: "lo stile «\(conflict.name)»"
-            case .list: "la Lista «\(conflict.name)»"
-            case .floatStyle: "la serie «\(conflict.name)»"
+            case .style: "the style “\(conflict.name)”"
+            case .list: "the list “\(conflict.name)”"
+            case .floatStyle: "the series “\(conflict.name)”"
             }
         }
         var names = conflicts.prefix(6).map(describe)
-        if conflicts.count > 6 { names.append("altre \(conflicts.count - 6)") }
+        if conflicts.count > 6 { names.append("\(conflicts.count - 6) more") }
         let alert = NSAlert()
-        alert.messageText = "Il testo incollato usa definizioni che qui sono diverse"
-        alert.informativeText = "Questo documento ha già " + names.joined(separator: ", ")
-            + ", ma con un'altra definizione. Il testo può prendere quella di questo documento (ciò che aveva dato a mano resta),"
-            + " oppure portare la sua come copia con un altro nome, per esempio «\(conflicts[0].name) (2)»."
-        alert.addButton(withTitle: "Usa quelle di questo documento")
-        alert.addButton(withTitle: "Aggiungi copie rinominate")
-        alert.addButton(withTitle: "Annulla")
+        alert.messageText = "The pasted text uses definitions that differ here"
+        alert.informativeText = "This document already has " + names.joined(separator: ", ")
+            + ", but with another definition. The text can take this document's (what was set by hand stays),"
+            + " or bring its own as a copy with another name, for example “\(conflicts[0].name) (2)”."
+        alert.addButton(withTitle: "Use This Document's")
+        alert.addButton(withTitle: "Add Renamed Copies")
+        alert.addButton(withTitle: "Cancel")
         alert.beginSheetModal(for: window) { response in
             switch response {
             case .alertFirstButtonReturn: finish(.keepDestination)
@@ -484,11 +484,11 @@ extension EditorWindowController: PagesViewEditing {
             if text == nil, let data = pasteboard.data(forType: .rtf) { text = NSAttributedString(rtf: data, documentAttributes: nil) }
             if text == nil, let string = pasteboard.string(forType: .string) { text = NSAttributedString(string: string, attributes: typingAttributes) }
             guard let text else { return false }
-            insertFormatted(text, replacing: range, actionName: "Incolla")
+            insertFormatted(text, replacing: range, actionName: "Paste")
             apply(TextSelection(caret: range.location + text.length))
             return true
         }
-        document?.undoManager?.setActionName("Incolla")
+        document?.undoManager?.setActionName("Paste")
         endUndoStep(next: .none)
         return true
     }

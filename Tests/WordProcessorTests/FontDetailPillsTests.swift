@@ -34,9 +34,9 @@ struct FontDetailPillsTests {
         let h = sample()
         defer { h.close() }
         #expect(smallCaps(h, at: 1))
-        #expect(h.editor.styleMonitor.additions == ["car. corsivo", "car. maiuscoletto"])
+        #expect(h.editor.styleMonitor.additions == ["char. italic", "char. small caps"])
         let menu = h.editor.additionMonitorMenu(at: 1)
-        #expect(menu.items.map(\.title) == ["Togli", "Metti nello stile", "Nuovo stile…"])
+        #expect(menu.items.map(\.title) == ["Remove", "Put into the Style", "New Style…"])
         #expect(menu.items.map(\.isEnabled) == [true, true, true], "come per il corsivo, anche «Nuovo stile…»")
     }
 
@@ -49,7 +49,7 @@ struct FontDetailPillsTests {
         h.step()
         #expect(!smallCaps(h, at: 0) && !smallCaps(h, at: 2), "tutta la parola")
         #expect(italic(h, at: 1), "il corsivo resta")
-        #expect(h.editor.styleMonitor.additions == ["car. corsivo"])
+        #expect(h.editor.styleMonitor.additions == ["char. italic"])
         h.undo()
         #expect(smallCaps(h, at: 1))
     }
@@ -65,11 +65,11 @@ struct FontDetailPillsTests {
         #expect(h.editor.currentDocument().styles.inspect(style: "Testo", base: TextStyling.styleBase).first { $0.property == .smallCaps }?.value.smallCaps == .lowercase, "nello stile va la scelta, non le forme tecniche")
         #expect(testo?.features == nil)
         #expect(testo?.italic == nil, "il corsivo non va nello stile")
-        #expect(h.editor.styleMonitor.additions == ["car. corsivo"])
+        #expect(h.editor.styleMonitor.additions == ["char. italic"])
         #expect(smallCaps(h, at: 12) && !italic(h, at: 12), "l'altro paragrafo prende il maiuscoletto, non il corsivo")
         h.undo()
         #expect(!smallCaps(h, at: 12))
-        #expect(h.editor.styleMonitor.additions == ["car. corsivo", "car. maiuscoletto"])
+        #expect(h.editor.styleMonitor.additions == ["char. italic", "char. small caps"])
     }
 
     @Test("«Porta le aggiunte nello stile» porta anche le funzioni")
@@ -78,7 +78,7 @@ struct FontDetailPillsTests {
         defer { h.close() }
         h.select(0, length: 3)
         let menu = h.editor.styleMonitorMenu()
-        #expect(menu.items[1].title == "Porta le aggiunte nello stile «Testo»")
+        #expect(menu.items[1].title == "Move the Additions into the Style “Testo”")
         menu.performActionForItem(at: 1)
         h.step()
         #expect(h.editor.styleMonitor.additions.isEmpty)

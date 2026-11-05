@@ -9,15 +9,15 @@ struct FormulaControlTests {
     func brokenReferenceIsWarned() throws {
         let h = EditorHarness(paragraphs: ["Prova"])
         defer { h.close() }
-        #expect(!h.editor.warningTitles.contains { $0.hasPrefix("Formule degli stili") })
+        #expect(!h.editor.warningTitles.contains { $0.hasPrefix("Style formulas") })
         var sheet = h.editor.settings.styles
         let index = try #require(sheet.styles.firstIndex { $0.name == "Testo" })
         sheet.styles[index].formulas.append(StyleFormula(operation: StylePropertyOperation(.set, .nextStyle, .styleName("Inesistente"))))
         h.editor.changeStyles(to: sheet, restyle: true, actionName: "Prova")
         h.step()
-        #expect(h.editor.warningTitles.contains { $0.hasPrefix("Formule degli stili") && $0.contains("Inesistente") }, "\(h.editor.warningTitles)")
+        #expect(h.editor.warningTitles.contains { $0.hasPrefix("Style formulas") && $0.contains("Inesistente") }, "\(h.editor.warningTitles)")
         h.undo()
-        #expect(!h.editor.warningTitles.contains { $0.hasPrefix("Formule degli stili") })
+        #expect(!h.editor.warningTitles.contains { $0.hasPrefix("Style formulas") })
     }
 
     @Test("Un corpo modificato dal controllo e dalla pill resta sincronizzato con Annulla e il file")
@@ -106,7 +106,7 @@ struct FormulaControlTests {
         let changed = try #require(h.editor.settings.styles.style(named: "Testo")?.formulas.first { $0.id == formula.id })
         #expect(changed.operation == StylePropertyOperation(.set, .size, .length(20, .points)))
         h.editor.duplicateStyle("Testo")
-        #expect(h.editor.settings.styles.style(named: "Testo copia")?.formulas == h.editor.settings.styles.style(named: "Testo")?.formulas)
+        #expect(h.editor.settings.styles.style(named: "Testo copy")?.formulas == h.editor.settings.styles.style(named: "Testo")?.formulas)
     }
 
     @Test("Bacheca, controlli e testo usano la base salvata del documento per il corpo relativo")

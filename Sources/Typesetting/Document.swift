@@ -852,20 +852,20 @@ public enum FieldFormula: Hashable, Sendable {
     /// Il nome nei menu.
     public var title: String {
         switch self {
-        case .pageContainingNumber: "Numero di pagina"
-        case .documentPageCount: "Numero delle pagine"
-        case .sectionContainingTitle(let role): "Titolo della sezione in corso: \(role)"
-        case .sectionContainingNumber(let role): "Numero della sezione in corso: \(role)"
+        case .pageContainingNumber: "Page number"
+        case .documentPageCount: "Number of pages"
+        case .sectionContainingTitle(let role): "Title of the current section: \(role)"
+        case .sectionContainingNumber(let role): "Number of the current section: \(role)"
         }
     }
 
     /// La catena dell'espressione, da leggere: «Posizione → Pagina contenente → Numero».
     public var chain: String {
         switch self {
-        case .pageContainingNumber: "Posizione → Pagina contenente → Numero"
-        case .documentPageCount: "Documento → Numero delle pagine"
-        case .sectionContainingTitle(let role): "Posizione → Sezione contenente (\(role)) → Titolo"
-        case .sectionContainingNumber(let role): "Posizione → Sezione contenente (\(role)) → Numero"
+        case .pageContainingNumber: "Position → Containing page → Number"
+        case .documentPageCount: "Document → Number of pages"
+        case .sectionContainingTitle(let role): "Position → Containing section (\(role)) → Title"
+        case .sectionContainingNumber(let role): "Position → Containing section (\(role)) → Number"
         }
     }
 }

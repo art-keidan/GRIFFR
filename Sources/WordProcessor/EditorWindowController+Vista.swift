@@ -148,18 +148,18 @@ extension EditorWindowController {
             return noteAnchor == nil && enclosingSections().count >= 2
         case #selector(returnToOuterSection(_:)):
             let title = returnMenuTitle()
-            menuItem.title = title ?? "Torna alla sezione esterna"
+            menuItem.title = title ?? "Back to the Outer Section"
             return title != nil
         case #selector(joinPreviousSection(_:)):
             let title = joinMenuTitle()
-            menuItem.title = title ?? "Entra nella sezione precedente"
+            menuItem.title = title ?? "Into the Previous Section"
             return title != nil
         case #selector(removeEnclosingSection(_:)):
             if noteAnchor == nil, let title = enclosingSections().last {
-                menuItem.title = "Togli la sezione \(displayTitle(of: title))"
+                menuItem.title = "Remove the Section \(displayTitle(of: title))"
                 return true
             }
-            menuItem.title = "Togli la sezione"
+            menuItem.title = "Remove Section"
             return false
         case #selector(editImageSize(_:)):
             return selectedImage != nil
@@ -171,12 +171,12 @@ extension EditorWindowController {
             return (textStorage?.length ?? 0) > 0
         case #selector(updateStyleFromSelection(_:)):
             let target = (menuItem.representedObject as? String).flatMap(StyleTarget.init(rawValue:)) ?? .paragraph
-            let kind = switch target { case .paragraph: "di paragrafo"; case .word: "di parola"; case .character: "di carattere" }
+            let kind = switch target { case .paragraph: "paragraph"; case .word: "word"; case .character: "character" }
             if let name = selectionStyleName(target) {
-                menuItem.title = "Aggiorna lo stile «\(name)» dalla selezione"
+                menuItem.title = "Update Style “\(name)” from Selection"
                 return true
             }
-            menuItem.title = "Aggiorna lo stile \(kind) dalla selezione"
+            menuItem.title = "Update \(kind) Style from Selection"
             return false
         case #selector(setListMarker(_:)):
             menuItem.state = (menuItem.representedObject as? String) == selectionListItem()?.marker ? .on : .off

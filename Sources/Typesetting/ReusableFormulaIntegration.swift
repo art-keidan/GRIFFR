@@ -59,7 +59,7 @@ extension FormulaExpression {
 }
 
 extension FormulaValueType {
-    public var title: String { switch self { case .number: "Numero"; case .length: "Lunghezza (pt)"; case .boolean: "Sì / No" } }
+    public var title: String { switch self { case .number: "Number"; case .length: "Length (pt)"; case .boolean: "Yes / No" } }
     public var zero: FormulaValue { switch self { case .number: .number(0); case .length: .length(0); case .boolean: .boolean(false) } }
 }
 
@@ -126,17 +126,17 @@ extension StyleSheet {
         return result
     }
     public func reusableProblem(_ error: Error) -> String {
-        func name(_ id: UUID) -> String { reusableFormulas.first { $0.id == id }?.name ?? "definizione assente" }
+        func name(_ id: UUID) -> String { reusableFormulas.first { $0.id == id }?.name ?? "missing definition" }
         switch error {
-        case ReusableFormulaError.cycle(let path): return "Collegamento circolare: " + path.map(name).joined(separator: " → ")
-        case ReusableFormulaError.missingDefinition(let id): return "Formula non trovata: " + name(id)
-        case ReusableFormulaError.missingParameter: return "Un parametro richiamato è stato rimosso."
-        case ReusableFormulaError.missingVariable: return "Una variabile richiamata non esiste più nello stile."
-        case ReusableFormulaError.invalidArguments(let id): return "Completa gli argomenti di «" + name(id) + "»."
-        case ReusableFormulaError.invalidName: return "Assegna nomi non vuoti e distinti alle definizioni e ai loro parametri."
-        case ReusableFormulaError.expansionLimit: return "La formula supera il limite di valutazione: riduci i passaggi o le chiamate."
-        case ReusableFormulaError.invalidNumber: return "Il risultato numerico non è valido."
-        default: return "Tipi incompatibili o valore non ammesso: controlla i collegamenti delle formule."
+        case ReusableFormulaError.cycle(let path): return "Circular link: " + path.map(name).joined(separator: " → ")
+        case ReusableFormulaError.missingDefinition(let id): return "Formula not found: " + name(id)
+        case ReusableFormulaError.missingParameter: return "A referenced parameter was removed."
+        case ReusableFormulaError.missingVariable: return "A referenced variable no longer exists in the style."
+        case ReusableFormulaError.invalidArguments(let id): return "Complete the arguments of “" + name(id) + "”."
+        case ReusableFormulaError.invalidName: return "Give the definitions and their parameters names that are not empty and all different."
+        case ReusableFormulaError.expansionLimit: return "The formula exceeds the evaluation limit: reduce the steps or the calls."
+        case ReusableFormulaError.invalidNumber: return "The numeric result is not valid."
+        default: return "Incompatible types or a value that is not allowed: check the formula links."
         }
     }
 }
@@ -156,17 +156,17 @@ extension FormulaExpression {
     public func summary(in definitions: [ReusableFormula], variables: [StyleVariable] = []) -> String {
         switch self {
         case .constant(let value): return value.description
-        case .parameter: return "Parametro"
-        case .variable(let id): return variables.first { $0.id == id }?.name ?? "Variabile assente"
+        case .parameter: return "Parameter"
+        case .variable(let id): return variables.first { $0.id == id }?.name ?? "Missing variable"
         case .add(let a, let b): return "(" + a.summary(in: definitions, variables: variables) + " + " + b.summary(in: definitions, variables: variables) + ")"
         case .call(let id, let args):
             let definition = definitions.first { $0.id == id }
-            return (definition?.name ?? "Formula assente") + "(" + (definition?.parameters ?? []).map { $0.name + ": " + (args[$0.id]?.summary(in: definitions, variables: variables) ?? "mancante") }.joined(separator: ", ") + ")"
+            return (definition?.name ?? "Missing formula") + "(" + (definition?.parameters ?? []).map { $0.name + ": " + (args[$0.id]?.summary(in: definitions, variables: variables) ?? "mancante") }.joined(separator: ", ") + ")"
         }
     }
 }
 extension FormulaValue {
     public var description: String {
-        switch self { case .number(let n): n.formatted(); case .length(let n): n.formatted() + " pt"; case .boolean(let flag): flag ? "Sì" : "No" }
+        switch self { case .number(let n): n.formatted(); case .length(let n): n.formatted() + " pt"; case .boolean(let flag): flag ? "Yes" : "No" }
     }
 }

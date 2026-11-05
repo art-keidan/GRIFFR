@@ -24,7 +24,7 @@ struct ActionComposer: View {
                     ComposerFlow(model: model, style: style, expanded: $expanded, selectedAction: $selectedAction)
                         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Text("Nessuno stile").foregroundStyle(.secondary).padding(24)
+                    Text("No style").foregroundStyle(.secondary).padding(24)
                 }
             }
             .frame(minWidth: 300, maxWidth: .infinity)
@@ -67,18 +67,18 @@ private struct ComposerLibrary: View {
                 ForEach(model.sheet.styles, id: \.name) { style in
                     Button(style.name) { model.selectStyle(style.name) }
                 }
-            } label: { ComposerPill(title: model.selectedStyle ?? "Scegli uno stile") }
-                .menuStyle(.borderlessButton).accessibilityLabel("Stile")
-            TextField("Cerca un'azione", text: $search).textFieldStyle(.roundedBorder)
+            } label: { ComposerPill(title: model.selectedStyle ?? "Choose a style") }
+                .menuStyle(.borderlessButton).accessibilityLabel("Style")
+            TextField("Search actions", text: $search).textFieldStyle(.roundedBorder)
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
                     // Con la ricerca, un gruppo senza voci non compare.
                     let formatting = properties(directive: false), behaviours = properties(directive: true)
-                    if !formatting.isEmpty { group("Formattazione") }
+                    if !formatting.isEmpty { group("Formatting") }
                     ForEach(formatting, id: \.self) { property in
                         item(property.title, symbol: property.symbol) { if let id = model.addAction(property) { added(id) } }
                     }
-                    if !behaviours.isEmpty { group("Comportamenti") }
+                    if !behaviours.isEmpty { group("Behaviors") }
                     ForEach(behaviours, id: \.self) { property in
                         item(property.title, symbol: property.symbol) { if let id = model.addAction(property) { added(id) } }
                     }
@@ -93,55 +93,55 @@ private struct ComposerLibrary: View {
     }
 
     @ViewBuilder private var conditions: some View {
-        let titles = ["Primo della pagina", "Inizio sequenza", "Sempre"]
-        if titles.contains(where: matches) || matches("Dopo lo stile") {
-            group("Condizioni dell'azione scelta")
-            if matches("Primo della pagina") { conditionItem("Primo della pagina", .firstOnPage) }
-            if matches("Inizio sequenza") { conditionItem("Inizio sequenza", .sequenceStart) }
-            if matches("Dopo lo stile") {
+        let titles = ["First on page", "Sequence start", "Always"]
+        if titles.contains(where: matches) || matches("After style") {
+            group("Conditions of the chosen action")
+            if matches("First on page") { conditionItem("First on page", .firstOnPage) }
+            if matches("Sequence start") { conditionItem("Sequence start", .sequenceStart) }
+            if matches("After style") {
                 Menu {
                     ForEach(paragraphStyles, id: \.self) { name in
                         Button(name) { if let id = selectedAction { model.applyCondition(.firstAfter(name), to: id) } }
                     }
-                } label: { Label("Dopo lo stile…", systemImage: "arrow.turn.down.right") }
+                } label: { Label("After Style…", systemImage: "arrow.turn.down.right") }
                     .menuStyle(.borderlessButton).disabled(selectedAction == nil).padding(.vertical, 3)
             }
-            if matches("Sempre") { conditionItem("Sempre", .any) }
+            if matches("Always") { conditionItem("Always", .any) }
         }
     }
 
     @ViewBuilder private var headingItems: some View {
         let mm = 72 / 25.4
-        if model.currentStyle?.target == .paragraph, matches("Testata") || matches("Filetto") || matches("Etichetta") || matches("Numero") || matches("Spazio") {
-            group("Testata")
-            if matches("Testata") { item("Testata pronta", symbol: "rectangle.split.1x2") { model.useStandardHeading() } }
-            if matches("Etichetta") { item("Etichetta", symbol: "textformat") { model.addHeadingPart(.label(text: "Capitolo", style: nil, alignment: .left, minHeight: nil)) } }
-            if matches("Numero") { item("Numero della sezione", symbol: "number") { model.addHeadingPart(.number(prefix: "", style: nil, alignment: .left, minHeight: nil)) } }
-            if matches("Filetto") { item("Filetto", symbol: "minus") { model.addHeadingPart(.rule(thickness: 0.5 * mm, length: nil, alignment: .left)) } }
-            if matches("Spazio") { item("Spazio", symbol: "arrow.up.and.down") { model.addHeadingPart(.space(3 * mm)) } }
+        if model.currentStyle?.target == .paragraph, matches("Heading") || matches("Rule") || matches("Label") || matches("Number") || matches("Space") {
+            group("Heading")
+            if matches("Heading") { item("Ready-made heading", symbol: "rectangle.split.1x2") { model.useStandardHeading() } }
+            if matches("Label") { item("Label", symbol: "textformat") { model.addHeadingPart(.label(text: "Chapter", style: nil, alignment: .left, minHeight: nil)) } }
+            if matches("Number") { item("Section number", symbol: "number") { model.addHeadingPart(.number(prefix: "", style: nil, alignment: .left, minHeight: nil)) } }
+            if matches("Rule") { item("Rule", symbol: "minus") { model.addHeadingPart(.rule(thickness: 0.5 * mm, length: nil, alignment: .left)) } }
+            if matches("Space") { item("Space", symbol: "arrow.up.and.down") { model.addHeadingPart(.space(3 * mm)) } }
         }
     }
 
     @ViewBuilder private var calculations: some View {
-        if matches("Valore con nome") || matches("Somma") {
-            group("Calcoli")
-            if matches("Valore con nome") {
-                item("Valore con nome", symbol: "number") {
-                    _ = model.addVariable(named: "Valore", expression: .constant(.length(12)))
+        if matches("Named value") || matches("Sum") {
+            group("Calculations")
+            if matches("Named value") {
+                item("Named value", symbol: "number") {
+                    _ = model.addVariable(named: "Value", expression: .constant(.length(12)))
                 }
             }
-            if matches("Somma") {
-                item("Somma di due valori", symbol: "plus.forwardslash.minus") {
-                    _ = model.addVariable(named: "Somma", expression: .add(.constant(.length(12)), .constant(.length(6))))
+            if matches("Sum") {
+                item("Sum of two values", symbol: "plus.forwardslash.minus") {
+                    _ = model.addVariable(named: "Sum", expression: .add(.constant(.length(12)), .constant(.length(6))))
                 }
             }
         }
         let formulas = model.sheet.reusableFormulas.filter { matches($0.name) }
-        if !formulas.isEmpty || search.trimmingCharacters(in: .whitespaces).isEmpty { group("Formule del documento") }
+        if !formulas.isEmpty || search.trimmingCharacters(in: .whitespaces).isEmpty { group("Document formulas") }
         ForEach(formulas) { definition in
             item(definition.name, symbol: "function") { _ = model.addVariable(calling: definition) }
         }
-        Button { model.section = .reusable } label: { Label("Gestisci le formule…", systemImage: "slider.horizontal.3") }
+        Button { model.section = .reusable } label: { Label("Manage Formulas…", systemImage: "slider.horizontal.3") }
             .buttonStyle(.borderless).padding(.vertical, 4)
     }
 
@@ -161,7 +161,7 @@ private struct ComposerLibrary: View {
             }.contentShape(Rectangle()).padding(.vertical, 3)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Aggiungi " + title)
+        .accessibilityLabel("Add " + title)
     }
 
     private func conditionItem(_ title: String, _ position: TextRule.Position) -> some View {
@@ -173,7 +173,7 @@ private struct ComposerLibrary: View {
             }.contentShape(Rectangle()).padding(.vertical, 3)
         }
         .buttonStyle(.plain).disabled(selectedAction == nil)
-        .accessibilityLabel("Condizione " + title + " per l'azione scelta")
+        .accessibilityLabel("Condition " + title + " for the chosen action")
     }
 }
 
@@ -189,9 +189,9 @@ private struct ComposerFlow: View {
 
     private var objectTitle: String {
         switch style.target {
-        case .paragraph: "Questo paragrafo"
-        case .word: "Questa parola"
-        case .character: "Questi caratteri"
+        case .paragraph: "This paragraph"
+        case .word: "This word"
+        case .character: "These characters"
         }
     }
 
@@ -202,25 +202,25 @@ private struct ComposerFlow: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(style.name).font(.title3.weight(.semibold))
                 Spacer()
-                Text("Eredita da").foregroundStyle(.secondary)
+                Text("Based on").foregroundStyle(.secondary)
                 Menu {
-                    Button("Nessuno") { setParent(nil) }
+                    Button("None") { setParent(nil) }
                     ForEach(model.sheet.possibleParents(of: style.name), id: \.self) { name in Button(name) { setParent(name) } }
-                } label: { ComposerPill(title: style.basedOn ?? "Documento") }
+                } label: { ComposerPill(title: style.basedOn ?? "Document") }
                     .menuStyle(.borderlessButton).fixedSize()
             }
             HStack {
                 Image(systemName: style.target == .paragraph ? "paragraphsign" : "textformat")
                 Text(objectTitle)
                 Spacer()
-                Text("Oggetto iniziale").font(.caption).foregroundStyle(.secondary)
+                Text("Starting object").font(.caption).foregroundStyle(.secondary)
             }.padding(.horizontal, 4)
             if let heading = style.heading {
-                caption("Testata")
+                caption("Heading")
                 HeadingBlock(model: model, heading: heading, expanded: binding(for: headingID))
             }
             if !style.variables.isEmpty {
-                caption("Variabili")
+                caption("Variables")
                 ForEach(style.variables) { variable in
                     VariableBlock(model: model, variable: variable, expanded: binding(for: variable.id))
                 }
@@ -242,7 +242,7 @@ private struct ComposerFlow: View {
                 }
             }
             if ordered.isEmpty && style.variables.isEmpty {
-                Text("Aggiungi un'azione dalla libreria.").foregroundStyle(.secondary).padding(.vertical, 12)
+                Text("Add an action from the library.").foregroundStyle(.secondary).padding(.vertical, 12)
             }
             ComposerBoard(model: model).compatibleProperties(style)
         }
@@ -352,9 +352,9 @@ private struct ActionBlock: View {
     }
 
     private var summary: String {
-        var parts = ["a " + valueTitle]
-        if !formula.when.isAlways { parts.append("se " + formula.when.summary.lowercased()) }
-        if formula.target != .paragraph { parts.append("su " + FormulaQualifiers.title(of: formula.target, selections: model.sheet.selections).lowercased()) }
+        var parts = ["to " + valueTitle]
+        if !formula.when.isAlways { parts.append("if " + formula.when.summary.lowercased()) }
+        if formula.target != .paragraph { parts.append("on " + FormulaQualifiers.title(of: formula.target, selections: model.sheet.selections).lowercased()) }
         return parts.joined(separator: " · ")
     }
 
@@ -363,7 +363,7 @@ private struct ActionBlock: View {
             HStack(spacing: 8) {
                 Text("\(number)").font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(minWidth: 14)
                 Button { expanded.toggle() } label: { Image(systemName: expanded ? "chevron.down" : "chevron.right") }
-                    .buttonStyle(.borderless).accessibilityLabel(expanded ? "Richiudi l'azione" : "Apri l'azione")
+                    .buttonStyle(.borderless).accessibilityLabel(expanded ? "Collapse action" : "Expand action")
                 Image(systemName: operation.property.symbol).foregroundStyle(Color(nsColor: Theme.glyph))
                 Text(operation.predicate.title + " " + operation.property.title.lowercased()).fontWeight(.medium).lineLimit(1)
                     .layoutPriority(1)
@@ -419,7 +419,7 @@ private struct ActionBlock: View {
                 }
                 HStack {
                     if !formula.when.isAlways {
-                        Text(formula.when.holds(in: model.previewContext, facts: model.previewFacts) ? "Condizione soddisfatta nel campione" : "Condizione non soddisfatta nel campione")
+                        Text(formula.when.holds(in: model.previewContext, facts: model.previewFacts) ? "Condition met on the sample" : "Condition not met on the sample")
                     }
                     Spacer()
                     if let state {
@@ -440,12 +440,12 @@ private struct ActionBlock: View {
         let compatible = model.compatibleVariables(for: formula)
         if let binding = formula.binding {
             Menu {
-                Button("Valore fisso") { model.bind(formula.id, to: nil) }
+                Button("Fixed Value") { model.bind(formula.id, to: nil) }
                 if !compatible.isEmpty { Divider() }
                 ForEach(compatible) { variable in Button(variable.name) { model.bind(formula.id, to: variable.id) } }
                 if case .variable = binding {} else {
                     Divider()
-                    Button("Dai un nome a questo calcolo") { model.extractVariable(from: formula.id) }
+                    Button("Name This Calculation") { model.extractVariable(from: formula.id) }
                 }
             } label: { VariablePill(title: valueTitle) }
         } else {
@@ -458,9 +458,9 @@ private struct ActionBlock: View {
                 Menu {
                     ForEach(compatible) { variable in Button(variable.name) { model.bind(formula.id, to: variable.id) } }
                     if !compatible.isEmpty { Divider() }
-                    Button("Nuova variabile da questo valore") { model.makeVariable(fromValueOf: formula.id) }
+                    Button("New Variable from This Value") { model.makeVariable(fromValueOf: formula.id) }
                 } label: { Image(systemName: "function") }
-                    .menuStyle(.borderlessButton).fixedSize().help("Usa una variabile").accessibilityLabel("Usa una variabile")
+                    .menuStyle(.borderlessButton).fixedSize().help("Use a variable").accessibilityLabel("Use a variable")
             }
         }
     }
@@ -495,11 +495,11 @@ private struct VariableBlock: View {
         BlockSurface(selected: false, open: expanded) {
             HStack(spacing: 8) {
                 Button { expanded.toggle() } label: { Image(systemName: expanded ? "chevron.down" : "chevron.right") }
-                    .buttonStyle(.borderless).accessibilityLabel(expanded ? "Richiudi la variabile" : "Apri la variabile")
+                    .buttonStyle(.borderless).accessibilityLabel(expanded ? "Collapse variable" : "Expand variable")
                 Image(systemName: "function").foregroundStyle(Color(nsColor: Theme.glyph))
-                TextField("Nome", text: Binding(get: { variable.name }, set: { model.renameVariable(variable.id, to: $0) }))
+                TextField("Name", text: Binding(get: { variable.name }, set: { model.renameVariable(variable.id, to: $0) }))
                     .textFieldStyle(.plain).fontWeight(.medium).frame(minWidth: 70, maxWidth: 150)
-                    .accessibilityLabel("Nome della variabile")
+                    .accessibilityLabel("Variable name")
                 if !expanded {
                     Text("= " + variable.expression.summary(in: model.sheet.reusableFormulas, variables: variables))
                         .foregroundStyle(.secondary).lineLimit(1)
@@ -511,7 +511,7 @@ private struct VariableBlock: View {
                     Image(systemName: "exclamationmark.triangle").foregroundStyle(Color(nsColor: Theme.warn)).help(evaluated.problem ?? "")
                 }
                 Button { model.removeVariable(variable.id) } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless).accessibilityLabel("Togli la variabile")
+                    .buttonStyle(.borderless).accessibilityLabel("Remove variable")
             }
         } content: {
             VStack(alignment: .leading, spacing: 8) {
@@ -521,7 +521,7 @@ private struct VariableBlock: View {
                 if let problem = evaluated.problem {
                     Text(problem).font(.caption).foregroundStyle(Color(nsColor: Theme.warn))
                 }
-                Text("Usata da \(model.users(of: variable.id))").font(.caption).foregroundStyle(.secondary)
+                Text("Used by \(model.users(of: variable.id))").font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -551,12 +551,12 @@ private struct ExpressionLine: View {
                     OperandControl(model: model, expression: b, owner: owner, type: nil) { commit(.add(a, $0)) }
                 case .call(let id, _):
                     if model.sheet.reusableFormulas.contains(where: { $0.id == id }) {
-                        Button("Apri la definizione") { model.section = .reusable }.buttonStyle(.link).font(.caption)
+                        Button("Open Definition") { model.section = .reusable }.buttonStyle(.link).font(.caption)
                     } else {
-                        Text("Formula non trovata").foregroundStyle(Color(nsColor: Theme.warn))
+                        Text("Formula not found").foregroundStyle(Color(nsColor: Theme.warn))
                     }
                 case .parameter:
-                    Text("Parametro").foregroundStyle(.secondary)
+                    Text("Parameter").foregroundStyle(.secondary)
                 }
             }
             // Gli argomenti di una formula richiamata, uno per riga.
@@ -577,10 +577,10 @@ private struct ExpressionLine: View {
 
     private var kindMenu: some View {
         Menu {
-            Button("Valore") { commit(.constant(.length(12))) }
-            Button("Somma") { commit(.add(.constant(.length(12)), .constant(.length(6)))) }
+            Button("Value") { commit(.constant(.length(12))) }
+            Button("Sum") { commit(.add(.constant(.length(12)), .constant(.length(6)))) }
             ForEach(model.sheet.reusableFormulas) { definition in
-                Button("Richiama · " + definition.name) {
+                Button("Call · " + definition.name) {
                     commit(.call(definition.id, arguments: Dictionary(uniqueKeysWithValues: definition.parameters.map { ($0.id, FormulaExpression.constant($0.type.zero)) })))
                 }
             }
@@ -589,11 +589,11 @@ private struct ExpressionLine: View {
 
     private var kindTitle: String {
         switch expression {
-        case .constant: "Valore"
-        case .add: "Somma"
-        case .call(let id, _): "Richiama · " + (model.sheet.reusableFormulas.first { $0.id == id }?.name ?? "assente")
-        case .variable: "Variabile"
-        case .parameter: "Parametro"
+        case .constant: "Value"
+        case .add: "Sum"
+        case .call(let id, _): "Call · " + (model.sheet.reusableFormulas.first { $0.id == id }?.name ?? "assente")
+        case .variable: "Variable"
+        case .parameter: "Parameter"
         }
     }
 }
@@ -620,7 +620,7 @@ private struct OperandControl: View {
                 FormulaValueEditor(value: Binding(get: { value }, set: { commit(.constant($0)) }))
                 if value.type == .length { Text("pt").foregroundStyle(.secondary) }
             case .variable(let id):
-                VariablePill(title: variables.first { $0.id == id }?.name ?? "Variabile assente")
+                VariablePill(title: variables.first { $0.id == id }?.name ?? "Missing variable")
             default:
                 Button(expression.summary(in: model.sheet.reusableFormulas, variables: variables)) { editing = true }
                     .popover(isPresented: $editing) {
@@ -631,10 +631,10 @@ private struct OperandControl: View {
             }
             if !choices.isEmpty || expression.isVariable {
                 Menu {
-                    Button("Valore scritto") { commit(.constant((type ?? .length).zero)) }
+                    Button("Typed Value") { commit(.constant((type ?? .length).zero)) }
                     ForEach(choices) { variable in Button(variable.name) { commit(.variable(variable.id)) } }
                 } label: { Image(systemName: "function") }
-                    .menuStyle(.borderlessButton).fixedSize().help("Usa una variabile").accessibilityLabel("Usa una variabile")
+                    .menuStyle(.borderlessButton).fixedSize().help("Use a variable").accessibilityLabel("Use a variable")
             }
         }
     }
@@ -649,12 +649,12 @@ private struct ComposerPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Anteprima").font(.headline)
+                Text("Preview").font(.headline)
                 Spacer()
-                Button { trial += 1; model.objectWillChange.send() } label: { Label("Prova", systemImage: "play") }
-                    .help("Rivaluta lo stile sul campione")
+                Button { trial += 1; model.objectWillChange.send() } label: { Label("Try", systemImage: "play") }
+                    .help("Re-evaluate the style on the sample")
             }
-            TextField("Testo di prova", text: $model.sample, axis: .vertical).textFieldStyle(.roundedBorder).lineLimit(2...4)
+            TextField("Sample text", text: $model.sample, axis: .vertical).textFieldStyle(.roundedBorder).lineLimit(2...4)
             if let style = model.currentStyle {
                 context(style)
                 sample(style)
@@ -664,9 +664,9 @@ private struct ComposerPreview: View {
                 .foregroundStyle(Color(nsColor: model.problem == nil && model.validationIssue == nil ? Theme.secondary : Theme.warn))
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
-                Button("Ricarica") { model.discard() }.help("Sostituisce la bozza con le definizioni attuali del documento")
+                Button("Reload") { model.discard() }.help("Replaces the draft with the document's current definitions")
                 Spacer()
-                Button("Applica al documento") { model.apply() }.disabled(!model.dirty || !model.valid)
+                Button("Apply to Document") { model.apply() }.disabled(!model.dirty || !model.valid)
                     .keyboardShortcut(.return, modifiers: .command)
             }
         }
@@ -676,29 +676,29 @@ private struct ComposerPreview: View {
     }
 
     private var status: String {
-        model.problem ?? model.validationIssue ?? (model.dirty ? "Modifiche da applicare al documento" : "Pronto")
+        model.problem ?? model.validationIssue ?? (model.dirty ? "Changes to apply to the document" : "Ready")
     }
 
     @ViewBuilder private func context(_ style: NamedStyle) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Menu {
-                Button("Dal documento") { model.previewRole = nil }
+                Button("From the document") { model.previewRole = nil }
                 ForEach(FontRole.allCases, id: \.self) { role in Button(roleTitle(role)) { model.previewRole = role } }
-            } label: { ComposerPill(title: "Carattere · " + (model.previewRole.map(roleTitle) ?? "dal documento")) }.fixedSize()
+            } label: { ComposerPill(title: "Character · " + (model.previewRole.map(roleTitle) ?? "from the document")) }.fixedSize()
             if style.target == .paragraph {
-                Toggle("Primo della pagina", isOn: $model.previewFirstOnPage)
-                Toggle("Inizio sequenza", isOn: $model.previewSequenceStart)
+                Toggle("First on page", isOn: $model.previewFirstOnPage)
+                Toggle("Sequence start", isOn: $model.previewSequenceStart)
                 Menu {
-                    Button("Nessun precedente") { model.previewPreviousStyle = nil }
+                    Button("No previous") { model.previewPreviousStyle = nil }
                     ForEach(model.sheet.styles.filter { $0.target == .paragraph }, id: \.name) { previous in
                         Button(previous.name) { model.previewPreviousStyle = previous.name }
                     }
-                } label: { ComposerPill(title: model.previewPreviousStyle.map { "Dopo · " + $0 } ?? "Paragrafo precedente") }.fixedSize()
+                } label: { ComposerPill(title: model.previewPreviousStyle.map { "After · " + $0 } ?? "Previous paragraph") }.fixedSize()
                 if style.formulas.contains(where: { $0.when.measurement != nil }) {
                     HStack {
-                        Text("Righe")
+                        Text("Lines")
                         FormulaNumberPill(value: Double(model.previewLineCount)) { model.previewLineCount = max(1, Int($0)) }
-                        Text("Ultima %")
+                        Text("Last %")
                         FormulaNumberPill(value: model.previewLastLineFill) { model.previewLastLineFill = min(100, $0) }
                     }.font(.caption)
                 }
@@ -732,7 +732,7 @@ private struct ComposerPreview: View {
                 }
             }.font(.caption)
         } else {
-            Text("Lo stile non produce un risultato sul campione: controlla ruolo del font e misure.")
+            Text("The style produces no result on the sample: check the font role and measures.")
                 .font(.caption).foregroundStyle(Color(nsColor: Theme.warn))
         }
     }
@@ -792,15 +792,15 @@ struct HeadingBlock: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Button { expanded.toggle() } label: { Image(systemName: expanded ? "chevron.down" : "chevron.right") }
-                    .buttonStyle(.borderless).accessibilityLabel(expanded ? "Richiudi la testata" : "Apri la testata")
+                    .buttonStyle(.borderless).accessibilityLabel(expanded ? "Collapse heading" : "Expand heading")
                 Image(systemName: "rectangle.split.1x2").foregroundStyle(Color(nsColor: Theme.glyph))
-                Text("Testata").fontWeight(.medium)
+                Text("Heading").fontWeight(.medium)
                 if !expanded {
                     Text(heading.parts.map(\.title).joined(separator: " · ")).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 6)
                 Button { model.removeHeading() } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless).accessibilityLabel("Togli la testata")
+                    .buttonStyle(.borderless).accessibilityLabel("Remove heading")
             }
             .padding(.horizontal, 10).padding(.vertical, 7)
             if expanded {
@@ -834,13 +834,13 @@ struct HeadingBlock: View {
                 Text(part.title).frame(width: 56, alignment: .leading).foregroundStyle(.secondary)
                 switch part {
                 case .label(let text, let style, let alignment, let minHeight):
-                    TextField("Testo", text: Binding(get: { text }, set: { model.updateHeadingPart(at: index, to: .label(text: $0, style: style, alignment: alignment, minHeight: minHeight)) }))
+                    TextField("Text", text: Binding(get: { text }, set: { model.updateHeadingPart(at: index, to: .label(text: $0, style: style, alignment: alignment, minHeight: minHeight)) }))
                         .textFieldStyle(.roundedBorder).frame(maxWidth: 160)
                 case .number(let prefix, let style, let alignment, let minHeight):
-                    TextField("Prima del numero", text: Binding(get: { prefix }, set: { model.updateHeadingPart(at: index, to: .number(prefix: $0, style: style, alignment: alignment, minHeight: minHeight)) }))
+                    TextField("Before the number", text: Binding(get: { prefix }, set: { model.updateHeadingPart(at: index, to: .number(prefix: $0, style: style, alignment: alignment, minHeight: minHeight)) }))
                         .textFieldStyle(.roundedBorder).frame(maxWidth: 160)
                 case .title:
-                    Text("le righe del titolo").foregroundStyle(.secondary).lineLimit(1)
+                    Text("the title lines").foregroundStyle(.secondary).lineLimit(1)
                 case .rule(let thickness, let length, let alignment):
                     FormulaNumberPill(value: (thickness / mm * 100).rounded() / 100) { if $0 > 0 { model.updateHeadingPart(at: index, to: .rule(thickness: $0 * mm, length: length, alignment: alignment)) } }
                         .fixedSize()
@@ -867,11 +867,11 @@ struct HeadingBlock: View {
                     heightPill(minHeight) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: style, alignment: alignment, minHeight: $0)) }
                 case .rule(let thickness, let length, let alignment):
                     Menu {
-                        Button("Quanto lo specchio") { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: nil, alignment: alignment)) }
+                        Button("Full measure") { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: nil, alignment: alignment)) }
                         ForEach([20, 40, 60, 80], id: \.self) { n in
                             Button("\(n) mm") { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: Double(n) * mm, alignment: alignment)) }
                         }
-                    } label: { ComposerPill(title: length.map { "lungo \(Int(($0 / mm).rounded())) mm" } ?? "Quanto lo specchio") }.fixedSize()
+                    } label: { ComposerPill(title: length.map { "\(Int(($0 / mm).rounded())) mm long" } ?? "Full measure") }.fixedSize()
                     if length != nil {
                         alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: length, alignment: $0)) }
                     }
@@ -887,9 +887,9 @@ struct HeadingBlock: View {
 
     private func styleMenu(_ current: String?, _ commit: @escaping (String?) -> Void) -> some View {
         Menu {
-            Button("Stile del titolo") { commit(nil) }
+            Button("Title style") { commit(nil) }
             ForEach(paragraphStyles, id: \.self) { name in Button(name) { commit(name) } }
-        } label: { ComposerPill(title: current ?? "Stile del titolo") }.fixedSize()
+        } label: { ComposerPill(title: current ?? "Title style") }.fixedSize()
     }
 
     private func alignmentMenu(_ current: HeadingAlignment, _ commit: @escaping (HeadingAlignment) -> Void) -> some View {
@@ -900,10 +900,10 @@ struct HeadingBlock: View {
 
     private func heightPill(_ current: Double?, _ commit: @escaping (Double?) -> Void) -> some View {
         Menu {
-            Button("Naturale") { commit(nil) }
+            Button("Natural") { commit(nil) }
             ForEach([6, 8, 10, 12, 16, 20], id: \.self) { n in Button("\(n) mm") { commit(Double(n) * mm) } }
-        } label: { ComposerPill(title: current.map { "alta \(Int(($0 / mm).rounded())) mm" } ?? "Naturale") }.fixedSize()
-            .help("Altezza minima della fascia")
+        } label: { ComposerPill(title: current.map { "\(Int(($0 / mm).rounded())) mm tall" } ?? "Natural") }.fixedSize()
+            .help("Minimum band height")
     }
 }
 

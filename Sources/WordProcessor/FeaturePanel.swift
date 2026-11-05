@@ -141,7 +141,7 @@ struct FeaturePanelView: View {
         LazyVStack(alignment: .leading, spacing: 16) {
                 header
                 if model.types.isEmpty && model.forceableTags.isEmpty && !model.fontName.isEmpty {
-                    Text("Il font non dichiara funzioni selezionabili.").foregroundStyle(.secondary)
+                    Text("The font declares no selectable features.").foregroundStyle(.secondary)
                 }
                 if model.hasOtherInstall { installSection }
                 if !model.axes.isEmpty { axesSection }
@@ -159,9 +159,9 @@ struct FeaturePanelView: View {
     /// Le funzioni Graphite del font: valgono quando il testo si compone con Graphite.
     private var graphiteSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Funzioni Graphite").font(.headline)
+            Text("Graphite Features").font(.headline)
             if model.graphiteSettings == nil {
-                Text("Valgono quando la composizione è Graphite: si sceglie nell'ispettore, Carattere › Composizione.")
+                Text("They apply when shaping is Graphite: choose it in the inspector, Character › Shaping.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             ForEach(model.graphiteFeatures, id: \.id) { feature in
@@ -197,17 +197,17 @@ struct FeaturePanelView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Funzioni del font").font(.title3.bold())
+            Text("Font Features").font(.title3.bold())
             if model.fontName.isEmpty {
-                Text("Nessun font nella selezione.").foregroundStyle(.secondary)
+                Text("No font in the selection.").foregroundStyle(.secondary)
             } else {
                 Text(model.fontName).textSelection(.enabled)
-                Text("Tabelle: \(model.tables)").font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
+                Text("Tables: \(model.tables)").font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
                 if !model.fontFile.isEmpty {
                     Text("File: \(model.fontFile)").font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
                 }
                 if model.otherFontsInSelection > 0 {
-                    Text("La selezione contiene anche \(model.otherFontsInSelection) altr\(model.otherFontsInSelection == 1 ? "o" : "i") font: le modifiche toccano solo il testo in questo font.")
+                    Text("The selection also contains \(model.otherFontsInSelection) other \(model.otherFontsInSelection == 1 ? "font" : "fonts"): changes only affect the text in this font.")
                         .font(.caption).foregroundStyle(.orange)
                 }
             }
@@ -217,12 +217,12 @@ struct FeaturePanelView: View {
     /// Quando la famiglia è installata sia come font a più assi sia in file statici: quale dei due usare.
     private var installSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Famiglia installata in due modi").font(.headline)
+            Text("Family installed in two ways").font(.headline)
             Toggle(isOn: Binding<Bool>(
                 get: { model.isVariableFont },
                 set: { model.setUsesVariableFont?($0) }
-            )) { Text("Usa il font a più assi") }
-            Text(model.isVariableFont ? "Statico: perde gli assi fissati a mano." : "Variabile: attiva i cursori degli assi.")
+            )) { Text("Use the multi-axis font") }
+            Text(model.isVariableFont ? "Static: loses the axes set by hand." : "Variable: enables the axis sliders.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -231,14 +231,14 @@ struct FeaturePanelView: View {
     private var axesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Assi del font").font(.headline)
-                Text("tabella fvar").font(.caption.monospaced()).foregroundStyle(.secondary)
+                Text("Font Axes").font(.headline)
+                Text("fvar table").font(.caption.monospaced()).foregroundStyle(.secondary)
             }
             ForEach(model.axes) { axis in
                 axisRow(axis)
             }
             if !model.fixedAxes.isEmpty {
-                Button("Riporta tutti gli assi al valore naturale") {
+                Button("Reset all axes to their natural value") {
                     for axis in model.axes where model.fixedAxes.contains(axis.tag) { model.setAxis?(axis.tag, nil) }
                 }
                 .controlSize(.small)
@@ -271,10 +271,10 @@ struct FeaturePanelView: View {
                 }
                 .buttonStyle(.borderless)
                 .disabled(!isFixed)
-                .help("Lascia l'asse al suo valore naturale")
-                .accessibilityLabel("Riporta \(axis.name) al valore naturale")
+                .help("Leave the axis at its natural value")
+                .accessibilityLabel("Reset \(axis.name) to its natural value")
             }
-            Text("da \(axis.minimum, format: .number.precision(.fractionLength(0...2))) a \(axis.maximum, format: .number.precision(.fractionLength(0...2))), predefinito \(axis.defaultValue, format: .number.precision(.fractionLength(0...2)))\(isFixed ? " · fissato" : "")")
+            Text("from \(axis.minimum, format: .number.precision(.fractionLength(0...2))) to \(axis.maximum, format: .number.precision(.fractionLength(0...2))), default \(axis.defaultValue, format: .number.precision(.fractionLength(0...2)))\(isFixed ? " · fixed" : "")")
                 .font(.caption.monospaced()).foregroundStyle(.secondary)
         }
     }
@@ -283,38 +283,38 @@ struct FeaturePanelView: View {
     private var trackingSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Spaziatura per corpo").font(.headline)
-                Text("tabella trak").font(.caption.monospaced()).foregroundStyle(.secondary)
+                Text("Size-Specific Tracking").font(.headline)
+                Text("trak table").font(.caption.monospaced()).foregroundStyle(.secondary)
             }
             Toggle(isOn: Binding<Bool>(
                 get: { model.appliesFontTracking },
                 set: { model.setFontTracking?($0) }
             )) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("Applica")
+                    Text("Apply")
                     if let tracking = model.tracking {
-                        Text("\(tracking, format: .number.precision(.fractionLength(0...3)).sign(strategy: .always())) pt per glifo a questo corpo")
+                        Text("\(tracking, format: .number.precision(.fractionLength(0...3)).sign(strategy: .always())) pt per glyph at this size")
                             .font(.caption.monospaced()).foregroundStyle(.secondary)
                     } else {
-                        Text("nessuna a questo corpo").font(.caption.monospaced()).foregroundStyle(.secondary)
+                        Text("none at this size").font(.caption.monospaced()).foregroundStyle(.secondary)
                     }
                 }
             }
-                .help("Spaziatura prevista dal font per il corpo corrente; vale per tutto il documento.")
+                .help("Tracking the font provides for the current size; applies to the whole document.")
         }
     }
 
     private var opticalMarginsSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Margini ottici").font(.headline)
-                Text(model.tables.contains("opbd") ? "tabella opbd" : "lfbd · rtbd").font(.caption.monospaced()).foregroundStyle(.secondary)
+                Text("Optical Margins").font(.headline)
+                Text(model.tables.contains("opbd") ? "opbd table" : "lfbd · rtbd").font(.caption.monospaced()).foregroundStyle(.secondary)
             }
             Toggle(isOn: Binding<Bool>(
                 get: { model.usesOpticalMargins },
                 set: { model.setOpticalMargins?($0) }
-            )) { Text("Applica") }
-            Text("Punteggiatura oltre il margine · tutto il documento")
+            )) { Text("Apply") }
+            Text("Punctuation past the margin · whole document")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -353,8 +353,8 @@ struct FeaturePanelView: View {
 
     private var unlistedSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Altri tag OpenType").font(.headline)
-            Text(model.usesMorx ? "Con morx questi interruttori possono non avere effetto." : "Tag forzabili non elencati sopra.")
+            Text("Other OpenType Tags").font(.headline)
+            Text(model.usesMorx ? "With morx these switches may have no effect." : "Tags that can be forced, not listed above.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             ForEach(model.forceableTags, id: \.self) { tag in
                 Toggle(isOn: Binding<Bool>(
@@ -373,16 +373,16 @@ struct FeaturePanelView: View {
     /// Le funzioni di composizione: solo un elenco, perché non si comandano.
     private var automaticSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Funzioni applicate dal font da sé").font(.headline)
+            Text("Features the Font Applies by Itself").font(.headline)
             Text(model.automaticTags.joined(separator: "  ")).font(.caption.monospaced()).textSelection(.enabled)
-            Text("Solo lettura: Core Text non consente di cambiarle.")
+            Text("Read only: Core Text does not allow changing them.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private func typeCode(_ type: FeatureType) -> String {
         switch type.key {
-        case .aat(let id): "tipo \(id)" + (type.isExclusive ? " · esclusivo" : "")
+        case .aat(let id): "type \(id)" + (type.isExclusive ? " · exclusive" : "")
         case .openType(let tag): "OpenType \(tag)"
         }
     }

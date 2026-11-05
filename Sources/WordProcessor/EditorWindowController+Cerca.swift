@@ -67,7 +67,7 @@ extension EditorWindowController {
         let valid = computeMatches()
         pagesView.searchRanges = isFindBarVisible ? searchMatches : []
         guard valid else {
-            findBar.showCount("Modello non valido", warning: true)
+            findBar.showCount("Invalid pattern", warning: true)
             return
         }
         if moving, let first = searchMatches.first(where: { $0.location >= selection.range.location }) ?? searchMatches.first {
@@ -80,11 +80,11 @@ extension EditorWindowController {
         if findBar.query.isEmpty {
             findBar.showCount("")
         } else if searchMatches.isEmpty {
-            findBar.showCount("Nessuna occorrenza")
+            findBar.showCount("No matches")
         } else if let index = searchMatches.firstIndex(of: selection.range) {
-            findBar.showCount("\(index + 1) di \(searchMatches.count)")
+            findBar.showCount("\(index + 1) of \(searchMatches.count)")
         } else {
-            findBar.showCount(searchMatches.count == 1 ? "1 occorrenza" : "\(searchMatches.count) occorrenze")
+            findBar.showCount(searchMatches.count == 1 ? "1 match" : "\(searchMatches.count) matches")
         }
     }
 
@@ -115,7 +115,7 @@ extension EditorWindowController {
         guard let replacement = try? TextSearch.replacement(for: match, in: store, query: findBar.query, template: findBar.template, options: findBar.options) else { return }
         let attributes = store.attributes(at: match.location, effectiveRange: nil)
         endUndoStep(next: .none)
-        _ = writeStore(actionName: "Sostituisci") { TableEditing.replace(match, in: $0, with: NSAttributedString(string: replacement, attributes: attributes)) }
+        _ = writeStore(actionName: "Replace") { TableEditing.replace(match, in: $0, with: NSAttributedString(string: replacement, attributes: attributes)) }
         apply(TextSelection(caret: match.location + (replacement as NSString).length))
         if computeMatches(), !searchMatches.isEmpty { moveToMatch(forward: true) } else { refreshSearch(moving: false) }
     }
@@ -130,13 +130,13 @@ extension EditorWindowController {
             replacements.append((match, NSAttributedString(string: text, attributes: store.attributes(at: match.location, effectiveRange: nil))))
         }
         endUndoStep(next: .none)
-        _ = writeStore(actionName: "Sostituisci tutto") { store in
+        _ = writeStore(actionName: "Replace All") { store in
             // Una sostituzione non unisce due celle (gli a capo tra le celle restano).
             for (range, text) in replacements.reversed() { TableEditing.replace(range, in: store, with: text) }
         }
         apply(TextSelection(caret: min(selection.range.location, store.length)))
         refreshSearch(moving: false)
-        findBar.showCount(replacements.count == 1 ? "1 sostituita" : "\(replacements.count) sostituite")
+        findBar.showCount(replacements.count == 1 ? "1 replaced" : "\(replacements.count) replaced")
     }
 
     // MARK: Controllo ortografico
@@ -221,7 +221,7 @@ extension EditorWindowController {
     @objc func replaceMisspelling(_ sender: NSMenuItem) {
         guard let (range, replacement) = sender.representedObject as? (NSRange, String) else { return }
         endUndoStep(next: .none)
-        writeStore(actionName: "Correzione") { $0.replaceCharacters(in: range, with: replacement) }
+        writeStore(actionName: "Correction") { $0.replaceCharacters(in: range, with: replacement) }
         setSelection(TextSelection(caret: range.location + (replacement as NSString).length))
     }
 
@@ -246,7 +246,7 @@ extension EditorWindowController {
             apply(TextSelection(anchor: range.location, head: NSMaxRange(range)))
             let guesses = NSSpellChecker.shared.guesses(forWordRange: range, in: string as String, language: language(at: range.location).flatMap(Self.spellingLanguage), inSpellDocumentWithTag: spellTag) ?? []
             if guesses.isEmpty {
-                menu.addItem(withTitle: "Nessun suggerimento", action: nil, keyEquivalent: "")
+                menu.addItem(withTitle: "No Suggestions", action: nil, keyEquivalent: "")
             }
             for guess in guesses.prefix(8) {
                 let item = menu.addItem(withTitle: guess, action: #selector(replaceMisspelling(_:)), keyEquivalent: "")
@@ -254,7 +254,7 @@ extension EditorWindowController {
                 item.representedObject = (range, guess)
             }
             menu.addItem(.separator())
-            for (title, action) in [("Ignora ortografia", #selector(ignoreSpelling(_:))), ("Impara ortografia", #selector(learnSpelling(_:)))] {
+            for (title, action) in [("Ignore Spelling", #selector(ignoreSpelling(_:))), ("Learn Spelling", #selector(learnSpelling(_:)))] {
                 let item = menu.addItem(withTitle: title, action: action, keyEquivalent: "")
                 item.target = self
                 item.representedObject = word
@@ -263,12 +263,12 @@ extension EditorWindowController {
         } else if !selection.range.contains(index), !(selection.isEmpty && selection.head == index) {
             apply(TextSelection(caret: index))
         }
-        menu.addItem(withTitle: "Taglia", action: #selector(NSText.cut(_:)), keyEquivalent: "")
-        menu.addItem(withTitle: "Copia", action: #selector(NSText.copy(_:)), keyEquivalent: "")
-        menu.addItem(withTitle: "Incolla", action: #selector(NSText.paste(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "")
         if selectedImage != nil {
             menu.addItem(.separator())
-            menu.addItem(withTitle: "Misure dell'immagine…", action: #selector(editImageSize(_:)), keyEquivalent: "").target = self
+            menu.addItem(withTitle: "Image Size…", action: #selector(editImageSize(_:)), keyEquivalent: "").target = self
         }
         return menu
     }
@@ -302,8 +302,8 @@ extension EditorWindowController {
         guard !missing.isEmpty, let window else { return }
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = missing.count == 1 ? "Un'immagine collegata non si trova" : "\(missing.count) immagini collegate non si trovano"
-        alert.informativeText = missing.joined(separator: "\n") + "\n\nAl loro posto c'è un riquadro grigio. Rimettendo il file al suo posto, l'immagine torna."
+        alert.messageText = missing.count == 1 ? "A linked image cannot be found" : "\(missing.count) linked images cannot be found"
+        alert.informativeText = missing.joined(separator: "\n") + "\n\nA gray box is shown in their place. Putting the file back brings the image back."
         DispatchQueue.main.async { alert.beginSheetModal(for: window) }
     }
 }

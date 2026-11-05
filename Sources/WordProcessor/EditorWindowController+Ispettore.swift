@@ -60,7 +60,7 @@ extension EditorWindowController {
         let titles = enclosing.map { title -> String in
             let name = displayTitle(of: title)
             let role = title.mark.role.prefix(1).uppercased() + title.mark.role.dropFirst()
-            return name == "senza titolo" ? role : "\(role) \(name.count > 26 ? String(name.prefix(25)) + "…»" : name)"
+            return name == "untitled" ? role : "\(role) \(name.count > 26 ? String(name.prefix(25)) + "…" : name)"
         }
         if titles != sectionPathTitles {
             sectionPathTitles = titles
@@ -106,21 +106,21 @@ extension EditorWindowController {
         }
         inspector.setPageSetup = { [weak self] setup in self?.setInspectedPageSetup(setup) }
         inspector.createRule = { [weak self] in self?.createRuleFromInspector() }
-        inspector.setSectionRole = { [weak self] role in self?.changeInspectedSection(actionName: "Ruolo della sezione") { SectionEditing.setRole(role, of: $0, in: $1) } }
+        inspector.setSectionRole = { [weak self] role in self?.changeInspectedSection(actionName: "Section Role") { SectionEditing.setRole(role, of: $0, in: $1) } }
         inspector.setSectionPageTypes = { [weak self] types in
-            self?.changeInspectedSection(actionName: "Tipi di pagina della sezione") { SectionEditing.setPageTypes(types, of: $0, in: $1) }
+            self?.changeInspectedSection(actionName: "Section Page Types") { SectionEditing.setPageTypes(types, of: $0, in: $1) }
         }
         inspector.setSectionPageNumbering = { [weak self] list in
-            self?.changeInspectedSection(actionName: "Numeri di pagina della sezione") { SectionEditing.setPageNumbering(list, of: $0, in: $1) }
+            self?.changeInspectedSection(actionName: "Section Page Numbers") { SectionEditing.setPageNumbering(list, of: $0, in: $1) }
         }
         inspector.setSectionStart = { [weak self] start in
-            self?.changeInspectedSection(actionName: "Inizio della sezione") { SectionEditing.setStart(start, of: $0, in: $1) }
+            self?.changeInspectedSection(actionName: "Section Start") { SectionEditing.setStart(start, of: $0, in: $1) }
         }
         inspector.moveSection = { [weak self] delta in
             guard let self else { return }
             // L'ispettore segue la sezione spostata, anche se nel percorso era scelto un livello preciso.
             let chosen = self.inspectedSectionDepth
-            self.changeInspectedSection(actionName: delta > 0 ? "Sezione più dentro" : "Sezione più fuori") { SectionEditing.moveSection($0, by: delta, in: $1) }
+            self.changeInspectedSection(actionName: delta > 0 ? "Section In" : "Section Out") { SectionEditing.moveSection($0, by: delta, in: $1) }
             if let chosen {
                 self.inspectedSectionDepth = max(chosen + delta, 1)
                 self.refreshInspector()
@@ -128,14 +128,14 @@ extension EditorWindowController {
         }
         inspector.removeSection = { [weak self] in
             guard let self else { return }
-            self.changeInspectedSection(actionName: "Togli la sezione") { SectionEditing.removeSection($0, in: $1) }
+            self.changeInspectedSection(actionName: "Remove Section") { SectionEditing.removeSection($0, in: $1) }
             self.inspectedSectionDepth = nil
             self.refreshInspector()
         }
         inspector.setTableHeaderRows = { [weak self] count in self?.setTableHeaderRows(count) }
         inspector.tableCommand = { [weak self] command in self?.perform(command) }
         inspector.setTableStyle = { [weak self] name in
-            self?.changeTable(actionName: "Stile della tabella") { TableEditing.setStyle(name, ofTableAt: $0, in: $1) }
+            self?.changeTable(actionName: "Table Style") { TableEditing.setStyle(name, ofTableAt: $0, in: $1) }
         }
         inspector.setTableFloat = { [weak self] name in self?.setTableFloat(name) }
         inspector.splitCell = { [weak self] in self?.splitTableCell(nil) }
@@ -143,23 +143,23 @@ extension EditorWindowController {
             // Uno schema di filetti scelto per la tabella vale per tutte le celle: i lati detti per le celle si tolgono.
             var clearing = false
             if case .rules(let scheme) = change, scheme != nil { clearing = true }
-            self?.changeTable(actionName: "Aspetto della tabella") { point, store in
+            self?.changeTable(actionName: "Table Appearance") { point, store in
                 TableEditing.changeTableValues(ofTableAt: point, in: store, clearingCellBorders: clearing) { change.apply(to: &$0) }
             }
         }
         inspector.changeCell = { [weak self] change in
             guard let self, let mark = TableEditing.cell(at: self.selection.range.location, in: self.store) else { return }
-            self.changeTable(actionName: "Aspetto della cella") { point, store in
+            self.changeTable(actionName: "Cell Appearance") { point, store in
                 TableEditing.changeCellValues(row: mark.row, column: mark.column, ofTableAt: point, in: store) { change.apply(to: &$0) }
             }
         }
-        inspector.setDocumentLanguage = { [weak self] language in self?.change(\.language, to: language, actionName: "Lingua del documento") }
-        inspector.setHyphenates = { [weak self] on in self?.change(\.hyphenates, to: on, actionName: "Sillabazione") }
-        inspector.setGlyphExpansionLimit = { [weak self] value in self?.change(\.glyphExpansionLimit, to: value, actionName: "Espansione glifi") }
-        inspector.glyphExpansionDragging = { [weak self] dragging in self?.groupContinuousChanges(dragging, actionName: "Espansione glifi") }
+        inspector.setDocumentLanguage = { [weak self] language in self?.change(\.language, to: language, actionName: "Document Language") }
+        inspector.setHyphenates = { [weak self] on in self?.change(\.hyphenates, to: on, actionName: "Hyphenation") }
+        inspector.setGlyphExpansionLimit = { [weak self] value in self?.change(\.glyphExpansionLimit, to: value, actionName: "Glyph Expansion") }
+        inspector.glyphExpansionDragging = { [weak self] dragging in self?.groupContinuousChanges(dragging, actionName: "Glyph Expansion") }
         inspector.setNoteList = { [weak self] name in
             guard let self else { return }
-            self.changeListSettings(lists: self.settings.lists, noteList: name, styles: self.settings.styles, actionName: "Lista delle note")
+            self.changeListSettings(lists: self.settings.lists, noteList: name, styles: self.settings.styles, actionName: "Note List")
         }
     }
 
@@ -229,7 +229,7 @@ extension EditorWindowController {
         let names: [InspectedObject: String?] = [.document: nil, .paragraph: name(.paragraphStyleName, in: paragraphTarget),
                                                  .word: name(.wordStyleName, in: runTarget), .character: name(.characterStyleName, in: runTarget)]
         for (object, button) in pathButtons {
-            button.title = (names[object] ?? nil).map { "\(object.title) «\($0)»" } ?? object.title
+            button.title = (names[object] ?? nil).map { "\(object.title) “\($0)”" } ?? object.title
             button.state = object == inspector.object ? .on : .off
         }
         inspector.styleName = names[inspector.object] ?? nil
@@ -281,8 +281,8 @@ extension EditorWindowController {
         }
         typealias Fact = InspectorModel.Fact
         func points(_ value: Double) -> String { value.formatted(.number.precision(.fractionLength(0...1))) + " pt" }
-        func yesNo(_ value: Bool) -> String { value ? "sì" : "no" }
-        func rulesText(_ rules: [String]) -> String { rules.isEmpty ? "nessuna" : rules.joined(separator: "\n") }
+        func yesNo(_ value: Bool) -> String { value ? "yes" : "no" }
+        func rulesText(_ rules: [String]) -> String { rules.isEmpty ? "none" : rules.joined(separator: "\n") }
         let index = selection.head
         var facts: [Fact] = []
         switch inspector.object {
@@ -291,7 +291,7 @@ extension EditorWindowController {
                 let span = SectionEditing.range(of: title, in: store)
                 let first = layout.pageFacts(at: span.location, affinity: .downstream)?.number
                 let last = layout.pageFacts(at: max(NSMaxRange(span) - 1, span.location), affinity: .downstream)?.number
-                if let first, let last { facts = [Fact(title: "Pagine", value: first == last ? "\(first)" : "\(first)–\(last)")] }
+                if let first, let last { facts = [Fact(title: "Pages", value: first == last ? "\(first)" : "\(first)–\(last)")] }
             }
         case .cell:
             break
@@ -300,50 +300,50 @@ extension EditorWindowController {
             if let first = cells.first, let last = cells.last,
                let firstPage = layout.pageFacts(at: first.range.location, affinity: .downstream)?.number,
                let lastPage = layout.pageFacts(at: last.range.location, affinity: .downstream)?.number {
-                facts = [Fact(title: "Pagine", value: firstPage == lastPage ? "\(firstPage)" : "\(firstPage)–\(lastPage)")]
+                facts = [Fact(title: "Pages", value: firstPage == lastPage ? "\(firstPage)" : "\(firstPage)–\(lastPage)")]
             }
         case .document:
             let d = layout.documentFacts()
-            facts = [Fact(title: "Pagine", value: "\(d.pageCount)"), Fact(title: "Paragrafi", value: "\(d.paragraphCount)"),
-                     Fact(title: "Parole", value: "\(d.wordCount)"), Fact(title: "Note", value: "\(d.noteCount)")]
+            facts = [Fact(title: "Pages", value: "\(d.pageCount)"), Fact(title: "Paragraphs", value: "\(d.paragraphCount)"),
+                     Fact(title: "Words", value: "\(d.wordCount)"), Fact(title: "Notes", value: "\(d.noteCount)")]
         case .page:
             if let p = layout.pageFacts(at: index, affinity: selection.affinity) {
-                facts = [Fact(title: "Numero", value: "\(p.number) (\(p.isEven ? "pari" : "dispari"))"),
-                         Fact(title: "Righe del corpo", value: "\(p.lineCount)"),
-                         Fact(title: "Spazio vuoto in fondo", value: points(p.freeSpace)),
-                         Fact(title: "Ha note", value: yesNo(p.hasNotes)), Fact(title: "Ha figure", value: yesNo(p.hasFigures))]
+                facts = [Fact(title: "Number", value: "\(p.number) (\(p.isEven ? "even" : "odd"))"),
+                         Fact(title: "Body lines", value: "\(p.lineCount)"),
+                         Fact(title: "Empty space at the bottom", value: points(p.freeSpace)),
+                         Fact(title: "Has notes", value: yesNo(p.hasNotes)), Fact(title: "Has figures", value: yesNo(p.hasFigures))]
             }
         case .paragraph:
             if let p = layout.paragraphFacts(at: index, rules: settings.rules, sheet: settings.styles) {
-                let pages = p.isSplit ? "\(p.firstPage)–\(p.lastPage), si spezza tra le pagine" : "\(p.firstPage)"
+                let pages = p.isSplit ? "\(p.firstPage)–\(p.lastPage), split across pages" : "\(p.firstPage)"
                 let position = switch (p.isFirstOnPage, p.isLastOnPage) {
-                case (true, true): "il primo e l'ultimo della pagina"
-                case (true, false): "il primo della pagina"
-                case (false, true): "l'ultimo della pagina"
-                case (false, false): "né il primo né l'ultimo"
+                case (true, true): "first and last on the page"
+                case (true, false): "first on the page"
+                case (false, true): "last on the page"
+                case (false, false): "neither first nor last"
                 }
-                let previous = p.isDocumentStart ? "niente: è il primo del documento" : p.previousStyle.map { "un paragrafo «\($0)»" } ?? "un paragrafo senza stile"
-                facts = [Fact(title: "Righe", value: "\(p.lineCount)"), Fact(title: "Pagina", value: pages), Fact(title: "Posizione", value: position),
-                         Fact(title: "Parole", value: "\(p.wordCount)"), Fact(title: "Righe con trattino", value: "\(p.hyphenatedLines)"),
-                         Fact(title: "Ultima riga", value: "\(points(p.lastLineWidth)), \(Int((p.lastLineFill * 100).rounded()))% della riga"),
-                         Fact(title: "Lo precede", value: previous), Fact(title: "Regole", value: rulesText(p.rules))]
+                let previous = p.isDocumentStart ? "nothing: it is the first of the document" : p.previousStyle.map { "a “\($0)” paragraph" } ?? "a paragraph with no style"
+                facts = [Fact(title: "Lines", value: "\(p.lineCount)"), Fact(title: "Page", value: pages), Fact(title: "Position", value: position),
+                         Fact(title: "Words", value: "\(p.wordCount)"), Fact(title: "Hyphenated lines", value: "\(p.hyphenatedLines)"),
+                         Fact(title: "Last line", value: "\(points(p.lastLineWidth)), \(Int((p.lastLineFill * 100).rounded()))% of the line"),
+                         Fact(title: "Preceded by", value: previous), Fact(title: "Rules", value: rulesText(p.rules))]
                 let start = TextStyling.bodyParagraph(in: store, at: index).range.location
                 if let opening = layout.pageStarts[start] {
-                    facts.append(Fact(title: "Apertura pagina", value: "Stile «\(opening.style)» · \(points(opening.effective)) (richiesti \(points(opening.requested)))"))
+                    facts.append(Fact(title: "Page opening", value: "Style “\(opening.style)” · \(points(opening.effective)) (\(points(opening.requested)) requested)"))
                 }
             }
         case .line:
             if let l = layout.lineFacts(at: index, affinity: selection.affinity) {
-                let change = abs(l.justification) < 0.05 ? "nessuna" : (l.justification > 0 ? "allargata di " : "stretta di ") + points(abs(l.justification))
-                facts = [Fact(title: "Posizione", value: "riga \(l.number) di \(l.count) del\(l.isNote ? "la nota" : " paragrafo")"),
-                         Fact(title: "Pagina", value: "\(l.page)"), Fact(title: "Larghezza naturale", value: points(l.naturalWidth)),
-                         Fact(title: "Giustificazione", value: change), Fact(title: "A disposizione", value: points(l.availableWidth)),
-                         Fact(title: "Finisce con un trattino", value: yesNo(l.endsWithHyphen)), Fact(title: "Parole", value: "\(l.wordCount)")]
+                let change = abs(l.justification) < 0.05 ? "none" : (l.justification > 0 ? "widened by " : "narrowed by ") + points(abs(l.justification))
+                facts = [Fact(title: "Position", value: "line \(l.number) of \(l.count) of the \(l.isNote ? "note" : "paragraph")"),
+                         Fact(title: "Page", value: "\(l.page)"), Fact(title: "Natural width", value: points(l.naturalWidth)),
+                         Fact(title: "Justification", value: change), Fact(title: "Available", value: points(l.availableWidth)),
+                         Fact(title: "Ends with a hyphen", value: yesNo(l.endsWithHyphen)), Fact(title: "Words", value: "\(l.wordCount)")]
             }
         case .word, .character:
             // Come i valori sopra: dove comincia la selezione (con una parola selezionata, la fine è lo spazio dopo).
             let start = selection.range.length > 0 ? selection.range.location : index
-            facts = [Fact(title: "Regole qui", value: rulesText(layout.rules(touching: start, rules: settings.rules, sheet: settings.styles,
+            facts = [Fact(title: "Rules here", value: rulesText(layout.rules(touching: start, rules: settings.rules, sheet: settings.styles,
                                                                                affinity: selection.affinity)))]
         }
         if inspector.facts != facts { inspector.facts = facts }
@@ -391,12 +391,12 @@ extension EditorWindowController {
             let target = inspectionTarget(.paragraph)
             let name = target.text.length > 0 ? target.text.attribute(.paragraphStyleName, at: min(target.range.location, target.text.length - 1), effectiveRange: nil) as? String : nil
             let list = settings.styles.values(of: name).list
-            changeList(actionName: "Torna alla Lista dello stile") { _ in list }
+            changeList(actionName: "Back to the Style's List") { _ in list }
             refreshFromSelection()
             return
         }
         let sheet = settings.styles
-        editInspected(property, actionName: "Torna al valore ereditato") { text, range in TextStyling.resetValue(of: property, in: text, range: range, sheet: sheet, resolver: self.fontRoleResolver) }
+        editInspected(property, actionName: "Back to Inherited Value") { text, range in TextStyling.resetValue(of: property, in: text, range: range, sheet: sheet, resolver: self.fontRoleResolver) }
     }
 
     /// Porta nello stile il valore che il testo ha ora.
@@ -405,7 +405,7 @@ extension EditorWindowController {
         guard let receiver = inspector.receivers[property],
               let sheet = TextStyling.sheet(settings.styles, takingValueOf: property, from: target.text, at: target.range.location, replacingFormula: true) else { return }
         endUndoStep(next: .none)
-        changeStyles(to: sheet, restyle: true, actionName: "Stile «\(receiver)»: \(property.title.lowercased())")
+        changeStyles(to: sheet, restyle: true, actionName: "Style “\(receiver)”: \(property.title.lowercased())")
     }
 
     /// Le funzioni, gli assi e il corpo ottico del carattere scelto, per l'ispettore; nessuno per gli altri oggetti.
@@ -427,8 +427,8 @@ extension EditorWindowController {
 
     func inspectorResetDetail(_ detail: FontDetail) {
         let sheet = settings.styles, resolver = fontRoleResolver
-        let title = inspector.details.first { $0.detail == detail }?.title ?? "funzione"
-        editInspected(.size, actionName: "Torna al valore ereditato: \(title.lowercased())") { text, range in
+        let title = inspector.details.first { $0.detail == detail }?.title ?? "feature"
+        editInspected(.size, actionName: "Back to Inherited Value: \(title.lowercased())") { text, range in
             TextStyling.resetDetail(detail, in: text, range: range, sheet: sheet, resolver: resolver)
         }
     }
@@ -439,9 +439,9 @@ extension EditorWindowController {
         guard let receiver = inspector.detailReceiver,
               let sheet = TextStyling.sheet(settings.styles, takingDetail: detail, from: target.text, at: target.range.location,
                                             resolver: fontRoleResolver) else { return }
-        let title = inspector.details.first { $0.detail == detail }?.title ?? "funzione"
+        let title = inspector.details.first { $0.detail == detail }?.title ?? "feature"
         endUndoStep(next: .none)
-        changeStyles(to: sheet, restyle: true, actionName: "Stile «\(receiver)»: \(title.lowercased())")
+        changeStyles(to: sheet, restyle: true, actionName: "Style “\(receiver)”: \(title.lowercased())")
     }
 
     /// Mette un valore nello stile: tutto il testo che lo eredita cambia, e la selezione perde il suo valore dato a
@@ -452,7 +452,7 @@ extension EditorWindowController {
         TextStyling.setValue(values, of: property, in: copy, range: target.isProbe ? NSRange(location: 0, length: copy.length) : target.range)
         guard let receiver = inspector.receivers[property],
               let sheet = TextStyling.sheet(settings.styles, takingValueOf: property, from: copy, at: target.range.location, replacingFormula: replacingFormula) else { return }
-        let actionName = "Stile «\(receiver)»: \(property.title.lowercased())"
+        let actionName = "Style “\(receiver)”: \(property.title.lowercased())"
         endUndoStep(next: .none)
         document?.undoManager?.beginUndoGrouping()
         changeStyles(to: sheet, restyle: true, actionName: actionName)

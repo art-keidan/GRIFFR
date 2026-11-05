@@ -47,14 +47,14 @@ struct StyleVariableTests {
         var (sheet, distance) = sheet()
         var missing = sheet
         missing.styles[0].variables = []
-        #expect(missing.formulaReferenceProblem()?.contains("variabile") == true)
+        #expect(missing.formulaReferenceProblem()?.contains("variable") == true)
         var cycle = sheet
         let other = UUID()
         cycle.styles[0].variables = [StyleVariable(id: distance.id, name: "Distanza", expression: .variable(other)),
                                      StyleVariable(id: other, name: "Altra", expression: .variable(distance.id))]
-        #expect(cycle.formulaReferenceProblem()?.contains("circolare") == true)
+        #expect(cycle.formulaReferenceProblem()?.contains("Circular") == true)
         sheet.styles[0].variables.append(StyleVariable(name: "Distanza", expression: .constant(.length(1))))
-        #expect(sheet.formulaReferenceProblem()?.contains("nomi") == true)
+        #expect(sheet.formulaReferenceProblem()?.contains("names") == true)
     }
 
     @Test("Il file conserva le variabili dalla versione 12; una versione precedente non le accetta")

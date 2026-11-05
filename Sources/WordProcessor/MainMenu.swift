@@ -10,97 +10,97 @@ enum MainMenu {
         let main = NSMenu()
 
         let app = submenu(of: main, title: appName)
-        app.addItem(withTitle: "Informazioni su \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(withTitle: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         app.addItem(.separator())
-        app.addItem(withTitle: "Impostazioni…", action: #selector(AppDelegate.showFontRoleSettings(_:)), keyEquivalent: ",")
+        app.addItem(withTitle: "Settings…", action: #selector(AppDelegate.showFontRoleSettings(_:)), keyEquivalent: ",")
         app.addItem(.separator())
-        app.addItem(withTitle: "Nascondi \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        app.addItem(withTitle: "Esci da \(appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        app.addItem(withTitle: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        app.addItem(withTitle: "Quit \(appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         let file = submenu(of: main, title: "File")
-        file.addItem(withTitle: "Nuovo", action: #selector(NSDocumentController.newDocument(_:)), keyEquivalent: "n")
-        file.addItem(withTitle: "Apri…", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
-        let recent = NSMenu(title: "Apri recente")
-        recent.addItem(withTitle: "Cancella menu", action: #selector(NSDocumentController.clearRecentDocuments(_:)), keyEquivalent: "")
-        file.addItem(withTitle: "Apri recente", action: nil, keyEquivalent: "").submenu = recent
+        file.addItem(withTitle: "New", action: #selector(NSDocumentController.newDocument(_:)), keyEquivalent: "n")
+        file.addItem(withTitle: "Open…", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")
+        let recent = NSMenu(title: "Open Recent")
+        recent.addItem(withTitle: "Clear Menu", action: #selector(NSDocumentController.clearRecentDocuments(_:)), keyEquivalent: "")
+        file.addItem(withTitle: "Open Recent", action: nil, keyEquivalent: "").submenu = recent
         file.addItem(.separator())
-        file.addItem(withTitle: "Salva", action: #selector(NSDocument.save(_:)), keyEquivalent: "s")
-        file.addItem(withTitle: "Salva con nome…", action: #selector(NSDocument.saveAs(_:)), keyEquivalent: "S")
-        file.addItem(withTitle: "Ripristina versione salvata", action: #selector(NSDocument.revertToSaved(_:)), keyEquivalent: "")
+        file.addItem(withTitle: "Save", action: #selector(NSDocument.save(_:)), keyEquivalent: "s")
+        file.addItem(withTitle: "Save As…", action: #selector(NSDocument.saveAs(_:)), keyEquivalent: "S")
+        file.addItem(withTitle: "Revert to Saved", action: #selector(NSDocument.revertToSaved(_:)), keyEquivalent: "")
         file.addItem(.separator())
-        file.addItem(withTitle: "Formato della pagina…", action: #selector(EditorWindowController.showPageSetup(_:)), keyEquivalent: "P")
-        file.addItem(withTitle: "Esporta come PDF…", action: #selector(EditorWindowController.exportPDF(_:)), keyEquivalent: "e")
-        file.addItem(withTitle: "Stampa…", action: #selector(NSDocument.printDocument(_:)), keyEquivalent: "p")
+        file.addItem(withTitle: "Page Setup…", action: #selector(EditorWindowController.showPageSetup(_:)), keyEquivalent: "P")
+        file.addItem(withTitle: "Export as PDF…", action: #selector(EditorWindowController.exportPDF(_:)), keyEquivalent: "e")
+        file.addItem(withTitle: "Print…", action: #selector(NSDocument.printDocument(_:)), keyEquivalent: "p")
         file.addItem(.separator())
-        file.addItem(withTitle: "Chiudi", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        file.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
 
-        let edit = submenu(of: main, title: "Modifica")
-        edit.addItem(withTitle: "Annulla", action: Selector(("undo:")), keyEquivalent: "z")
-        edit.addItem(withTitle: "Ripeti", action: Selector(("redo:")), keyEquivalent: "Z")
+        let edit = submenu(of: main, title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
         edit.addItem(.separator())
-        edit.addItem(withTitle: "Taglia", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        edit.addItem(withTitle: "Copia", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        edit.addItem(withTitle: "Incolla", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        edit.addItem(withTitle: "Seleziona tutto", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         edit.addItem(.separator())
-        let find = NSMenu(title: "Trova")
-        find.addItem(withTitle: "Cerca e sostituisci…", action: #selector(EditorWindowController.showFindBar(_:)), keyEquivalent: "f")
-        find.addItem(withTitle: "Trova successivo", action: #selector(EditorWindowController.findNext(_:)), keyEquivalent: "g")
-        find.addItem(withTitle: "Trova precedente", action: #selector(EditorWindowController.findPrevious(_:)), keyEquivalent: "G")
-        find.addItem(withTitle: "Usa la selezione per cercare", action: #selector(EditorWindowController.useSelectionForFind(_:)), keyEquivalent: "")
-        edit.addItem(withTitle: "Trova", action: nil, keyEquivalent: "").submenu = find
+        let find = NSMenu(title: "Find")
+        find.addItem(withTitle: "Find and Replace…", action: #selector(EditorWindowController.showFindBar(_:)), keyEquivalent: "f")
+        find.addItem(withTitle: "Find Next", action: #selector(EditorWindowController.findNext(_:)), keyEquivalent: "g")
+        find.addItem(withTitle: "Find Previous", action: #selector(EditorWindowController.findPrevious(_:)), keyEquivalent: "G")
+        find.addItem(withTitle: "Use Selection for Find", action: #selector(EditorWindowController.useSelectionForFind(_:)), keyEquivalent: "")
+        edit.addItem(withTitle: "Find", action: nil, keyEquivalent: "").submenu = find
         edit.addItem(.separator())
-        edit.addItem(withTitle: "Controlla ortografia durante la digitazione", action: #selector(EditorWindowController.toggleSpellChecking(_:)), keyEquivalent: "")
+        edit.addItem(withTitle: "Check Spelling While Typing", action: #selector(EditorWindowController.toggleSpellChecking(_:)), keyEquivalent: "")
 
-        let insert = submenu(of: main, title: "Inserisci")
-        let note = insert.addItem(withTitle: "Nota a piè di pagina", action: #selector(EditorWindowController.insertFootnote(_:)), keyEquivalent: "f")
+        let insert = submenu(of: main, title: "Insert")
+        let note = insert.addItem(withTitle: "Footnote", action: #selector(EditorWindowController.insertFootnote(_:)), keyEquivalent: "f")
         // Le altre serie di note (stili di flottante), elencate al momento perché ogni documento ha le sue.
-        let series = NSMenu(title: "Nota di un'altra serie")
+        let series = NSMenu(title: "Note of Another Series")
         series.delegate = FloatSeriesMenuFiller.shared
-        insert.addItem(withTitle: "Nota di un'altra serie", action: nil, keyEquivalent: "").submenu = series
+        insert.addItem(withTitle: "Note of Another Series", action: nil, keyEquivalent: "").submenu = series
         insert.addItem(.separator())
-        insert.addItem(withTitle: "Immagine…", action: #selector(EditorWindowController.insertImage(_:)), keyEquivalent: "")
-        insert.addItem(withTitle: "Figura…", action: #selector(EditorWindowController.insertFigure(_:)), keyEquivalent: "")
-        insert.addItem(withTitle: "Tabella", action: #selector(EditorWindowController.insertTable(_:)), keyEquivalent: "")
-        for (title, placement) in [("Intestazione", "head"), ("Piè di pagina", "bottom")] {
+        insert.addItem(withTitle: "Image…", action: #selector(EditorWindowController.insertImage(_:)), keyEquivalent: "")
+        insert.addItem(withTitle: "Figure…", action: #selector(EditorWindowController.insertFigure(_:)), keyEquivalent: "")
+        insert.addItem(withTitle: "Table", action: #selector(EditorWindowController.insertTable(_:)), keyEquivalent: "")
+        for (title, placement) in [("Header", "head"), ("Footer", "bottom")] {
             let running = NSMenu(title: title)
-            for (label, pages) in [("Per tutte le pagine", "all"), ("Per le pagine dispari", "odd"), ("Per le pagine pari", "even"),
-                                   ("Per la prima pagina della sezione", "first")] {
+            for (label, pages) in [("For All Pages", "all"), ("For Odd Pages", "odd"), ("For Even Pages", "even"),
+                                   ("For the First Page of the Section", "first")] {
                 running.addItem(withTitle: label, action: #selector(EditorWindowController.insertRunning(_:)), keyEquivalent: "").representedObject = "\(placement) \(pages)"
             }
             insert.addItem(withTitle: title, action: nil, keyEquivalent: "").submenu = running
         }
-        let fields = NSMenu(title: "Campo")
+        let fields = NSMenu(title: "Field")
         fields.delegate = FieldMenuFiller.shared
-        insert.addItem(withTitle: "Campo", action: nil, keyEquivalent: "").submenu = fields
+        insert.addItem(withTitle: "Field", action: nil, keyEquivalent: "").submenu = fields
         insert.addItem(.separator())
-        insert.addItem(withTitle: "Sezione allo stesso livello", action: #selector(EditorWindowController.insertSectionSameLevel(_:)), keyEquivalent: "")
-        insert.addItem(withTitle: "Sezione dentro questa", action: #selector(EditorWindowController.insertSectionInside(_:)), keyEquivalent: "")
-        insert.addItem(withTitle: "Sezione più fuori", action: #selector(EditorWindowController.insertSectionOutside(_:)), keyEquivalent: "")
-        insert.addItem(withTitle: "Togli la sezione", action: #selector(EditorWindowController.removeEnclosingSection(_:)), keyEquivalent: "")
-        insert.addItem(withTitle: "Torna alla sezione esterna", action: #selector(EditorWindowController.returnToOuterSection(_:)), keyEquivalent: "")
-        insert.addItem(withTitle: "Entra nella sezione precedente", action: #selector(EditorWindowController.joinPreviousSection(_:)), keyEquivalent: "")
+        insert.addItem(withTitle: "Section at the Same Level", action: #selector(EditorWindowController.insertSectionSameLevel(_:)), keyEquivalent: "")
+        insert.addItem(withTitle: "Section Inside This One", action: #selector(EditorWindowController.insertSectionInside(_:)), keyEquivalent: "")
+        insert.addItem(withTitle: "Section One Level Out", action: #selector(EditorWindowController.insertSectionOutside(_:)), keyEquivalent: "")
+        insert.addItem(withTitle: "Remove Section", action: #selector(EditorWindowController.removeEnclosingSection(_:)), keyEquivalent: "")
+        insert.addItem(withTitle: "Back to the Outer Section", action: #selector(EditorWindowController.returnToOuterSection(_:)), keyEquivalent: "")
+        insert.addItem(withTitle: "Into the Previous Section", action: #selector(EditorWindowController.joinPreviousSection(_:)), keyEquivalent: "")
         note.keyEquivalentModifierMask = [.command, .option]
 
-        let format = submenu(of: main, title: "Formato")
-        format.addItem(withTitle: "Mostra font", action: #selector(NSFontManager.orderFrontFontPanel(_:)), keyEquivalent: "t").target = NSFontManager.shared
-        format.addItem(withTitle: "Grassetto", action: #selector(EditorWindowController.toggleBold(_:)), keyEquivalent: "b")
-        format.addItem(withTitle: "Corsivo", action: #selector(EditorWindowController.toggleItalic(_:)), keyEquivalent: "i")
-        format.addItem(withTitle: "Sottolineato", action: #selector(EditorWindowController.toggleUnderline(_:)), keyEquivalent: "u")
-        format.addItem(withTitle: "Barrato", action: #selector(EditorWindowController.toggleStrikethrough(_:)), keyEquivalent: "")
-        format.addItem(withTitle: "Maiuscoletto", action: #selector(EditorWindowController.toggleSmallCaps(_:)), keyEquivalent: "")
-        let superscript = format.addItem(withTitle: "Apice", action: #selector(EditorWindowController.toggleSuperscript(_:)), keyEquivalent: "+")
+        let format = submenu(of: main, title: "Format")
+        format.addItem(withTitle: "Show Fonts", action: #selector(NSFontManager.orderFrontFontPanel(_:)), keyEquivalent: "t").target = NSFontManager.shared
+        format.addItem(withTitle: "Bold", action: #selector(EditorWindowController.toggleBold(_:)), keyEquivalent: "b")
+        format.addItem(withTitle: "Italic", action: #selector(EditorWindowController.toggleItalic(_:)), keyEquivalent: "i")
+        format.addItem(withTitle: "Underline", action: #selector(EditorWindowController.toggleUnderline(_:)), keyEquivalent: "u")
+        format.addItem(withTitle: "Strikethrough", action: #selector(EditorWindowController.toggleStrikethrough(_:)), keyEquivalent: "")
+        format.addItem(withTitle: "Small Caps", action: #selector(EditorWindowController.toggleSmallCaps(_:)), keyEquivalent: "")
+        let superscript = format.addItem(withTitle: "Superscript", action: #selector(EditorWindowController.toggleSuperscript(_:)), keyEquivalent: "+")
         superscript.keyEquivalentModifierMask = [.command, .control]
-        let subscriptItem = format.addItem(withTitle: "Pedice", action: #selector(EditorWindowController.toggleSubscript(_:)), keyEquivalent: "-")
+        let subscriptItem = format.addItem(withTitle: "Subscript", action: #selector(EditorWindowController.toggleSubscript(_:)), keyEquivalent: "-")
         subscriptItem.keyEquivalentModifierMask = [.command, .control]
         format.addItem(.separator())
         // Elenchi: il segno si sceglie voce per voce del menu, o si scrive con «Altro segno…».
-        let lists = NSMenu(title: "Elenco")
-        let toggle = lists.addItem(withTitle: "Elenco sì/no", action: #selector(EditorWindowController.toggleList(_:)), keyEquivalent: "l")
+        let lists = NSMenu(title: "List")
+        let toggle = lists.addItem(withTitle: "List On/Off", action: #selector(EditorWindowController.toggleList(_:)), keyEquivalent: "l")
         toggle.keyEquivalentModifierMask = [.command, .option]
         // Le Liste con un nome stanno nel menu «Lista» del righello; si definiscono nella scheda Liste dell'avanzata.
         lists.addItem(.separator())
-        lists.addItem(withTitle: "Nessuno", action: #selector(EditorWindowController.setListMarker(_:)), keyEquivalent: "").representedObject = nil
+        lists.addItem(withTitle: "None", action: #selector(EditorWindowController.setListMarker(_:)), keyEquivalent: "").representedObject = nil
         lists.addItem(.separator())
         for marker in EditorWindowController.bulletMarkers {
             lists.addItem(withTitle: EditorWindowController.bulletTitle(marker), action: #selector(EditorWindowController.setListMarker(_:)), keyEquivalent: "").representedObject = marker
@@ -112,69 +112,69 @@ enum MainMenu {
             lists.addItem(withTitle: title, action: #selector(EditorWindowController.setListMarker(_:)), keyEquivalent: "").representedObject = marker
         }
         lists.addItem(.separator())
-        lists.addItem(withTitle: "Altro segno…", action: #selector(EditorWindowController.chooseListMarker(_:)), keyEquivalent: "")
+        lists.addItem(withTitle: "Other Marker…", action: #selector(EditorWindowController.chooseListMarker(_:)), keyEquivalent: "")
         lists.addItem(.separator())
-        lists.addItem(withTitle: "Aumenta livello (Tab)", action: #selector(EditorWindowController.increaseListLevel(_:)), keyEquivalent: "")
-        lists.addItem(withTitle: "Riduci livello (Maiusc-Tab)", action: #selector(EditorWindowController.decreaseListLevel(_:)), keyEquivalent: "")
-        format.addItem(withTitle: "Elenco", action: nil, keyEquivalent: "").submenu = lists
+        lists.addItem(withTitle: "Increase Level (Tab)", action: #selector(EditorWindowController.increaseListLevel(_:)), keyEquivalent: "")
+        lists.addItem(withTitle: "Decrease Level (Shift-Tab)", action: #selector(EditorWindowController.decreaseListLevel(_:)), keyEquivalent: "")
+        format.addItem(withTitle: "List", action: nil, keyEquivalent: "").submenu = lists
         // Gli stili si scelgono nel righello (paragrafo) e nel Ribbon (parola e carattere); Liste, stili di flottante e
         // regole si definiscono nelle schede dell'avanzata; le misure di un'immagine con un doppio clic su di lei.
         format.addItem(.separator())
-        format.addItem(withTitle: "Compositore di stili…", action: #selector(EditorWindowController.openStyleComposer(_:)), keyEquivalent: "")
-        format.addItem(withTitle: "Nuovo stile dalla selezione…", action: #selector(EditorWindowController.newStyleFromSelection(_:)), keyEquivalent: "")
+        format.addItem(withTitle: "Style Composer…", action: #selector(EditorWindowController.openStyleComposer(_:)), keyEquivalent: "")
+        format.addItem(withTitle: "New Style from Selection…", action: #selector(EditorWindowController.newStyleFromSelection(_:)), keyEquivalent: "")
         for target in StyleTarget.allCases {
-            format.addItem(withTitle: "Aggiorna lo stile dalla selezione", action: #selector(EditorWindowController.updateStyleFromSelection(_:)), keyEquivalent: "")
+            format.addItem(withTitle: "Update Style from Selection", action: #selector(EditorWindowController.updateStyleFromSelection(_:)), keyEquivalent: "")
                 .representedObject = target.rawValue
         }
         format.addItem(.separator())
-        format.addItem(withTitle: "Sillabazione", action: #selector(EditorWindowController.toggleHyphenation(_:)), keyEquivalent: "")
-        let languages = NSMenu(title: "Lingua del documento")
-        let none = languages.addItem(withTitle: "Nessuna", action: #selector(EditorWindowController.setDocumentLanguage(_:)), keyEquivalent: "")
+        format.addItem(withTitle: "Hyphenation", action: #selector(EditorWindowController.toggleHyphenation(_:)), keyEquivalent: "")
+        let languages = NSMenu(title: "Document Language")
+        let none = languages.addItem(withTitle: "None", action: #selector(EditorWindowController.setDocumentLanguage(_:)), keyEquivalent: "")
         none.representedObject = nil
         languages.addItem(.separator())
         for code in EditorWindowController.languages {
             languages.addItem(withTitle: EditorWindowController.languageName(code), action: #selector(EditorWindowController.setDocumentLanguage(_:)), keyEquivalent: "").representedObject = code
         }
-        format.addItem(withTitle: "Lingua del documento", action: nil, keyEquivalent: "").submenu = languages
+        format.addItem(withTitle: "Document Language", action: nil, keyEquivalent: "").submenu = languages
         // La lingua di un pezzo di testo: decide come si divide a fine riga e con quale dizionario si controlla.
-        let textLanguages = NSMenu(title: "Lingua del testo selezionato")
-        let inherited = textLanguages.addItem(withTitle: "Come il documento", action: #selector(EditorWindowController.setSelectionLanguage(_:)), keyEquivalent: "")
+        let textLanguages = NSMenu(title: "Language of Selected Text")
+        let inherited = textLanguages.addItem(withTitle: "Same as Document", action: #selector(EditorWindowController.setSelectionLanguage(_:)), keyEquivalent: "")
         inherited.representedObject = nil
         textLanguages.addItem(.separator())
         for code in EditorWindowController.languages {
             textLanguages.addItem(withTitle: EditorWindowController.languageName(code), action: #selector(EditorWindowController.setSelectionLanguage(_:)), keyEquivalent: "").representedObject = code
         }
-        format.addItem(withTitle: "Lingua del testo selezionato", action: nil, keyEquivalent: "").submenu = textLanguages
+        format.addItem(withTitle: "Language of Selected Text", action: nil, keyEquivalent: "").submenu = textLanguages
 
         // Le righe e le colonne della tabella del cursore.
-        let table = submenu(of: main, title: "Tabella")
+        let table = submenu(of: main, title: "Table")
         for command in TableCommand.allCases {
             if command == .removeRow || command == .removeTable { table.addItem(.separator()) }
             table.addItem(withTitle: command.title, action: #selector(EditorWindowController.tableCommand(_:)), keyEquivalent: "").representedObject = command.rawValue
         }
         table.addItem(.separator())
-        table.addItem(withTitle: "Unisci le celle", action: #selector(EditorWindowController.mergeTableCells(_:)), keyEquivalent: "")
-        table.addItem(withTitle: "Dividi la cella", action: #selector(EditorWindowController.splitTableCell(_:)), keyEquivalent: "")
+        table.addItem(withTitle: "Merge Cells", action: #selector(EditorWindowController.mergeTableCells(_:)), keyEquivalent: "")
+        table.addItem(withTitle: "Split Cell", action: #selector(EditorWindowController.splitTableCell(_:)), keyEquivalent: "")
         table.addItem(.separator())
-        table.addItem(withTitle: "Tabella flottante, con didascalia", action: #selector(EditorWindowController.toggleTableFloat(_:)), keyEquivalent: "")
+        table.addItem(withTitle: "Floating Table with Caption", action: #selector(EditorWindowController.toggleTableFloat(_:)), keyEquivalent: "")
 
-        let view = submenu(of: main, title: "Vista")
-        view.addItem(withTitle: "Ingrandisci", action: #selector(EditorWindowController.zoomIn(_:)), keyEquivalent: "+")
-        view.addItem(withTitle: "Riduci", action: #selector(EditorWindowController.zoomOut(_:)), keyEquivalent: "-")
-        view.addItem(withTitle: "Dimensioni reali", action: #selector(EditorWindowController.zoomToActualSize(_:)), keyEquivalent: "0")
-        view.addItem(withTitle: "Adatta alla finestra", action: #selector(EditorWindowController.zoomToFit(_:)), keyEquivalent: "9")
+        let view = submenu(of: main, title: "View")
+        view.addItem(withTitle: "Zoom In", action: #selector(EditorWindowController.zoomIn(_:)), keyEquivalent: "+")
+        view.addItem(withTitle: "Zoom Out", action: #selector(EditorWindowController.zoomOut(_:)), keyEquivalent: "-")
+        view.addItem(withTitle: "Actual Size", action: #selector(EditorWindowController.zoomToActualSize(_:)), keyEquivalent: "0")
+        view.addItem(withTitle: "Fit to Window", action: #selector(EditorWindowController.zoomToFit(_:)), keyEquivalent: "9")
         view.addItem(.separator())
         // Come in Pages: Maiuscole-Comando-I.
-        view.addItem(withTitle: "Mostra caratteri nascosti", action: #selector(EditorWindowController.toggleInvisibles(_:)), keyEquivalent: "I")
+        view.addItem(withTitle: "Show Invisibles", action: #selector(EditorWindowController.toggleInvisibles(_:)), keyEquivalent: "I")
         view.addItem(.separator())
         // Lo stesso comando del pulsante compatto in alto a destra cambia il livello degli strumenti.
-        let advanced = view.addItem(withTitle: "Interfaccia dettagliata", action: #selector(EditorWindowController.toggleInterfaceMode(_:)), keyEquivalent: "a")
+        let advanced = view.addItem(withTitle: "Detailed Interface", action: #selector(EditorWindowController.toggleInterfaceMode(_:)), keyEquivalent: "a")
         advanced.keyEquivalentModifierMask = [.command, .option]
-        let tree = view.addItem(withTitle: "Albero degli oggetti", action: #selector(EditorWindowController.toggleObjectTree(_:)), keyEquivalent: "o")
+        let tree = view.addItem(withTitle: "Object Tree", action: #selector(EditorWindowController.toggleObjectTree(_:)), keyEquivalent: "o")
         tree.keyEquivalentModifierMask = [.command, .option]
-        let marks = view.addItem(withTitle: "Segni della provenienza", action: #selector(EditorWindowController.toggleProvenanceMarks(_:)), keyEquivalent: "p")
+        let marks = view.addItem(withTitle: "Provenance Marks", action: #selector(EditorWindowController.toggleProvenanceMarks(_:)), keyEquivalent: "p")
         marks.keyEquivalentModifierMask = [.command, .option]
-        view.addItem(withTitle: "Personalizza gli strumenti…", action: #selector(EditorWindowController.customizeToolbar(_:)), keyEquivalent: "")
+        view.addItem(withTitle: "Customize Tools…", action: #selector(EditorWindowController.customizeToolbar(_:)), keyEquivalent: "")
 
 
 
@@ -223,7 +223,7 @@ final class FloatSeriesMenuFiller: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         let styles = (NSApp.mainWindow?.windowController as? EditorWindowController)?.otherFloatStyles() ?? []
         if styles.isEmpty {
-            menu.addItem(withTitle: "Nessun'altra serie: le crea la scheda Flottanti dell'interfaccia avanzata", action: nil, keyEquivalent: "").isEnabled = false
+            menu.addItem(withTitle: "No other series: create them in the Floats tab of the detailed interface", action: nil, keyEquivalent: "").isEnabled = false
         }
         for style in styles {
             menu.addItem(withTitle: style, action: #selector(EditorWindowController.insertNoteOfSeries(_:)), keyEquivalent: "").representedObject = style

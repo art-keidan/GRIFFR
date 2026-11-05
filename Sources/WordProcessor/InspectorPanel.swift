@@ -17,15 +17,15 @@ enum InspectedObject: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .document: "Documento"
-        case .section: "Sezione"
-        case .page: "Pagina"
-        case .table: "Tabella"
-        case .cell: "Cella"
-        case .paragraph: "Paragrafo"
-        case .line: "Riga"
-        case .word: "Parola"
-        case .character: "Carattere"
+        case .document: "Document"
+        case .section: "Section"
+        case .page: "Page"
+        case .table: "Table"
+        case .cell: "Cell"
+        case .paragraph: "Paragraph"
+        case .line: "Line"
+        case .word: "Word"
+        case .character: "Character"
         }
     }
 }
@@ -59,19 +59,19 @@ final class InspectorModel: ObservableObject {
                 let op = formula.operation
                 let argument: String
                 switch op.argument {
-                case .boolean(let enabled): argument = enabled ? "Sì" : "No"
+                case .boolean(let enabled): argument = enabled ? "Yes" : "No"
                 case .integer(let count): argument = String(count)
-                case .text(let value): argument = value.isEmpty ? "Nessuna" : value
-                case .styleName(let name): argument = name ?? "Stesso stile"
+                case .text(let value): argument = value.isEmpty ? "None" : value
+                case .styleName(let name): argument = name ?? "Same style"
                 case .pageStart(let spacing):
-                    switch spacing { case .disabled: argument = "Disattivata"; case .distance(let points): argument = points.formatted() + " pt" }
+                    switch spacing { case .disabled: argument = "Off"; case .distance(let points): argument = points.formatted() + " pt" }
                 case .font(let role): argument = roleTitle(role)
                 case .face(let name), .family(let name): argument = name
                 case .length(let value, let unit): argument = value.formatted() + " " + unit.rawValue
-                case .language(let value): argument = value ?? "Lingua documento"
-                case .color(let value): argument = value ?? "Automatico"
+                case .language(let value): argument = value ?? "Document language"
+                case .color(let value): argument = value ?? "Automatic"
                 case .smallCaps(let mode): argument = mode.rawValue
-                case .hyphenates(let enabled): argument = enabled ? "Attiva" : "Disattivata"
+                case .hyphenates(let enabled): argument = enabled ? "On" : "Off"
                 case .alignment(let alignment): argument = alignment.rawValue
                 }
                 return op.predicate.title + " · " + op.property.title + " · " + argument + (formula.when.isAlways ? "" : " · " + formula.when.summary)
@@ -218,10 +218,10 @@ final class InspectorModel: ObservableObject {
 
     /// Perché il testo che chiede Graphite resta a Core Text; `nil` se Graphite lo compone davvero.
     var graphiteProblem: String? {
-        if !graphiteAvailable { return "graphite2 non è installata su questo Mac: si compone con Core Text" }
+        if !graphiteAvailable { return "graphite2 is not installed on this Mac: composing with Core Text" }
         if !fontHasGraphite {
             let name = shownFontName.map { CTFontCopyDisplayName(CTFontCreateWithName($0 as CFString, 12, nil)) as String }
-            return "\(name.map { "«\($0)»" } ?? "Questo font") non ha tabelle Graphite: si compone con Core Text"
+            return "\(name.map { "“\($0)”" } ?? "This font") has no Graphite tables: composing with Core Text"
         }
         return nil
     }
@@ -254,12 +254,12 @@ final class InspectorModel: ObservableObject {
     /// Il testo sotto un valore: da dove viene.
     func sourceText(_ value: InspectedValue) -> String {
         var text = switch value.source {
-        case .own: editsStyle ? "Fissato in questo stile" : "Dato qui"
-        case .style(let name): editsStyle ? "Da «\(name)», su cui si basa" : "Dallo stile «\(name)»"
-        case .document: "Dal documento"
-        case .rule(let summary): "Dalla regola: \(summary)"
+        case .own: editsStyle ? "Set in this style" : "Set here"
+        case .style(let name): editsStyle ? "From “\(name)”, which it is based on" : "From the style “\(name)”"
+        case .document: "From the document"
+        case .rule(let summary): "From the rule: \(summary)"
         }
-        if value.isMixed { text += " · la selezione ha valori diversi" }
+        if value.isMixed { text += " · the selection has different values" }
         return text
     }
 
@@ -301,7 +301,7 @@ final class InspectorHostingView: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     isolated deinit { if let focusMonitor { NSEvent.removeMonitor(focusMonitor) } }
 
@@ -400,9 +400,9 @@ struct InspectorView: View {
                     documentRows
                     factRows
                 case .page:
-                    Text(model.pageTypeName.map { "Tipo «\($0)»" } ?? "Tipo predefinito")
+                    Text(model.pageTypeName.map { "Type “\($0)”" } ?? "Default type")
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                        .help(model.pageTypeName == nil ? "Vale per le pagine senza un tipo proprio." : "Le modifiche valgono per tutte le pagine di questo tipo.")
+                        .help(model.pageTypeName == nil ? "Applies to pages without their own type." : "Changes apply to all pages of this type.")
                     PageSetupForm(setup: model.pageSetup) { transform in
                         var page = model.pageSetup
                         transform(&page)
@@ -415,7 +415,7 @@ struct InspectorView: View {
                                     setPageTypes: { model.setSectionPageTypes?($0) }, setPageNumbering: { model.setSectionPageNumbering?($0) },
                                     move: { model.moveSection?($0) }, remove: { model.removeSection?() })
                     } else {
-                        Text("Il cursore non è in una sezione. Una sezione si apre dal menu Inserisci.").foregroundStyle(.secondary)
+                        Text("The cursor is not in a section. Open a section from the Insert menu.").foregroundStyle(.secondary)
                     }
                     factRows
                 case .table:
@@ -424,14 +424,14 @@ struct InspectorView: View {
                                   setFloat: { model.setTableFloat?($0) },
                                   change: { model.changeTable?($0) }, command: { model.tableCommand?($0) })
                     } else {
-                        Text("Il cursore non è in una tabella. Una tabella si inserisce dal menu Inserisci.").foregroundStyle(.secondary)
+                        Text("The cursor is not in a table. Insert a table from the Insert menu.").foregroundStyle(.secondary)
                     }
                     factRows
                 case .cell:
                     if let cell = model.cell {
                         CellForm(info: cell, change: { model.changeCell?($0) }, split: { model.splitCell?() })
                     } else {
-                        Text("Il cursore non è in una tabella.").foregroundStyle(.secondary)
+                        Text("The cursor is not in a table.").foregroundStyle(.secondary)
                     }
                 case .line:
                     factRows
@@ -456,16 +456,16 @@ struct InspectorView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(model.object.title).font(.title3.bold())
             if model.object.level != nil {
-                Text(model.styleName.map { "Stile «\($0)»" } ?? "Senza stile").foregroundStyle(.secondary)
+                Text(model.styleName.map { "Style “\($0)”" } ?? "No style").foregroundStyle(.secondary)
                 if !model.editsStyle {
                     HStack(spacing: 8) {
                         Button { model.createStyle?() } label: { Image(systemName: "paintbrush") }
-                            .help("Crea uno stile con l'aspetto di questo \(model.object.title.lowercased())")
-                            .accessibilityLabel("Crea uno stile da qui")
+                            .help("Create a style that looks like this \(model.object.title.lowercased())")
+                            .accessibilityLabel("Create a Style from Here")
                         if model.object == .word || model.object == .character {
                             Button { model.createRule?() } label: { Image(systemName: "wand.and.rays") }
-                                .help("Crea una regola per il testo come quello selezionato")
-                                .accessibilityLabel("Crea una regola da qui")
+                                .help("Create a rule for text like the selected text")
+                                .accessibilityLabel("Create a Rule from Here")
                         }
                     }
                     .buttonStyle(.borderless)
@@ -481,8 +481,8 @@ struct InspectorView: View {
     @ViewBuilder private var detailRows: some View {
         if !model.details.isEmpty {
             Divider()
-            Text("Funzioni e assi").font(.headline)
-                .help("Ciascuno si toglie o si porta nello stile da solo, senza toccare gli altri.")
+            Text("Features and axes").font(.headline)
+                .help("Each one can be removed or moved into the style on its own, without touching the others.")
             ForEach(model.details) { detail in
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(alignment: .firstTextBaseline) {
@@ -500,21 +500,21 @@ struct InspectorView: View {
 
     private func detailSourceText(_ detail: InspectedDetail) -> String {
         var text = switch detail.source {
-        case .own: "Dato qui · nello stile: \(detail.inherited.lowercased())"
-        case .style(let name): "Dallo stile «\(name)»"
-        case .document: "Dal documento"
-        case .rule(let summary): "Dalla regola: \(summary)"
+        case .own: "Set here · in the style: \(detail.inherited.lowercased())"
+        case .style(let name): "From the style “\(name)”"
+        case .document: "From the document"
+        case .rule(let summary): "From the rule: \(summary)"
         }
-        if detail.isMixed { text += " · la selezione ha valori diversi" }
+        if detail.isMixed { text += " · the selection has different values" }
         return text
     }
 
     private func detailMenu(_ detail: InspectedDetail) -> some View {
         let receiver = model.detailReceiver
         return Menu {
-            Button(receiver.map { "Porta questo valore nello stile «\($0)»" } ?? "Porta questo valore nello stile") { model.moveDetailToStyle?(detail.detail) }
+            Button(receiver.map { "Move this value into the style “\($0)”" } ?? "Move this value into the style") { model.moveDetailToStyle?(detail.detail) }
                 .disabled(receiver == nil || !model.detailsMovable || detail.source != .own)
-            Button("Torna al valore ereditato") { model.resetDetail?(detail.detail) }
+            Button("Back to the inherited value") { model.resetDetail?(detail.detail) }
                 .disabled(detail.source != .own)
         } label: {
             Image(systemName: "ellipsis.circle")
@@ -522,16 +522,16 @@ struct InspectorView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help(model.detailsMovable || receiver == nil ? "Il valore dato qui"
-              : "Il testo ha un font diverso da quello dello stile: porta prima nello stile la famiglia")
+        .help(model.detailsMovable || receiver == nil ? "The value set here"
+              : "The text has a different font from the style: move the family into the style first")
     }
 
     /// Le proprietà dinamiche: si leggono soltanto.
     @ViewBuilder private var factRows: some View {
         if !model.facts.isEmpty {
             Divider()
-            Text("Dalla composizione").font(.headline)
-                .help("Valori calcolati componendo le pagine: cambiano mentre si scrive e non si impostano.")
+            Text("From the layout").font(.headline)
+                .help("Values computed while laying out the pages: they change as you type and cannot be set.")
             ForEach(model.facts, id: \.self) { fact in
                 HStack(alignment: .firstTextBaseline) {
                     Text(fact.title).frame(width: 118, alignment: .leading)
@@ -543,7 +543,7 @@ struct InspectorView: View {
 
     @ViewBuilder private var rows: some View {
         if model.values.isEmpty {
-            Text("Il documento è vuoto.").foregroundStyle(.secondary)
+            Text("The document is empty.").foregroundStyle(.secondary)
         }
         ForEach(model.values, id: \.property) { value in
             row(value)
@@ -571,7 +571,7 @@ struct InspectorView: View {
             if let summary = model.formulaSummary(value.property), let definition = model.formulaDefinitions[value.property] {
                 HStack(alignment: .firstTextBaseline) {
                     Text(summary).font(.caption).foregroundStyle(Color(nsColor: Theme.accent))
-                    Button("Bacheca") { model.openFormula?(definition.owner) }.font(.caption)
+                    Button("Composer") { model.openFormula?(definition.owner) }.font(.caption)
                 }.padding(.leading, wide ? 0 : 122)
             }
             Text(model.sourceText(value)).font(.caption)
@@ -598,13 +598,13 @@ struct InspectorView: View {
     private func styleMenu(_ value: InspectedValue) -> some View {
         Menu {
             if let definition = model.formulaDefinitions[value.property] {
-                Button("Apri la formula nella bacheca") { model.openFormula?(definition.owner) }
+                Button("Open the formula in the composer") { model.openFormula?(definition.owner) }
                 if definition.isCalculated {
-                    Button("Usa il risultato come valore fisso") { model.replaceFormula?(value.property) }
+                    Button("Use the result as a fixed value") { model.replaceFormula?(value.property) }
                 }
                 Divider()
             }
-            Button("Togli da questo stile (lo eredita)") { model.reset?(value.property) }
+            Button("Remove from this style (it inherits it)") { model.reset?(value.property) }
                 .disabled(value.source != .own)
         } label: {
             Image(systemName: "ellipsis.circle")
@@ -612,28 +612,28 @@ struct InspectorView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("Il valore di questo stile")
+        .help("This style's value")
     }
 
     private func textMenu(_ value: InspectedValue) -> some View {
         let property = value.property
         let receiver = model.receivers[property]
         return Menu {
-            Toggle("Cambia solo qui", isOn: Binding(get: { model.mode(property) == .here }, set: { if $0 { model.modes[property] = .here } }))
-            Toggle(receiver.map { "Cambia nello stile «\($0)»" } ?? "Cambia nello stile (il testo non ne ha)",
+            Toggle("Change only here", isOn: Binding(get: { model.mode(property) == .here }, set: { if $0 { model.modes[property] = .here } }))
+            Toggle(receiver.map { "Change in the style “\($0)”" } ?? "Change in the style (the text has none)",
                    isOn: Binding(get: { model.mode(property) == .style }, set: { if $0 { model.modes[property] = .style } }))
                 .disabled(receiver == nil)
             Divider()
             if let definition = model.formulaDefinitions[property] {
-                Button("Apri la formula nella bacheca") { model.openFormula?(definition.owner) }
+                Button("Open the formula in the composer") { model.openFormula?(definition.owner) }
                 if definition.isCalculated {
-                    Button("Sostituisci la formula nello stile con il valore qui") { model.replaceFormula?(property) }
+                    Button("Replace the formula in the style with the value here") { model.replaceFormula?(property) }
                 }
                 Divider()
             }
-            Button(receiver.map { (model.formulaDefinitions[property]?.isCalculated == true ? "Sostituisci la formula con questo valore in «\($0)»" : "Porta questo valore nello stile «\($0)»") } ?? "Porta questo valore nello stile") { model.moveToStyle?(property) }
+            Button(receiver.map { (model.formulaDefinitions[property]?.isCalculated == true ? "Replace the formula with this value in “\($0)”" : "Move this value into the style “\($0)”") } ?? "Move this value into the style") { model.moveToStyle?(property) }
                 .disabled(receiver == nil || value.source != .own)
-            Button("Torna al valore ereditato") { model.reset?(property) }
+            Button("Back to the inherited value") { model.reset?(property) }
                 .disabled(value.source != .own)
         } label: {
             Image(systemName: model.mode(property) == .style ? "paintbrush" : "ellipsis.circle")
@@ -641,7 +641,7 @@ struct InspectorView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help(model.mode(property) == .style ? "Le modifiche vanno nello stile" : "Le modifiche valgono solo qui")
+        .help(model.mode(property) == .style ? "Changes go into the style" : "Changes apply only here")
     }
 
     /// Il menu delle famiglie con i sottomenu: «Noto ▸ Noto Sans, Noto Serif…». La famiglia corrente ha il segno di spunta.
@@ -699,10 +699,10 @@ struct InspectorView: View {
                     decorationEditor(decoration, set: { var copy = list; copy[index] = $0; commit(copy) },
                                      remove: { var copy = list; copy.remove(at: index); commit(copy) })
                 }
-                Menu(list.isEmpty ? "Aggiungi un filetto" : "Aggiungi") {
-                    Button("Sottolineato") { commit(list + [.underline]) }
-                    Button("Barrato") { commit(list + [.strikethrough]) }
-                    Button("Soprallineato") { commit(list + [LineDecoration(position: .over)]) }
+                Menu(list.isEmpty ? "Add a Line" : "Add") {
+                    Button("Underline") { commit(list + [.underline]) }
+                    Button("Strikethrough") { commit(list + [.strikethrough]) }
+                    Button("Overline") { commit(list + [LineDecoration(position: .over)]) }
                 }
                 .fixedSize()
             }
@@ -731,10 +731,10 @@ struct InspectorView: View {
                         let chosen: VerticalPosition? = [nil, .superscript, .subscript, position ?? VerticalPosition(shift: 0.3, scale: 0.7)][choice]
                         model.change(.verticalPosition) { $0.verticalPosition = chosen?.encoded ?? "" }
                     })) {
-                    Text("Sulla linea di base").tag(0)
-                    Text("Apice").tag(1)
-                    Text("Pedice").tag(2)
-                    Text("Personalizzata").tag(3)
+                    Text("On the baseline").tag(0)
+                    Text("Superscript").tag(1)
+                    Text("Subscript").tag(2)
+                    Text("Custom").tag(3)
                 }
                 .labelsHidden()
                 if let position {
@@ -743,13 +743,13 @@ struct InspectorView: View {
                         number(position.shift, unit: "em") { shift in
                             model.change(.verticalPosition) { $0.verticalPosition = VerticalPosition(shift: shift, scale: position.scale, usesFontGlyphs: position.usesFontGlyphs).encoded }
                         }
-                        Text("corpo").foregroundStyle(.secondary)
+                        Text("size").foregroundStyle(.secondary)
                         number(position.scale, unit: "×") { scale in
                             let scale = min(max(scale, 0.2), 1)
                             model.change(.verticalPosition) { $0.verticalPosition = VerticalPosition(shift: position.shift, scale: scale, usesFontGlyphs: position.usesFontGlyphs).encoded }
                         }
                     }
-                    Toggle("Glifi del font, se li ha", isOn: Binding(get: { position.usesFontGlyphs }, set: { on in
+                    Toggle("The font's glyphs, if it has them", isOn: Binding(get: { position.usesFontGlyphs }, set: { on in
                         model.change(.verticalPosition) { $0.verticalPosition = VerticalPosition(shift: position.shift, scale: position.scale, usesFontGlyphs: on).encoded }
                     }))
                 }
@@ -760,25 +760,25 @@ struct InspectorView: View {
                     get: { Color(nsColor: (v.color).flatMap { TextStyling.color(hex: $0) } ?? .black) },
                     set: { color in model.change(.color) { $0.color = TextStyling.hex(of: NSColor(color)) ?? "" } }), supportsOpacity: false)
                     .labelsHidden()
-                Button("Automatico") { model.change(.color) { $0.color = "" } }
+                Button("Automatic") { model.change(.color) { $0.color = "" } }
                     .disabled((v.color ?? "").isEmpty)
             }
         case .language:
             Picker("", selection: Binding(get: { v.language ?? "" }, set: { code in model.change(.language) { $0.language = code } })) {
-                Text("Quella del documento").tag("")
+                Text("The document's").tag("")
                 ForEach(model.languages, id: \.self) { Text($0.name).tag($0.code) }
             }
             .labelsHidden()
         case .hyphenates:
-            Toggle("Divide le parole a fine riga", isOn: Binding(get: { v.hyphenates ?? true }, set: { on in model.change(.hyphenates) { $0.hyphenates = on } }))
+            Toggle("Splits words at the end of lines", isOn: Binding(get: { v.hyphenates ?? true }, set: { on in model.change(.hyphenates) { $0.hyphenates = on } }))
         case .alignment:
             Picker("", selection: Binding(get: { v.alignment ?? .natural }, set: { alignment in model.change(.alignment) { $0.alignment = alignment } })) {
-                Text("Naturale").tag(ParagraphStyle.Alignment.natural)
-                Text("A sinistra").tag(ParagraphStyle.Alignment.left)
-                Text("Al centro").tag(ParagraphStyle.Alignment.center)
-                Text("A destra").tag(ParagraphStyle.Alignment.right)
-                Text("Giustificato").tag(ParagraphStyle.Alignment.justified)
-                Text("Sulla virgola").tag(ParagraphStyle.Alignment.decimal)
+                Text("Natural").tag(ParagraphStyle.Alignment.natural)
+                Text("Left").tag(ParagraphStyle.Alignment.left)
+                Text("Center").tag(ParagraphStyle.Alignment.center)
+                Text("Right").tag(ParagraphStyle.Alignment.right)
+                Text("Justified").tag(ParagraphStyle.Alignment.justified)
+                Text("Decimal").tag(ParagraphStyle.Alignment.decimal)
             }
             .labelsHidden()
         case .leftIndent:
@@ -793,13 +793,13 @@ struct InspectorView: View {
             measurement(v.spaceAfter ?? 0) { x in model.change(.spaceAfter) { $0.spaceAfter = x } }
         case .lineHeightMultiple:
             number(v.lineHeightMultiple ?? 0, unit: "×") { x in model.change(.lineHeightMultiple) { $0.lineHeightMultiple = max(0, x) } }
-                .help("Quante volte l'altezza della riga; 0 vuol dire l'altezza naturale del font")
+                .help("Multiple of the line height; 0 means the font's natural height")
         case .lineSpacing:
             measurement(v.lineSpacing ?? 0) { x in model.change(.lineSpacing) { $0.lineSpacing = x } }
         case .openingDistance:
             // Una misura di pagina: in millimetri come i margini, e accetta qualsiasi unità.
             LengthField(points: CGFloat(v.openingDistance ?? 0)) { x in model.change(.openingDistance) { $0.openingDistance = Double(x) } }
-                .help("Dal margine superiore, solo per il paragrafo che apre una sequenza di pagine: il titolo di una sezione che comincia su una pagina nuova, o il primo del documento")
+                .help("From the top margin, only for the paragraph that opens a sequence of pages: the title of a section that starts on a new page, or the first of the document")
         case .keepWithNext:
             Toggle("", isOn: Binding(get: { v.keeping.withNext ?? false }, set: { on in model.change(.keepWithNext) { $0.keeping.withNext = on } }))
                 .labelsHidden()
@@ -812,7 +812,7 @@ struct InspectorView: View {
             linesPicker(v.keeping.linesAtStart ?? 1) { lines in model.change(.widowLines) { $0.keeping.linesAtStart = lines } }
         case .list:
             Picker("", selection: Binding(get: { v.listName ?? "" }, set: { name in model.change(.list) { $0.listName = name } })) {
-                Text("Nessuna").tag("")
+                Text("None").tag("")
                 if let name = v.listName, !name.isEmpty, !model.lists.contains(name) { Text(name).tag(name) }
                 ForEach(model.lists, id: \.self) { Text($0).tag($0) }
             }
@@ -823,7 +823,7 @@ struct InspectorView: View {
     /// Le righe minime della tenuta: nessuna (1) o da 2 a 9.
     private func linesPicker(_ lines: Int, set: @escaping (Int) -> Void) -> some View {
         Picker("", selection: Binding(get: { lines }, set: set)) {
-            Text("nessuno").tag(1)
+            Text("none").tag(1)
             ForEach(Array(LineKeeping.lineRange.dropFirst()), id: \.self) { Text("\($0)").tag($0) }
         }
         .labelsHidden()
@@ -837,9 +837,9 @@ struct InspectorView: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Picker("", selection: Binding(get: { decoration.position }, set: { value in changed { $0.position = value } })) {
-                    Text("Sotto").tag(LineDecoration.Position.under)
-                    Text("In mezzo").tag(LineDecoration.Position.through)
-                    Text("Sopra").tag(LineDecoration.Position.over)
+                    Text("Under").tag(LineDecoration.Position.under)
+                    Text("Through").tag(LineDecoration.Position.through)
+                    Text("Over").tag(LineDecoration.Position.over)
                 }
                 .labelsHidden()
                 .fixedSize()
@@ -853,27 +853,27 @@ struct InspectorView: View {
                 .labelsHidden()
                 .fixedSize()
                 Spacer(minLength: 0)
-                Button { remove() } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless).help("Togli il filetto")
+                Button { remove() } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless).help("Remove Line")
             }
             HStack(spacing: 6) {
-                label("Distanza")
+                label("Distance")
                 measurement(decoration.offset, allowsNegative: true) { value in changed { $0.offset = value } }
             }
             HStack(spacing: 6) {
-                label("Spessore")
+                label("Thickness")
                 measurement(decoration.thickness ?? 0) { value in changed { $0.thickness = value > 0 ? value : nil } }
-                    .help("0 vuol dire lo spessore che il font dichiara")
+                    .help("0 means the thickness the font declares")
             }
             HStack(spacing: 6) {
-                label("Colore")
-                ColorPicker("Colore", selection: Binding(
+                label("Color")
+                ColorPicker("Color", selection: Binding(
                     get: { Color(nsColor: decoration.color.flatMap { TextStyling.color(hex: $0) } ?? .black) },
                     set: { color in changed { $0.color = TextStyling.hex(of: NSColor(color)) } }), supportsOpacity: false)
                     .labelsHidden()
-                Button("Quello del testo") { changed { $0.color = nil } }.disabled(decoration.color == nil)
+                Button("The text's") { changed { $0.color = nil } }.disabled(decoration.color == nil)
             }
             if decoration.position == .under {
-                Toggle("Salta le discendenti", isOn: Binding(get: { decoration.skipsDescenders }, set: { on in changed { $0.skipsDescenders = on } }))
+                Toggle("Skips descenders", isOn: Binding(get: { decoration.skipsDescenders }, set: { on in changed { $0.skipsDescenders = on } }))
             }
         }
         .padding(8)
@@ -884,7 +884,7 @@ struct InspectorView: View {
     /// Una misura in punti che accetta anche millimetri, centimetri, pollici, pica e calcoli.
     private func measurement(_ value: Double, allowsNegative: Bool = false, commit: @escaping (Double) -> Void) -> some View {
         LengthField(points: CGFloat(value), unit: .points, allowsNegative: allowsNegative) { commit(Double($0)) }
-            .help("Si accettano mm, cm, in, pt, pc e calcoli; senza unità il valore è in punti")
+            .help("Accepts mm, cm, in, pt, pc and arithmetic; without a unit the value is in points")
     }
 
     /// Un campo numerico senza unità di lunghezza.
@@ -902,34 +902,34 @@ struct InspectorView: View {
     private var documentRows: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Lingua").frame(width: 118, alignment: .leading)
+                Text("Language").frame(width: 118, alignment: .leading)
                 Picker("", selection: Binding(get: { model.documentLanguage ?? "" }, set: { model.setDocumentLanguage?($0.isEmpty ? nil : $0) })) {
-                    Text("Nessuna").tag("")
+                    Text("None").tag("")
                     ForEach(model.languages, id: \.self) { Text($0.name).tag($0.code) }
                 }
                 .labelsHidden()
             }
-            Toggle("Sillabazione: divide le parole a fine riga", isOn: Binding(get: { model.hyphenates }, set: { model.setHyphenates?($0) }))
-            Toggle("Margini ottici", isOn: Binding(get: { model.usesOpticalMargins }, set: { model.features.setOpticalMargins?($0) }))
-            Toggle("Spaziatura per corpo (tabella trak)", isOn: Binding(get: { model.appliesFontTracking }, set: { model.features.setFontTracking?($0) }))
+            Toggle("Hyphenation: splits words at the end of lines", isOn: Binding(get: { model.hyphenates }, set: { model.setHyphenates?($0) }))
+            Toggle("Optical margins", isOn: Binding(get: { model.usesOpticalMargins }, set: { model.features.setOpticalMargins?($0) }))
+            Toggle("Size-specific tracking (trak table)", isOn: Binding(get: { model.appliesFontTracking }, set: { model.features.setFontTracking?($0) }))
             HStack(spacing: 8) {
-                Text("Espansione glifi").frame(width: 118, alignment: .leading)
+                Text("Glyph expansion").frame(width: 118, alignment: .leading)
                 Slider(value: Binding(get: { model.glyphExpansionLimit }, set: { model.setGlyphExpansionLimit?($0) }),
                        in: 0...0.03, step: 0.001) { model.glyphExpansionDragging?($0) }
                     .controlSize(.small)
-                    .help("Nel testo giustificato; 0% disattiva l'espansione")
+                    .help("In justified text; 0% turns expansion off")
                 Text(model.glyphExpansionLimit, format: .percent.precision(.fractionLength(0...1)))
                     .monospacedDigit().frame(width: 44, alignment: .trailing)
             }
             HStack {
-                Text("Note numerate con").frame(width: 118, alignment: .leading)
+                Text("Notes numbered with").frame(width: 118, alignment: .leading)
                 Picker("", selection: Binding(get: { model.noteList ?? "" }, set: { model.setNoteList?($0.isEmpty ? nil : $0) })) {
-                    Text("1, 2, 3 (nessuna Lista)").tag("")
+                    Text("1, 2, 3 (no list)").tag("")
                     ForEach(model.lists, id: \.self) { Text($0).tag($0) }
                 }
                 .labelsHidden()
             }
-            Text("Stili, Liste, stili di flottante e regole del documento si cambiano nelle schede qui sopra.").font(.caption).foregroundStyle(.secondary)
+            Text("The document's styles, lists, float styles and rules are changed in the tabs above.").font(.caption).foregroundStyle(.secondary)
         }
     }
 }
@@ -961,7 +961,7 @@ struct CountsView: View {
                     }
                 }
             }
-            Text("Il testo delle note non è contato.").font(.caption).foregroundStyle(.secondary)
+            Text("Note text is not counted.").font(.caption).foregroundStyle(.secondary)
         }
         .padding(14)
         .frame(width: 260)
@@ -981,7 +981,7 @@ struct PageSetupForm: View {
     /// I formati proposti, in millimetri, verticali.
     static let formats: [(name: String, width: Double, height: Double)] = [
         ("A3", 297, 420), ("A4", 210, 297), ("A5", 148, 210), ("B5", 176, 250),
-        ("Lettera (US)", 215.9, 279.4), ("Legale (US)", 215.9, 355.6), ("Tabloid (US)", 279.4, 431.8),
+        ("Letter (US)", 215.9, 279.4), ("Legal (US)", 215.9, 355.6), ("Tabloid (US)", 279.4, 431.8),
     ]
 
     /// Il formato della pagina, in qualsiasi orientamento; `nil` se è personalizzato.
@@ -1001,7 +1001,7 @@ struct PageSetupForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            row("Formato") {
+            row("Size") {
                 Picker("", selection: Binding(get: { Self.format(of: setup.paperSize) ?? "" }, set: { name in
                     guard let format = Self.formats.first(where: { $0.name == name }) else { return }
                     let width = PageSetup.points(fromMillimetres: format.width), height = PageSetup.points(fromMillimetres: format.height)
@@ -1011,11 +1011,11 @@ struct PageSetupForm: View {
                     }
                 })) {
                     ForEach(Self.formats, id: \.name) { Text($0.name).tag($0.name) }
-                    if Self.format(of: setup.paperSize) == nil { Text("Personalizzato").tag("") }
+                    if Self.format(of: setup.paperSize) == nil { Text("Custom").tag("") }
                 }
                 .labelsHidden()
             }
-            row("Orientamento") {
+            row("Orientation") {
                 Picker("", selection: Binding(get: { isLandscape }, set: { landscape in
                     change { page in
                         if (page.paperSize.width > page.paperSize.height) != landscape {
@@ -1023,23 +1023,23 @@ struct PageSetupForm: View {
                         }
                     }
                 })) {
-                    Text("Verticale").tag(false)
-                    Text("Orizzontale").tag(true)
+                    Text("Portrait").tag(false)
+                    Text("Landscape").tag(true)
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
                 .fixedSize()
             }
-            row("Larghezza") { LengthField(points: setup.paperSize.width) { value in change { $0.paperSize.width = value } } }
-            row("Altezza") { LengthField(points: setup.paperSize.height) { value in change { $0.paperSize.height = value } } }
-            Toggle("Pagine affacciate, come in un libro", isOn: Binding(get: { setup.facing }, set: { on in change { $0.facing = on } }))
-            row("Margine sopra") { LengthField(points: setup.top) { value in change { $0.top = value } } }
-            row("Margine sotto") { LengthField(points: setup.bottom) { value in change { $0.bottom = value } } }
-            row(setup.facing ? "Margine interno" : "Margine sinistro") { LengthField(points: setup.left) { value in change { $0.left = value } } }
-            row(setup.facing ? "Margine esterno" : "Margine destro") { LengthField(points: setup.right) { value in change { $0.right = value } } }
-            Text("Misure e calcoli: mm, cm, in, pt, pc. Esempio: 3 pt + 5 cm.")
+            row("Width") { LengthField(points: setup.paperSize.width) { value in change { $0.paperSize.width = value } } }
+            row("Height") { LengthField(points: setup.paperSize.height) { value in change { $0.paperSize.height = value } } }
+            Toggle("Facing pages, as in a book", isOn: Binding(get: { setup.facing }, set: { on in change { $0.facing = on } }))
+            row("Top margin") { LengthField(points: setup.top) { value in change { $0.top = value } } }
+            row("Bottom margin") { LengthField(points: setup.bottom) { value in change { $0.bottom = value } } }
+            row(setup.facing ? "Inside margin" : "Left margin") { LengthField(points: setup.left) { value in change { $0.left = value } } }
+            row(setup.facing ? "Outside margin" : "Right margin") { LengthField(points: setup.right) { value in change { $0.right = value } } }
+            Text("Measures and arithmetic: mm, cm, in, pt, pc. Example: 3 pt + 5 cm.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                .help("Le misure valgono per tutte le pagine del documento. Si accettano millimetri, centimetri, pollici, punti e pica (anche 1p6), con calcoli come 210 − 2 × 25.")
+                .help("The measures apply to all pages of the document. Millimeters, centimeters, inches, points and picas (also 1p6) are accepted, with arithmetic such as 210 − 2 × 25.")
         }
     }
 
@@ -1077,8 +1077,8 @@ struct SectionForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            line("Titolo") { Text(info.title).foregroundStyle(info.title == "senza titolo" ? .secondary : .primary) }
-            line("Ruolo") {
+            line("Title") { Text(info.title).foregroundStyle(info.title == "untitled" ? .secondary : .primary) }
+            line("Role") {
                 HStack(spacing: 4) {
                     TextField("", text: $roleText)
                         .frame(maxWidth: 150)
@@ -1091,47 +1091,47 @@ struct SectionForm: View {
                         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 }
             }
-            .help("Il ruolo dice che cosa è la sezione, distinto dalla profondità e dallo stile del titolo. Si può scegliere o scrivere.")
-            line("Comincia") {
+            .help("The role says what the section is, apart from its depth and the style of its title. Choose one or type it.")
+            line("Starts") {
                 Picker("", selection: Binding(get: { info.start }, set: { setStart($0) })) {
-                    Text("di seguito").tag(SectionStart.continuous)
-                    Text("su una pagina nuova").tag(SectionStart.newPage)
-                    Text("sulla prossima pagina dispari").tag(SectionStart.oddPage)
+                    Text("continuously").tag(SectionStart.continuous)
+                    Text("on a new page").tag(SectionStart.newPage)
+                    Text("on the next odd page").tag(SectionStart.oddPage)
                 }
                 .labelsHidden()
                 .fixedSize()
             }
-            .help("Le sezioni successive dello stesso ruolo ereditano questa scelta.")
+            .help("Following sections of the same role inherit this choice.")
             VStack(alignment: .leading, spacing: 8) {
-                typePicker("Pagine", \.pages, inherited: "come la sezione esterna")
-                typePicker("Pagine pari", \.evenPages, inherited: "come le altre")
-                typePicker("Prima pagina", \.firstPage, inherited: "come le altre")
+                typePicker("Pages", \.pages, inherited: "as the outer section")
+                typePicker("Even pages", \.evenPages, inherited: "as the others")
+                typePicker("First page", \.firstPage, inherited: "as the others")
             }
-            .help("I tipi si definiscono nella scheda Pagine. Pagine e pari valgono anche per le sezioni interne; la prima pagina solo per questa.")
-            line("Numeri di pagina") {
+            .help("Types are defined in the Pages tab. Pages and even pages also apply to inner sections; the first page only to this one.")
+            line("Page numbers") {
                 Picker("", selection: Binding(get: { info.pageNumbering }, set: { setPageNumbering($0) })) {
                     Text("proseguono").tag(String?.none)
-                    ForEach(info.listNames, id: \.self) { Text("ripartono con «\($0)»").tag(Optional($0)) }
+                    ForEach(info.listNames, id: \.self) { Text("restart with “\($0)”").tag(Optional($0)) }
                 }
                 .labelsHidden()
                 .fixedSize()
             }
-            .help("La numerazione riparte dalla prima pagina con la Lista scelta e prosegue nelle sezioni successive fino a una nuova ripartenza.")
-            line("Livello") {
+            .help("Numbering restarts from the first page with the chosen list and continues in the following sections until the next restart.")
+            line("Level") {
                 HStack(spacing: 8) {
                     Text("\(info.depth)")
-                    Button("Più fuori") { move(-1) }.disabled(!info.canMoveOutside)
-                    Button("Più dentro") { move(1) }.disabled(!info.canMoveInside)
+                    Button("Out") { move(-1) }.disabled(!info.canMoveOutside)
+                    Button("In") { move(1) }.disabled(!info.canMoveInside)
                 }
                 .controlSize(.small)
             }
-            .help("La sezione si sposta con le sue sezioni interne. Più dentro: diventa l'ultima interna della precedente. Più fuori: le sorelle seguenti diventano sue interne.")
-            line("Contiene") {
-                Text("\(info.paragraphs) \(info.paragraphs == 1 ? "paragrafo" : "paragrafi"), \(info.sections) \(info.sections == 1 ? "sezione interna" : "sezioni interne")")
+            .help("The section moves with its inner sections. In: it becomes the last inner section of the previous one. Out: the following siblings become its inner sections.")
+            line("Contains") {
+                Text("\(info.paragraphs) \(info.paragraphs == 1 ? "paragraph" : "paragraphs"), \(info.sections) \(info.sections == 1 ? "inner section" : "inner sections")")
             }
-            Button("Togli la sezione") { remove() }
+            Button("Remove Section") { remove() }
                 .controlSize(.small)
-                .help("Il titolo resta come paragrafo; il testo passa alla sezione che precede, le interne salgono di un livello")
+                .help("The title stays as a paragraph; the text goes to the previous section, inner sections move up a level")
         }
         .onAppear { roleText = info.role }
         .onChange(of: info.role) { _, role in roleText = role }
@@ -1150,7 +1150,7 @@ struct SectionForm: View {
                 ForEach(info.typeNames, id: \.self) { Text($0).tag(Optional($0)) }
                 // Un nome che non c'è più resta visibile finché non si cambia.
                 if let current = info.pageTypes[keyPath: path], current != PageType.defaultName, !info.typeNames.contains(current) {
-                    Text("\(current) (non c'è più)").tag(Optional(current))
+                    Text("\(current) (no longer exists)").tag(Optional(current))
                 }
             }
             .labelsHidden()
@@ -1245,7 +1245,7 @@ struct PageSetupSheetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Formato della pagina").font(.headline)
+            Text("Page Setup").font(.headline)
             PageSetupForm(setup: model.setup) { transform in
                 var page = model.setup
                 transform(&page)
@@ -1253,7 +1253,7 @@ struct PageSetupSheetView: View {
             }
             HStack {
                 Spacer()
-                Button("Annulla") { model.finish?(nil) }.keyboardShortcut(.cancelAction)
+                Button("Cancel") { model.finish?(nil) }.keyboardShortcut(.cancelAction)
                 Button("OK") { model.finish?(model.setup) }.keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
             }
         }

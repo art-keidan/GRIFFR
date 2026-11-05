@@ -13,19 +13,19 @@ final class DefinitionsPanel {
 
         var title: String {
             switch self {
-            case .inspector: "Ispettore"
-            case .styles: "Stili"
-            case .lists: "Liste"
-            case .floats: "Flottanti"
-            case .rules: "Regole"
-            case .pages: "Pagine"
-            case .tables: "Tabelle"
+            case .inspector: "Inspector"
+            case .styles: "Styles"
+            case .lists: "Lists"
+            case .floats: "Floats"
+            case .rules: "Rules"
+            case .pages: "Pages"
+            case .tables: "Tables"
             }
         }
     }
 
     let view = NSView()
-    private let tabs = NSSegmentedControl(labels: ["Isp.", "Stili", "Liste", "Flott.", "Regole", "Pagine", "Tabelle"],
+    private let tabs = NSSegmentedControl(labels: ["Insp.", "Styles", "Lists", "Floats", "Rules", "Pages", "Tables"],
                                           trackingMode: .selectOne, target: nil, action: nil)
     private let content = NSView()
     private var hosts: [Tab: NSView] = [:]
@@ -64,7 +64,7 @@ final class DefinitionsPanel {
         tabs.controlSize = .small
         tabs.segmentStyle = .texturedRounded
         for tab in Tab.allCases { tabs.setToolTip(tab.title, forSegment: tab.rawValue) }
-        tabs.setAccessibilityLabel("Sezione degli strumenti dettagliati")
+        tabs.setAccessibilityLabel("Detailed tools section")
         tabs.target = self
         tabs.action = #selector(tabChanged(_:))
         let bar = Bands.band([tabs, Bands.spacer()], height: 32)
@@ -308,8 +308,8 @@ final class StylesTabModel: ObservableObject {
     var renameProblem: String? {
         let name = nameDraft.trimmingCharacters(in: .whitespaces)
         guard let selection, name != selection else { return nil }
-        if name.isEmpty { return "Lo stile ha bisogno di un nome." }
-        if sheet.style(named: name) != nil { return "C'è già uno stile «\(name)»." }
+        if name.isEmpty { return "The style needs a name." }
+        if sheet.style(named: name) != nil { return "There is already a style “\(name)”." }
         return nil
     }
 
@@ -321,9 +321,9 @@ final class StylesTabModel: ObservableObject {
 
     static func title(_ target: StyleTarget) -> String {
         switch target {
-        case .paragraph: "Paragrafo"
-        case .word: "Parola"
-        case .character: "Carattere"
+        case .paragraph: "Paragraph"
+        case .word: "Word"
+        case .character: "Character"
         }
     }
 }
@@ -346,21 +346,21 @@ struct StylesTabView: View {
             .frame(height: 220)
             HStack(spacing: 4) {
                 Menu {
-                    Button("Stile di paragrafo") { model.onNew?(.paragraph) }
-                    Button("Stile di parola") { model.onNew?(.word) }
-                    Button("Stile di carattere") { model.onNew?(.character) }
+                    Button("Paragraph style") { model.onNew?(.paragraph) }
+                    Button("Word style") { model.onNew?(.word) }
+                    Button("Character style") { model.onNew?(.character) }
                 } label: {
                     Image(systemName: "plus")
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
-                .help("Uno stile nuovo (basato su quello scelto, se è della stessa specie)")
+                .help("A new style (based on the chosen one, if it is of the same kind)")
                 Button { model.selection.map { model.onDuplicate?($0) } } label: { Image(systemName: "plus.square.on.square") }
                     .disabled(model.selection == nil)
-                    .help("Duplica lo stile scelto")
+                    .help("Duplicate the chosen style")
                 Button { model.selection.map { model.onRemove?($0) } } label: { Image(systemName: "minus") }
                     .disabled(model.selection == nil)
-                    .help("Togli lo stile: il testo passa allo stile su cui si basava")
+                    .help("Remove the style: the text goes to the style it was based on")
                 Spacer()
             }
             .padding(.horizontal, 10)
@@ -368,7 +368,7 @@ struct StylesTabView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .firstTextBaseline) {
-                            Text("Nome").frame(width: 118, alignment: .leading)
+                            Text("Name").frame(width: 118, alignment: .leading)
                             TextField("", text: $model.nameDraft)
                                 .focused($nameFocused)
                                 .onSubmit { model.commitName() }
@@ -378,9 +378,9 @@ struct StylesTabView: View {
                             Text(problem).font(.caption).foregroundStyle(.red)
                         }
                         HStack(alignment: .firstTextBaseline) {
-                            Text("Basato su").frame(width: 118, alignment: .leading)
+                            Text("Based on").frame(width: 118, alignment: .leading)
                             Picker("", selection: Binding(get: { style.basedOn }, set: { model.onParent?(style.name, $0) })) {
-                                Text("Nessuno").tag(String?.none)
+                                Text("None").tag(String?.none)
                                 ForEach(model.sheet.possibleParents(of: style.name), id: \.self) { Text($0).tag(Optional($0)) }
                             }
                             .labelsHidden()
@@ -392,13 +392,13 @@ struct StylesTabView: View {
                         }
                         Divider()
                         InspectorView(model: model.inspector, rowsOnly: true)
-                            .help("Stile di \(StylesTabModel.title(style.target).lowercased()): le modifiche valgono per tutto il testo che lo usa, tranne ciò che è dato a mano.")
+                            .help("\(StylesTabModel.title(style.target)) style: changes apply to all the text that uses it, except what is set by hand.")
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
             } else {
-                Text("Nessuno stile scelto.").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text("No style chosen.").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .padding(.top, 8)
@@ -411,16 +411,16 @@ extension StylesTabView {
         let inherited = model.sheet.values(of: style.basedOn).pageStartSpacing
         let initial: Double = if case .distance(let points) = inherited { points } else { PageSetup.points(fromMillimetres: 30) }
         let selectedDistance: PageStartSpacing = if case .distance(let points) = own { .distance(points) } else { .distance(initial) }
-        LabeledContent("Quando apre la pagina") {
-            Picker("Distanza dallo specchio", selection: Binding(get: { own }, set: { model.onPageStart?(style.name, $0) })) {
-                Text("Eredita").tag(PageStartSpacing?.none)
-                Text("Disattivata").tag(Optional(PageStartSpacing.disabled))
-                Text("Distanza").tag(Optional(selectedDistance))
+        LabeledContent("When it opens the page") {
+            Picker("Distance from the text area", selection: Binding(get: { own }, set: { model.onPageStart?(style.name, $0) })) {
+                Text("Inherit").tag(PageStartSpacing?.none)
+                Text("Off").tag(Optional(PageStartSpacing.disabled))
+                Text("Distance").tag(Optional(selectedDistance))
             }
             .labelsHidden()
         }
         if case .distance(let points) = own {
-            LabeledContent("Dal margine superiore") {
+            LabeledContent("From the top margin") {
                 LengthField(points: CGFloat(points)) { x in
                     if x.isFinite && x >= 0 { model.onPageStart?(style.name, .distance(Double(x))) }
                 }
@@ -433,10 +433,10 @@ extension StylesTabView {
         let own = style.declaredValues.outlineLevel
         let inherited = style.basedOn.flatMap { model.sheet.resolveParagraph(styleName: $0).outlineLevel }
         HStack(alignment: .firstTextBaseline) {
-            Text("Livello").frame(width: 118, alignment: .leading)
+            Text("Level").frame(width: 118, alignment: .leading)
             Picker("", selection: Binding(get: { own ?? (style.basedOn == nil ? 0 : nil) }, set: { model.onOutlineLevel?(style.name, $0) })) {
-                if style.basedOn != nil { Text(inherited.map { "Come lo stile di base (\($0))" } ?? "Come lo stile di base (nessuno)").tag(Int?.none) }
-                Text("Nessuno").tag(Optional(0))
+                if style.basedOn != nil { Text(inherited.map { "As the base style (\($0))" } ?? "As the base style (none)").tag(Int?.none) }
+                Text("None").tag(Optional(0))
                 ForEach(1...9, id: \.self) { Text("\($0)").tag(Optional($0)) }
             }
             .labelsHidden()
@@ -449,14 +449,14 @@ extension StylesTabView {
         let inherited = style.basedOn.flatMap { model.sheet.values(of: $0).opensSection }.flatMap { $0.isEmpty ? nil : $0 }
         let roles = Typesetting.Section.Role.builtIn + [own].compactMap { $0 }.filter { !$0.isEmpty && !Typesetting.Section.Role.builtIn.contains($0) }
         HStack(alignment: .firstTextBaseline) {
-            Text("Apre una sezione").frame(width: 118, alignment: .leading)
+            Text("Opens a section").frame(width: 118, alignment: .leading)
             Picker("", selection: Binding(get: { own ?? (style.basedOn == nil ? "" : nil) }, set: { model.onOpensSection?(style.name, $0) })) {
-                if style.basedOn != nil { Text(inherited.map { "Come lo stile di base (\($0))" } ?? "Come lo stile di base (no)").tag(String?.none) }
+                if style.basedOn != nil { Text(inherited.map { "As the base style (\($0))" } ?? "As the base style (no)").tag(String?.none) }
                 Text("No").tag(Optional(""))
                 ForEach(roles, id: \.self) { Text($0).tag(Optional($0)) }
             }
             .labelsHidden()
         }
-        .help("Il paragrafo che riceve questo stile diventa il titolo di una sezione del ruolo scelto. La sezione resta anche se lo stile cambia.")
+        .help("The paragraph that gets this style becomes the title of a section of the chosen role. The section remains even if the style changes.")
     }
 }

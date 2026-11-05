@@ -9,17 +9,17 @@ struct RuleDraft: Identifiable, Equatable {
 
         var title: String {
             switch self {
-            case .selection: "una selezione composta"
-            case .paragraph: "il paragrafo intero"
-            case .firstLetter: "la prima lettera"
-            case .firstWords: "le prime parole"
-            case .firstSentence: "la prima frase"
-            case .firstLines: "le prime righe"
-            case .lastLine: "l'ultima riga"
-            case .capitals: "le parole tutte maiuscole (sigle)"
-            case .roman: "i numeri romani"
-            case .numbers: "i numeri"
-            case .listed: "le parole scritte qui sotto"
+            case .selection: "a composed selection"
+            case .paragraph: "the whole paragraph"
+            case .firstLetter: "the first letter"
+            case .firstWords: "the first words"
+            case .firstSentence: "the first sentence"
+            case .firstLines: "the first lines"
+            case .lastLine: "the last line"
+            case .capitals: "all-capital words (abbreviations)"
+            case .roman: "Roman numerals"
+            case .numbers: "numbers"
+            case .listed: "the words written below"
             }
         }
     }
@@ -151,11 +151,11 @@ final class RulesSheetModel: ObservableObject {
 
     var problem: String? {
         for (index, row) in rows.enumerated() {
-            if row.styleName.isEmpty { return "La regola \(index + 1) non ha uno stile da applicare." }
-            if row.find == .listed, row.words.trimmingCharacters(in: .whitespaces).isEmpty { return "La regola \(index + 1) non ha parole da cercare." }
-            if row.place == .firstAfter, row.afterStyle.isEmpty { return "La regola \(index + 1) non dice dopo quale stile." }
+            if row.styleName.isEmpty { return "Rule \(index + 1) has no style to apply." }
+            if row.find == .listed, row.words.trimmingCharacters(in: .whitespaces).isEmpty { return "Rule \(index + 1) has no words to find." }
+            if row.place == .firstAfter, row.afterStyle.isEmpty { return "Rule \(index + 1) does not say after which style." }
             if row.find != .paragraph, missingStyles.contains(where: { $0.name == row.styleName && $0.target == .paragraph }) || paragraphStyles.contains(row.styleName) {
-                return "La regola \(index + 1) applica uno stile di paragrafo: va bene solo per il paragrafo intero."
+                return "Rule \(index + 1) applies a paragraph style: that only works for the whole paragraph."
             }
         }
         return nil
@@ -208,15 +208,15 @@ struct RulesSheetView: View {
             }
             .frame(height: 150)
             HStack(spacing: 4) {
-                Button { model.add() } label: { Image(systemName: "plus") }.help("Una regola nuova")
-                Button { model.removeSelected() } label: { Image(systemName: "minus") }.disabled(model.selectedIndex == nil).help("Togli la regola scelta")
+                Button { model.add() } label: { Image(systemName: "plus") }.help("A new rule")
+                Button { model.removeSelected() } label: { Image(systemName: "minus") }.disabled(model.selectedIndex == nil).help("Remove the chosen rule")
                 Spacer()
                 if let problem = model.problem { Text(problem).font(.caption).foregroundStyle(.red).lineLimit(2) }
             }
             if let id = model.selection, model.rows.contains(where: { $0.id == id }) {
                 RuleDetailView(model: model, id: id, embedded: true)
             } else {
-                Text("Nessuna regola. Con + se ne aggiunge una.").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text("No rules. Add one with +.").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .padding(10)
@@ -237,53 +237,53 @@ private struct RuleDetailView: View {
     var body: some View {
         let row = model.rows.first { $0.id == id } ?? RuleDraft(styleName: "", afterStyle: "")
         Form {
-            Picker("Cerca:", selection: field(\.find, .firstWords)) {
+            Picker("Find:", selection: field(\.find, .firstWords)) {
                 ForEach(RuleDraft.Find.allCases.filter { $0 != .selection || !model.selections.isEmpty }, id: \.self) { Text($0.title).tag($0) }
             }
             if row.find == .selection {
-                Picker("Selezione:", selection: field(\.selectionID, row.selectionID)) {
+                Picker("Selection:", selection: field(\.selectionID, row.selectionID)) {
                     ForEach(model.selections) { Text($0.name).tag($0.id) }
                 }
             }
             if row.find == .firstWords {
-                Stepper("Quante parole: \(row.count)", value: field(\.count, 1), in: 1...99)
+                Stepper("Words: \(row.count)", value: field(\.count, 1), in: 1...99)
             }
             if row.find == .firstLines {
-                Stepper("Quante righe: \(row.count)", value: field(\.count, 1), in: 1...99)
+                Stepper("Lines: \(row.count)", value: field(\.count, 1), in: 1...99)
             }
             if row.find == .firstLines || row.find == .lastLine {
-                Text("Le righe si decidono insieme allo stile: il testo nello stile occupa esattamente quelle righe, anche se lo stile ne cambia la larghezza. Se più regole di questo tipo toccano lo stesso paragrafo, vale quella più in basso.")
+                Text("The lines are decided together with the style: the text in the style takes exactly those lines, even if the style changes their width. If several rules of this kind touch the same paragraph, the lowest one wins.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if row.find == .listed {
-                TextField("Parole:", text: field(\.words, ""), prompt: Text("separate da spazi, scritte come nel testo"))
+                TextField("Words:", text: field(\.words, ""), prompt: Text("separated by spaces, written as in the text"))
             }
-            Picker("Nei paragrafi:", selection: field(\.paragraphStyle, "")) {
-                Text("di qualunque stile").tag("")
+            Picker("In paragraphs:", selection: field(\.paragraphStyle, "")) {
+                Text("of any style").tag("")
                 ForEach(model.paragraphStyles, id: \.self) { Text($0).tag($0) }
             }
-            Picker("Quali:", selection: field(\.place, .any)) {
+            Picker("Which:", selection: field(\.place, .any)) {
                 Text("tutti").tag(RuleDraft.Place.any)
-                Text("solo il primo dopo un paragrafo di stile…").tag(RuleDraft.Place.firstAfter)
-                Text("solo il primo del documento").tag(RuleDraft.Place.sequenceStart)
-                Text("solo il primo di una pagina").tag(RuleDraft.Place.firstOnPage)
+                Text("only the first after a paragraph of style…").tag(RuleDraft.Place.firstAfter)
+                Text("only the first of the document").tag(RuleDraft.Place.sequenceStart)
+                Text("only the first of a page").tag(RuleDraft.Place.firstOnPage)
             }
             if row.place == .firstAfter {
-                Picker("Dopo lo stile:", selection: field(\.afterStyle, "")) {
+                Picker("After the style:", selection: field(\.afterStyle, "")) {
                     ForEach(model.paragraphStyles, id: \.self) { Text($0).tag($0) }
                 }
             }
-            Toggle("Solo se…", isOn: field(\.hasCondition, false))
+            Toggle("Only if…", isOn: field(\.hasCondition, false))
             if row.hasCondition {
                 // Con un'etichetta la riga sta nella colonna dei valori: senza, il modulo la metteva in quella delle
                 // etichette, che si allargava fino a schiacciare tutto il resto.
-                LabeledContent("Condizione:") {
+                LabeledContent("Condition:") {
                     VStack(alignment: .leading, spacing: 4) {
                         Picker("", selection: field(\.conditionProperty, .lines)) {
-                            Text("il numero di righe").tag(TextRule.Condition.Property.lines)
-                            Text("il numero di parole").tag(TextRule.Condition.Property.words)
-                            Text("l'ultima riga riempie (%)").tag(TextRule.Condition.Property.lastLineFill)
-                            Text("le righe con trattino").tag(TextRule.Condition.Property.hyphens)
+                            Text("the number of lines").tag(TextRule.Condition.Property.lines)
+                            Text("the number of words").tag(TextRule.Condition.Property.words)
+                            Text("the last line fills (%)").tag(TextRule.Condition.Property.lastLineFill)
+                            Text("the hyphenated lines").tag(TextRule.Condition.Property.hyphens)
                         }
                         .labelsHidden()
                         // Il confronto e il valore sotto: su una riga sola la condizione usciva dalla colonna dei valori.
@@ -297,34 +297,34 @@ private struct RuleDetailView: View {
                         }
                     }
                 }
-                Text("La condizione si controlla sul paragrafo composto senza le regole che dipendono dalla composizione: il risultato è stabile, ma dopo l'applicazione il paragrafo può non soddisfarla più (un paragrafo di una riga, ingrandito, può diventare di due).")
+                Text("The condition is checked on the paragraph composed without the rules that depend on composition: the result is stable, but after applying it the paragraph may no longer meet it (a one-line paragraph, enlarged, can become two).")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-            Picker("Applica lo stile:", selection: field(\.styleName, "")) {
+            Picker("Apply the style:", selection: field(\.styleName, "")) {
                 ForEach(row.find == .paragraph ? model.paragraphTargetStyles : model.characterStyles, id: \.self) { name in
-                    Text(model.missingStyles.contains { $0.name == name } ? "\(name) (nuovo)" : name).tag(name)
+                    Text(model.missingStyles.contains { $0.name == name } ? "\(name) (new)" : name).tag(name)
                 }
             }
             if row.styleName == "Maiuscoletto", [.capitals, .roman].contains(row.find) {
-                Text("«Maiuscoletto» trasforma le minuscole: le sigle e i numeri romani, tutti maiuscoli, non cambiano. Per loro c'è «Maiuscoletto delle sigle», se il font ha la funzione (Hoefler Text non l'ha).")
+                Text("“Maiuscoletto” changes lowercase letters: abbreviations and Roman numerals, all capitals, do not change. For them there is “Maiuscoletto delle sigle”, if the font has the feature (Hoefler Text does not).")
                     .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
             }
-            Toggle("Regola accesa", isOn: field(\.isEnabled, true))
+            Toggle("Rule on", isOn: field(\.isEnabled, true))
             Text(row.rule.summary(selections: model.selections)).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if row.find == .firstSentence {
-                Text("La frase finisce al primo punto fermo, esclamativo o interrogativo seguito da uno spazio, come la riconosce il sistema.")
+                Text("The sentence ends at the first full stop, exclamation or question mark followed by a space, as the system recognizes it.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if row.find == .paragraph {
-                Text("Con uno stile di paragrafo cambiano anche allineamento, rientri e spazi; uno stile che fissa solo l'allineamento, come «Centrato», cambia solo quello.")
+                Text("With a paragraph style, alignment, indents and spacing change too; a style that sets only the alignment, such as “Centrato”, changes only that.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if row.place == .firstOnPage {
-                Text("Il paragrafo con cui comincia una pagina nella composizione naturale, cioè prima di applicare le regole che dipendono dalla composizione.")
+                Text("The paragraph a page begins with in natural composition, that is, before applying the rules that depend on composition.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if row.place == .sequenceStart {
-                Text("Quando ci saranno le sezioni (capitoli, parti), sarà il primo paragrafo di ogni sezione.")
+                Text("Once there are sections (chapters, parts), it will be the first paragraph of each section.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }

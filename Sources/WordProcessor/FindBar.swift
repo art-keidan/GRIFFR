@@ -25,7 +25,7 @@ final class FindBar: NSObject, NSSearchFieldDelegate, NSTextFieldDelegate {
 
     override init() {
         super.init()
-        searchField.placeholderString = "Cerca"
+        searchField.placeholderString = "Find"
         searchField.delegate = self
         searchField.sendsSearchStringImmediately = true
         searchField.font = Theme.font
@@ -33,7 +33,7 @@ final class FindBar: NSObject, NSSearchFieldDelegate, NSTextFieldDelegate {
         searchField.widthAnchor.constraint(lessThanOrEqualToConstant: 220).isActive = true
         searchField.widthAnchor.constraint(greaterThanOrEqualToConstant: 110).isActive = true
         searchField.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        replaceField.placeholderString = "Sostituisci con"
+        replaceField.placeholderString = "Replace with"
         replaceField.delegate = self
         replaceField.font = Theme.font
         replaceField.translatesAutoresizingMaskIntoConstraints = false
@@ -46,11 +46,11 @@ final class FindBar: NSObject, NSSearchFieldDelegate, NSTextFieldDelegate {
         countLabel.translatesAutoresizingMaskIntoConstraints = false
         countLabel.widthAnchor.constraint(equalToConstant: 88).isActive = true
 
-        let previous = BandButton(symbol: "chevron.up", help: "Occorrenza precedente (Maiusc-Invio, Maiusc-⌘G)", target: self, action: #selector(previousPressed))
-        let next = BandButton(symbol: "chevron.down", help: "Occorrenza successiva (Invio, ⌘G)", target: self, action: #selector(nextPressed))
-        let optionMenu = BandPopUp(width: 42, pullsDown: true, help: "Opzioni di ricerca")
+        let previous = BandButton(symbol: "chevron.up", help: "Previous match (Shift-Return, Shift-⌘G)", target: self, action: #selector(previousPressed))
+        let next = BandButton(symbol: "chevron.down", help: "Next match (Return, ⌘G)", target: self, action: #selector(nextPressed))
+        let optionMenu = BandPopUp(width: 42, pullsDown: true, help: "Find options")
         optionMenu.fixedTitle = ""
-        optionMenu.symbolImage = Theme.symbol("slider.horizontal.3", "Opzioni di ricerca")
+        optionMenu.symbolImage = Theme.symbol("slider.horizontal.3", "Find options")
         optionMenu.attachFiller { [weak self] menu in
             guard let self else { return }
             for (index, title, help) in Self.optionTitles {
@@ -62,18 +62,18 @@ final class FindBar: NSObject, NSSearchFieldDelegate, NSTextFieldDelegate {
                 item.isEnabled = index != 3 || !self.options.isPattern
             }
         }
-        let replace = BandButton(label: "Sostituisci", help: "Sostituisce l'occorrenza scelta e va alla successiva", target: self, action: #selector(replacePressed))
-        let replaceAll = BandButton(label: "Tutti", help: "Sostituisce tutte le occorrenze (un passo solo di Annulla)", target: self, action: #selector(replaceAllPressed))
-        let close = BandButton(symbol: "xmark", help: "Chiudi la ricerca (Esc)", target: self, action: #selector(closePressed))
+        let replace = BandButton(label: "Replace", help: "Replaces the chosen match and goes to the next", target: self, action: #selector(replacePressed))
+        let replaceAll = BandButton(label: "All", help: "Replaces all matches (a single Undo step)", target: self, action: #selector(replaceAllPressed))
+        let close = BandButton(symbol: "xmark", help: "Close Find (Esc)", target: self, action: #selector(closePressed))
         view = Bands.band([searchField, previous, next, countLabel, Bands.separator(), optionMenu,
                            Bands.spacer(), replaceField, replace, replaceAll, Bands.separator(), close], height: 34)
         view.fill = Theme.side
     }
 
-    private static let optionTitles = [(0, "Aa · Maiuscole e minuscole", "Maiuscole e minuscole contano"),
-                                       (1, "Parola intera", "Solo parole intere"),
-                                       (2, "Modello", "Espressione regolare; nella sostituzione $1, $2… sono i gruppi"),
-                                       (3, "Ignora i segni", "«e» trova anche é, è, ē, ἐ… (non con il modello)")]
+    private static let optionTitles = [(0, "Aa · Match Case", "Uppercase and lowercase matter"),
+                                       (1, "Whole Word", "Whole words only"),
+                                       (2, "Pattern", "Regular expression; in the replacement $1, $2… are the groups"),
+                                       (3, "Ignore Diacritics", "“e” also finds é, è, ē, ἐ… (not with a pattern)")]
 
     private func optionIsOn(_ index: Int) -> Bool {
         switch index {

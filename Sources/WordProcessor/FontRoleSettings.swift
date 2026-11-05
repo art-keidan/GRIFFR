@@ -129,16 +129,16 @@ struct FontsSettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Raggruppa le famiglie nei menu dei font", isOn: Binding(
+                    Toggle("Group families in font menus", isOn: Binding(
                         get: { groupsFamilies },
                         set: { groupsFamilies = $0; FontMenuPreferences.groupsFamilies = $0 }))
-                    Text("Le famiglie che cominciano con la stessa parola (Noto Sans, Noto Serif…) stanno in un sottomenu che porta quella parola.")
+                    Text("Families that start with the same word (Noto Sans, Noto Serif…) go into a submenu named after that word.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Divider()
-                Text("Equivalenze tipografiche")
+                Text("Typographic Equivalences")
                     .font(.headline)
                 FontRoleSettingsView(model: model)
             }
@@ -154,11 +154,11 @@ struct FontRoleSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                Picker("Famiglia", selection: Binding(get: { model.family }, set: model.selectFamily)) {
+                Picker("Family", selection: Binding(get: { model.family }, set: model.selectFamily)) {
                     ForEach(model.families, id: \.self) { Text($0).tag($0) }
                 }
                 .frame(maxWidth: .infinity)
-                Picker("Ruolo", selection: Binding(get: { model.role }, set: model.selectRole)) {
+                Picker("Role", selection: Binding(get: { model.role }, set: model.selectRole)) {
                     ForEach(FontRole.allCases, id: \.self) { role in
                         Text(title(of: role)).tag(role)
                     }
@@ -170,9 +170,9 @@ struct FontRoleSettingsView: View {
 
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 9) {
                 GridRow {
-                    Text("Statica").foregroundStyle(.secondary)
-                    Picker("Faccia statica", selection: Binding(get: { model.equivalence.staticFace ?? "" }, set: model.chooseStatic)) {
-                        Text("Nessuna").tag("")
+                    Text("Static").foregroundStyle(.secondary)
+                    Picker("Static face", selection: Binding(get: { model.equivalence.staticFace ?? "" }, set: model.chooseStatic)) {
+                        Text("None").tag("")
                         ForEach(model.staticFaces, id: \.self) { name in
                             Text(model.displayName(ofFont: name)).tag(name)
                         }
@@ -181,9 +181,9 @@ struct FontRoleSettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 GridRow {
-                    Text("Variabile").foregroundStyle(.secondary)
-                    Picker("Font variabile", selection: Binding(get: { model.equivalence.variableInstance?.fontName ?? "" }, set: model.chooseVariableBase)) {
-                        Text("Nessuno").tag("")
+                    Text("Variable").foregroundStyle(.secondary)
+                    Picker("Variable font", selection: Binding(get: { model.equivalence.variableInstance?.fontName ?? "" }, set: model.chooseVariableBase)) {
+                        Text("None").tag("")
                         ForEach(model.variableBases, id: \.self) { name in
                             Text(model.displayName(ofFont: name)).tag(name)
                         }
@@ -214,12 +214,12 @@ struct FontRoleSettingsView: View {
 
             Spacer(minLength: 0)
             HStack {
-                Button("Automatico", action: model.reset)
+                Button("Automatic", action: model.reset)
                     .disabled(!model.isCustomized)
-                    .help("Ripristina solo questa coppia famiglia-ruolo")
+                    .help("Restore only this family–role pair")
                 Spacer()
                 if model.onApply != nil {
-                    Button("Riapplica al documento") { model.onApply?() }
+                    Button("Reapply to Document") { model.onApply?() }
                         .keyboardShortcut(.defaultAction)
                 }
             }
@@ -231,10 +231,10 @@ struct FontRoleSettingsView: View {
 
     private func title(of role: FontRole) -> String {
         switch role {
-        case .regular: "Tondo"
-        case .italic: "Corsivo"
-        case .bold: "Grassetto"
-        case .boldItalic: "Grassetto corsivo"
+        case .regular: "Regular"
+        case .italic: "Italic"
+        case .bold: "Bold"
+        case .boldItalic: "Bold Italic"
         }
     }
 }

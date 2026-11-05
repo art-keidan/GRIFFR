@@ -126,12 +126,12 @@ extension StyleCondition {
         var parts: [String] = []
         switch position {
         case .any: break
-        case .sequenceStart: parts.append("inizio sequenza")
-        case .firstOnPage: parts.append("primo della pagina")
-        case .firstAfter(let name): parts.append("dopo «" + name + "»")
+        case .sequenceStart: parts.append("sequence start")
+        case .firstOnPage: parts.append("first on page")
+        case .firstAfter(let name): parts.append("after “" + name + "”")
         }
         if let measurement { parts.append(measurement.summary) }
-        return parts.isEmpty ? "Sempre" : parts.joined(separator: " e ")
+        return parts.isEmpty ? "Always" : parts.joined(separator: " and ")
     }
 
     public static func previewFacts(_ sample: String, lines: Int, lastLineFill: Double, hyphens: Int) -> TextRule.NaturalFacts {

@@ -492,7 +492,7 @@ struct EditingBehaviourTests {
                              styles: h.editor.styleSheet)
         h.step()
         #expect(smallCapsText(h) == ["Primo"])
-        #expect(h.undoActionName == "Regole")
+        #expect(h.undoActionName == "Rules")
         // Scrivendo in testa al paragrafo, la regola passa alla parola nuova; il testo resta senza attributi della regola.
         h.select(9)
         h.type("Il ")
@@ -531,17 +531,17 @@ struct EditingBehaviourTests {
         func fact(_ title: String) -> String? { h.editor.inspectorFacts.first { $0.title == title }?.value }
         h.select(2)
         h.editor.inspect(.paragraph)
-        #expect(fact("Righe") == "1")
-        #expect(fact("Lo precede") == "niente: è il primo del documento")
+        #expect(fact("Lines") == "1")
+        #expect(fact("Preceded by") == "nothing: it is the first of the document")
         h.select(6)
         h.type(String(repeating: " ancora parole", count: 20))
-        #expect(Int(fact("Righe") ?? "") ?? 0 >= 3, "scrivendo, il numero di righe cresce")
+        #expect(Int(fact("Lines") ?? "") ?? 0 >= 3, "scrivendo, il numero di righe cresce")
         h.editor.inspect(.line)
-        #expect(fact("Posizione")?.hasPrefix("riga ") == true)
+        #expect(fact("Position")?.hasPrefix("line ") == true)
         h.editor.inspect(.page)
-        #expect(fact("Numero") == "1 (dispari)")
+        #expect(fact("Number") == "1 (odd)")
         h.editor.inspect(.document)
-        #expect(fact("Paragrafi") == "2")
+        #expect(fact("Paragraphs") == "2")
     }
 
     @Test("R3 · Una regola con condizione segue il paragrafo mentre si scrive: una riga centrata, più righe no")
@@ -583,7 +583,7 @@ struct EditingBehaviourTests {
         #expect(h.editor.bandControls["spazi"]?.isHidden == true)
         #expect(h.editor.styleMonitorView.isHidden)
         h.editor.updateCounts()
-        #expect(h.editor.statusTextForTests.contains("1 parola") && !h.editor.statusTextForTests.contains("car."))
+        #expect(h.editor.statusTextForTests.contains("1 word") && !h.editor.statusTextForTests.contains("chars"))
         h.editor.setInterfaceMode(.advanced)
         h.step()
         #expect(h.editor.showsAdvancedTools)
@@ -620,14 +620,14 @@ struct EditingBehaviourTests {
         let note = try #require(h.editor.bandControls["nota"] as? NSPopUpButton)
         let menu = try #require(note.menu)
         menu.delegate?.menuNeedsUpdate?(menu)
-        let footnote = try #require(menu.items.first { $0.title == "Nota a piè di pagina" })
+        let footnote = try #require(menu.items.first { $0.title == "Footnote" })
         h.select(3)
         NSApp.sendAction(try #require(footnote.action), to: footnote.target, from: footnote)
         h.step()
         #expect(h.text.contains("\u{FFFC}"), "il richiamo della nota è nel testo")
         let illustration = try #require(h.editor.bandControls["illustrazione"]?.menu)
         illustration.delegate?.menuNeedsUpdate?(illustration)
-        #expect(illustration.items.map(\.title).contains("Figura con didascalia…"))
+        #expect(illustration.items.map(\.title).contains("Figure with Caption…"))
         #expect(!(h.editor.bandControls["illustrazione"]?.isEnabled ?? true), "dentro la nota non si inserisce un'illustrazione")
 
         let invisibles = try #require(h.editor.bandControls["nascosti"] as? NSButton)
@@ -669,7 +669,7 @@ struct EditingBehaviourTests {
         bold.performClick(nil)
         h.step()
         #expect(TextStyling.traits(ofFace: font(at: 1).fontName)?.bold == true && bold.state == .on)
-        #expect(h.editor.styleMonitor.style == "Testo" && h.editor.styleMonitor.additions.contains("car. nero"))
+        #expect(h.editor.styleMonitor.style == "Testo" && h.editor.styleMonitor.additions.contains("char. bold"))
         h.undo()
         #expect(TextStyling.traits(ofFace: font(at: 1).fontName)?.bold == false)
         h.select(0, length: 3)
@@ -686,7 +686,7 @@ struct EditingBehaviourTests {
         h.step()
         let style = h.attributed.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
         #expect(style?.alignment == .center)
-        #expect(h.editor.styleMonitor.additions.contains("par. allineamento centrato"))
+        #expect(h.editor.styleMonitor.additions.contains("para. alignment centered"))
         let spacing = try #require(h.editor.bandControls["interlinea"] as? BandSegments)
         spacing.press(1)
         h.step()
@@ -779,7 +779,7 @@ struct EditingBehaviourTests {
         h.editor.setTextColor("#9b1c1c")
         h.step()
         #expect(hex(at: 1) == "#9b1c1c" && hex(at: 4) == nil)
-        #expect(h.editor.styleMonitor.additions.contains("car. colore rosso scuro"))
+        #expect(h.editor.styleMonitor.additions.contains("char. color dark red"))
         h.undo()
         #expect(hex(at: 1) == nil)
         h.select(10)
@@ -802,7 +802,7 @@ struct EditingBehaviourTests {
         subscriptButton.performClick(nil)
         h.step()
         #expect(position(at: 1) == "subscript" && position(at: 0) == nil && subscriptButton.state == .on)
-        #expect(h.editor.styleMonitor.additions.contains("car. pedice"))
+        #expect(h.editor.styleMonitor.additions.contains("char. subscript"))
         subscriptButton.performClick(nil)
         h.step()
         #expect(position(at: 1) == nil, "premuto di nuovo, torna sulla linea di base")
@@ -826,7 +826,7 @@ struct EditingBehaviourTests {
         strike.performClick(nil)
         h.step()
         #expect(lines(at: 1) == "underline; strikethrough" && strike.state == .on)
-        #expect(h.editor.styleMonitor.additions.contains("car. sottolineato, barrato"))
+        #expect(h.editor.styleMonitor.additions.contains("char. underline, strikethrough"))
         underline.performClick(nil)
         h.step()
         #expect(lines(at: 1) == "strikethrough" && underline.state == .off)
@@ -1035,7 +1035,7 @@ struct EditingBehaviourTests {
         #expect(paragraph.inlines.contains { if case .floating(let note) = $0 { note.style == "Postilla" } else { false } })
 
         // Un passo solo: annullando spariscono testo e definizioni; ripetendo tornano.
-        #expect(b.undoActionName == "Incolla")
+        #expect(b.undoActionName == "Paste")
         b.undo()
         #expect(b.text == original)
         #expect(!b.editor.currentDocument().floatStyles.contains { $0.name == "Postilla" })
@@ -1155,12 +1155,12 @@ struct EditingBehaviourTests {
 
         // Al cursore, dentro la parola: il clic sulla prima aggiunta toglie il corsivo da tutta la parola, e basta.
         h.select(6)
-        #expect(h.editor.styleMonitor.additions == ["car. corsivo", "car. sottolineato"])
+        #expect(h.editor.styleMonitor.additions == ["char. italic", "char. underline"])
         h.editor.styleMonitorView.click(pill: 1)
         h.step()
         #expect(!italic(4) && !italic(8), "tutta la parola, non solo il carattere del cursore")
         #expect(underlined(4) && underlined(8), "il sottolineato resta")
-        #expect(h.editor.styleMonitor.additions == ["car. sottolineato"])
+        #expect(h.editor.styleMonitor.additions == ["char. underline"])
         h.type("x")
         #expect(!italic(6), "anche ciò che si scrive dopo non è più in corsivo")
         h.undo()
@@ -1178,8 +1178,8 @@ struct EditingBehaviourTests {
         let alignment = try #require(h.editor.bandControls["allineamento"] as? BandSegments)
         alignment.press(1)
         h.step()
-        #expect(h.editor.styleMonitor.additions.contains("par. allineamento centrato"))
-        let index = try #require(h.editor.styleMonitor.additions.firstIndex(of: "par. allineamento centrato"))
+        #expect(h.editor.styleMonitor.additions.contains("para. alignment centered"))
+        let index = try #require(h.editor.styleMonitor.additions.firstIndex(of: "para. alignment centered"))
         // Le prime due aggiunte hanno una pastiglia; le altre stanno sotto «+N».
         if index < 2 {
             h.editor.styleMonitorView.click(pill: index + 1)
@@ -1200,7 +1200,7 @@ struct EditingBehaviourTests {
         #expect(h.editor.styleMonitor.additions.count == 3)
         let menu = h.editor.styleMonitorView.moreMenu()
         let all = try #require(menu.items.last)
-        #expect(all.title == "Togli tutte le aggiunte")
+        #expect(all.title == "Remove All Additions")
         menu.performActionForItem(at: menu.items.count - 1)
         h.step()
         #expect(h.editor.styleMonitor.additions.isEmpty)
@@ -1222,15 +1222,15 @@ struct EditingBehaviourTests {
         h.step()
 
         let menu = h.editor.additionMonitorMenu(at: 0)
-        #expect(menu.items.map(\.title) == ["Togli", "Metti nello stile", "Nuovo stile…"])
+        #expect(menu.items.map(\.title) == ["Remove", "Put into the Style", "New Style…"])
         let hidden = try #require(h.editor.styleMonitorView.moreMenu().items.first?.submenu)
-        #expect(hidden.items.map(\.title) == ["Togli", "Metti nello stile", "Nuovo stile…"])
+        #expect(hidden.items.map(\.title) == ["Remove", "Put into the Style", "New Style…"])
         menu.performActionForItem(at: 1)
         h.step()
         #expect(h.editor.currentDocument().styles.style(named: "Testo")?.formulas.contains { $0.operation == StylePropertyOperation(.add, .font, .font(.italic)) } == true)
         #expect(h.editor.currentDocument().styles.style(named: "Testo")?.values.decorations == nil)
         #expect(h.editor.styleMonitor.additions.count == 2, "restano sottolineato e apice, dati qui")
-        #expect(h.editor.styleMonitor.additions.contains("car. sottolineato"))
+        #expect(h.editor.styleMonitor.additions.contains("char. underline"))
         let elsewhere = try #require(h.attributed.attribute(.font, at: 21, effectiveRange: nil) as? NSFont)
         #expect(TextStyling.traits(ofFace: elsewhere.fontName)?.italic == true, "lo stile cambia anche altrove")
         #expect((h.attributed.attribute(.lineDecorations, at: 21, effectiveRange: nil) as? String) == nil)
@@ -1252,7 +1252,7 @@ struct EditingBehaviourTests {
         h.step()
         h.editor.toggleUnderline(nil)
         h.step()
-        #expect(h.editor.styleMonitor.additions == ["car. Times New Roman", "car. corsivo", "car. sottolineato"])
+        #expect(h.editor.styleMonitor.additions == ["char. Times New Roman", "char. italic", "char. underline"])
 
         h.editor.additionMonitorMenu(at: 0).performActionForItem(at: 1)
         h.step()
@@ -1260,12 +1260,12 @@ struct EditingBehaviourTests {
         #expect(textStyle.formulas.contains { $0.operation == StylePropertyOperation(.set, .family, .family("Times New Roman")) })
         #expect(textStyle.values.italic == nil)
         #expect(textStyle.values.decorations == nil)
-        #expect(h.editor.styleMonitor.additions == ["car. corsivo", "car. sottolineato"])
+        #expect(h.editor.styleMonitor.additions == ["char. italic", "char. underline"])
         let elsewhere = try #require(h.attributed.attribute(.font, at: 21, effectiveRange: nil) as? NSFont)
         #expect(elsewhere.familyName == "Times New Roman")
         #expect(TextStyling.traits(ofFace: elsewhere.fontName)?.italic == false)
         h.undo()
-        #expect(h.editor.styleMonitor.additions == ["car. Times New Roman", "car. corsivo", "car. sottolineato"])
+        #expect(h.editor.styleMonitor.additions == ["char. Times New Roman", "char. italic", "char. underline"])
     }
 
     @Test("M2c · La famiglia con una faccia nera personalizzata entra nello stile dalla pill")
@@ -1298,7 +1298,7 @@ struct EditingBehaviourTests {
         _ = NSApp.sendAction(family.action!, to: family.target, from: family)
         h.step()
         #expect((h.attributed.attribute(.font, at: 4, effectiveRange: nil) as? NSFont)?.fontName == "Baskerville-SemiBold")
-        #expect(h.editor.styleMonitor.additions == ["car. Baskerville"])
+        #expect(h.editor.styleMonitor.additions == ["char. Baskerville"])
 
         h.editor.additionMonitorMenu(at: 0).performActionForItem(at: 1)
         h.step()
@@ -1308,7 +1308,7 @@ struct EditingBehaviourTests {
         #expect(h.editor.styleMonitor.additions.isEmpty)
         #expect((h.attributed.attribute(.font, at: 21, effectiveRange: nil) as? NSFont)?.fontName == "Baskerville-SemiBold")
         h.undo()
-        #expect(h.editor.styleMonitor.additions == ["car. Baskerville"])
+        #expect(h.editor.styleMonitor.additions == ["char. Baskerville"])
     }
 
     @Test("M3 · «Nuovo stile…» incorpora solo l'addizione scelta, la toglie dal testo e conserva le altre; un solo Annulla")
@@ -1333,15 +1333,15 @@ struct EditingBehaviourTests {
         #expect(h.attributed.attribute(.characterStyleName, at: 4, effectiveRange: nil) as? String == "Corsivo speciale")
         #expect(h.attributed.attribute(.characterStyleName, at: 8, effectiveRange: nil) as? String == "Corsivo speciale")
         #expect(h.attributed.attribute(.characterStyleName, at: 9, effectiveRange: nil) as? String == nil)
-        #expect(h.editor.styleMonitor.additions == ["car. sottolineato"], "il corsivo è dello stile, il sottolineato resta manuale")
+        #expect(h.editor.styleMonitor.additions == ["char. underline"], "il corsivo è dello stile, il sottolineato resta manuale")
         #expect(h.editor.currentDocument().styles.style(named: "Testo") == original, "lo stile di partenza non cambia")
         let elsewhere = try #require(h.attributed.attribute(.font, at: 21, effectiveRange: nil) as? NSFont)
         #expect(TextStyling.traits(ofFace: elsewhere.fontName)?.italic == false, "il resto del documento non cambia")
-        #expect(h.undoActionName == "Nuovo stile «Corsivo speciale»")
+        #expect(h.undoActionName == "New Style “Corsivo speciale”")
         h.undo()
         #expect(h.editor.currentDocument().styles.style(named: "Corsivo speciale") == nil)
         #expect(h.attributed.attribute(.characterStyleName, at: 4, effectiveRange: nil) as? String == nil)
-        #expect(h.editor.styleMonitor.additions == ["car. corsivo", "car. sottolineato"])
+        #expect(h.editor.styleMonitor.additions == ["char. italic", "char. underline"])
     }
 
     @Test("M4 · Nel margine sinistro il clic seleziona la riga con l'a capo; il trascinamento unisce più righe")
@@ -1393,14 +1393,14 @@ struct EditingBehaviourTests {
         search("lago")
         #expect(h.editor.searchMatches.count == 3)
         #expect(h.selection == NSRange(location: 3, length: 4), "mentre si scrive, la prima occorrenza dal cursore")
-        #expect(bar.countLabel.stringValue == "1 di 3")
+        #expect(bar.countLabel.stringValue == "1 of 3")
         h.editor.findNext(nil)
         h.editor.findNext(nil)
-        #expect(bar.countLabel.stringValue == "3 di 3")
+        #expect(bar.countLabel.stringValue == "3 of 3")
         h.editor.findNext(nil)
-        #expect(bar.countLabel.stringValue == "1 di 3", "dall'ultima si ricomincia dalla prima")
+        #expect(bar.countLabel.stringValue == "1 of 3", "dall'ultima si ricomincia dalla prima")
         h.editor.findPrevious(nil)
-        #expect(bar.countLabel.stringValue == "3 di 3")
+        #expect(bar.countLabel.stringValue == "3 of 3")
 
         // Sostituisci: l'occorrenza scelta, poi la successiva.
         h.editor.findNext(nil)
@@ -1408,13 +1408,13 @@ struct EditingBehaviourTests {
         bar.onReplace?()
         h.step()
         #expect(h.text.hasPrefix("Il mare di Como e il lago."))
-        #expect(bar.countLabel.stringValue == "1 di 2")
+        #expect(bar.countLabel.stringValue == "1 of 2")
 
         // Sostituisci tutto: un passo solo di Annulla.
         bar.onReplaceAll?()
         h.step()
         #expect(!h.text.contains("lago") && h.text.contains("Altro mare."))
-        #expect(bar.countLabel.stringValue == "2 sostituite")
+        #expect(bar.countLabel.stringValue == "2 replaced")
         h.undo()
         #expect(h.text.components(separatedBy: "lago").count - 1 == 2)
 
@@ -1429,7 +1429,7 @@ struct EditingBehaviourTests {
         // Un modello non valido lo dice, e non trova nulla.
         bar.setOption(2, true)
         search("(")
-        #expect(bar.countLabel.stringValue == "Modello non valido" && h.editor.searchMatches.isEmpty)
+        #expect(bar.countLabel.stringValue == "Invalid pattern" && h.editor.searchMatches.isEmpty)
         search("l(a)go")
         bar.replaceField.stringValue = "$1"
         bar.onReplaceAll?()
@@ -1474,13 +1474,13 @@ struct EditingBehaviourTests {
         }
         h.select(0)
         #expect(h.editor.countSections().count == 1, "senza selezione, solo il documento")
-        #expect(row(0, "Parole") == "5" && row(0, "Caratteri") == "25" && row(0, "Paragrafi") == "2")
-        #expect(row(0, "Caratteri senza spazi") == "22")
+        #expect(row(0, "Words") == "5" && row(0, "Characters") == "25" && row(0, "Paragraphs") == "2")
+        #expect(row(0, "Characters without spaces") == "22")
         h.editor.updateCounts()
-        #expect(h.editor.countsText.contains("25 car."), "la barra e il riquadro dicono lo stesso")
+        #expect(h.editor.countsText.contains("25 chars"), "la barra e il riquadro dicono lo stesso")
         h.select(0, length: 9)
-        #expect(h.editor.countSections().last?.title == "Selezione")
-        #expect(row(1, "Parole") == "2" && row(1, "Caratteri") == "9")
+        #expect(h.editor.countSections().last?.title == "Selection")
+        #expect(row(1, "Words") == "2" && row(1, "Characters") == "9")
         h.editor.showCounts(nil)
         h.step()
 
@@ -1490,8 +1490,8 @@ struct EditingBehaviourTests {
         h.step()
         h.select(6)
         let menu = h.editor.styleMonitorMenu()
-        #expect(menu.items[0].title == "Togli tutte le aggiunte" && menu.items[0].isEnabled)
-        #expect(menu.items[1].title == "Porta le aggiunte nello stile «Testo»" && menu.items[1].isEnabled)
+        #expect(menu.items[0].title == "Remove All Additions" && menu.items[0].isEnabled)
+        #expect(menu.items[1].title == "Move the Additions into the Style “Testo”" && menu.items[1].isEnabled)
         menu.performActionForItem(at: 1)
         h.step()
         #expect(h.editor.styleMonitor.additions.isEmpty, "il corsivo ora è dello stile")
@@ -1682,7 +1682,7 @@ struct EditingBehaviourTests {
         #expect(h.text == "due\ntre\nuno")
         #expect(h.selection == NSRange(location: 8, length: 0))
         #expect(tree.items.map(\.title) == ["due", "tre", "uno"])
-        #expect(h.undoActionName == "Sposta il capoverso")
+        #expect(h.undoActionName == "Move Paragraph")
         h.undo()
         #expect(h.text == "uno\ndue\ntre")
         h.redo()
@@ -1750,7 +1750,7 @@ struct EditingBehaviourTests {
         h.step()
         #expect(tree.items.last?.title == "Delta")
         #expect(tree.items.last?.children?.map(\.title) == ["Testo di Beta."])
-        #expect(h.undoActionName == "Sposta il capoverso")
+        #expect(h.undoActionName == "Move Paragraph")
 
         // Con il filtro non si trascina.
         tree.filter = "Beta"
@@ -1784,7 +1784,7 @@ struct EditingBehaviourTests {
         tree.onMoveItem?(source, target, .after)
         h.step()
         #expect(h.text == "Beta\nTesto di Beta.\nAlfa\nTesto di Alfa.\nAlfa interna")
-        #expect(h.undoActionName == "Sposta la sezione")
+        #expect(h.undoActionName == "Move Section")
         h.undo()
         h.editor.refreshObjectTree()
         source = try #require(tree.items.first)
@@ -1929,7 +1929,7 @@ struct EditingBehaviourTests {
         h.editor.inspect(.character)
         let size = try #require(inspector.values.first { $0.property == .size })
         #expect(size.source == .rule(h.editor.rules[0].summary) && size.value.size == 18)
-        #expect(inspector.sourceText(size).hasPrefix("Dalla regola"))
+        #expect(inspector.sourceText(size).hasPrefix("From the rule"))
 
         // Cambiato lì, anche al valore dello stile, vale solo lì: vince sulla regola.
         let inherited = try #require(size.inherited.size)
@@ -2079,14 +2079,14 @@ struct EditingBehaviourTests {
         let runs = layout.pages[0].lines.flatMap { CTLineGetGlyphRuns($0.line) as! [CTRun] }
         #expect(runs.contains { (CTRunGetAttributes($0) as NSDictionary)[NSAttributedString.Key.graphiteCluster] != nil }, "le righe hanno i gruppi di Graphite")
         #expect(DocumentFormat.string(for: h.editor.currentDocument()).contains("graphite=\"on\""))
-        #expect(h.editor.styleMonitor.additions.contains("car. Graphite"), "il monitor degli stili lo segna come dato a mano")
+        #expect(h.editor.styleMonitor.additions.contains("char. Graphite"), "il monitor degli stili lo segna come dato a mano")
 
         // Su «Prova», in Hoefler Text, Graphite non può comporre: avviso nell'ispettore e nella barra di stato.
         h.select(0, length: 5)
         h.editor.inspect(.character)
         inspector.change(.shaping) { $0.graphite = "on" }
         h.step()
-        #expect(!inspector.fontHasGraphite && inspector.graphiteProblem?.contains("«Hoefler Text»") == true, "l'avviso nomina il font che c'è davvero")
+        #expect(!inspector.fontHasGraphite && inspector.graphiteProblem?.contains("“Hoefler Text”") == true, "l'avviso nomina il font che c'è davvero")
         #expect(h.editor.currentLayout()?.graphiteFallbacks == 1)
         #expect(h.editor.warningTitles.contains { $0.contains("Graphite") })
         h.undo()
@@ -2147,10 +2147,10 @@ struct EditingBehaviourTests {
         let menu = MainMenu.build()
         func titles(_ menu: NSMenu) -> [String] { menu.items.flatMap { [$0.title] + ($0.submenu.map(titles) ?? []) } }
         let all = titles(menu)
-        for gone in ["Liste…", "Stili di flottante…", "Regole…", "Misure dell'immagine…", "Stile di parola", "Stile di carattere", "Lista"] {
+        for gone in ["Lists…", "Float Styles…", "Rules…", "Image Size…", "Word Style", "Character Style", "Named List"] {
             #expect(!all.contains(gone), "«\(gone)» è uscito dai menu")
         }
-        for kept in ["Nuovo stile dalla selezione…", "Elenco sì/no", "Segni della provenienza", "Nota a piè di pagina", "Lingua del documento"] {
+        for kept in ["New Style from Selection…", "List On/Off", "Provenance Marks", "Footnote", "Document Language"] {
             #expect(all.contains(kept))
         }
 
@@ -2172,9 +2172,9 @@ struct EditingBehaviourTests {
         h.editor.window?.endSheet(sheet)
         h.step()
         // Il tasto destro sull'immagine scelta offre le misure; su una parola no.
-        #expect(h.editor.pagesContextMenu(at: 3)?.items.contains { $0.title == "Misure dell'immagine…" } == true)
+        #expect(h.editor.pagesContextMenu(at: 3)?.items.contains { $0.title == "Image Size…" } == true)
         h.select(0)
-        #expect(h.editor.pagesContextMenu(at: 1)?.items.contains { $0.title == "Misure dell'immagine…" } == false)
+        #expect(h.editor.pagesContextMenu(at: 1)?.items.contains { $0.title == "Image Size…" } == false)
         // Un doppio clic su una parola non apre nulla.
         h.editor.pagesMouseDown(at: 1, affinity: .downstream, clickCount: 2, extending: false)
         h.step()
@@ -2302,7 +2302,7 @@ struct EditingBehaviourTests {
         h.editor.insertSectionSameLevel(nil)
         h.step()
         #expect(h.text == "Primo\n\n paragrafo.\nSecondo paragrafo." && h.selection == NSRange(location: 6, length: 0))
-        #expect(h.undoActionName == "Sezione")
+        #expect(h.undoActionName == "Section")
         h.type("Capitolo uno")
         let document = h.editor.currentDocument()
         #expect(outline(document.sections) == ["1 capitolo Capitolo uno"])
@@ -2380,7 +2380,7 @@ struct EditingBehaviourTests {
         h.press(#selector(NSResponder.deleteBackward(_:)))
         #expect(h.text.hasPrefix("Prima.Capitolo\nTesto."), "il titolo si unisce al paragrafo prima")
         #expect(outline(h.editor.currentDocument().sections) == ["1 sezione Sezione"], "la sezione interna sale al primo livello")
-        #expect(h.undoActionName == "Togli la sezione")
+        #expect(h.undoActionName == "Remove Section")
         h.undo()
         #expect(h.text == before && outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo", "2 sezione Sezione"])
     }
@@ -2397,7 +2397,7 @@ struct EditingBehaviourTests {
         h.type("Sezione")
         h.select(h.text.utf16.count)
         let item = NSMenuItem(title: "", action: #selector(EditorWindowController.removeEnclosingSection(_:)), keyEquivalent: "")
-        #expect(h.editor.validateMenuItem(item) && item.title == "Togli la sezione «Sezione»")
+        #expect(h.editor.validateMenuItem(item) && item.title == "Remove the Section “Sezione”")
         h.editor.removeEnclosingSection(nil)
         h.step()
         #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo"])
@@ -2418,24 +2418,24 @@ struct EditingBehaviourTests {
         h.select((h.text as NSString).range(of: "Fine.").location)
         h.editor.insertSectionInside(nil)
         h.type("Sezione")
-        #expect(h.editor.sectionPathTitlesForTests == ["Capitolo «Capitolo»", "Sezione «Sezione»"])
+        #expect(h.editor.sectionPathTitlesForTests == ["Capitolo “Capitolo”", "Sezione “Sezione”"])
 
         let inspector = h.editor.inspectorForTests
         h.editor.inspectSection(depth: nil)
         var info = try #require(inspector.section)
-        #expect(info.role == "sezione" && info.title == "«Sezione»" && info.depth == 2 && info.paragraphs == 1 && info.sections == 0)
+        #expect(info.role == "sezione" && info.title == "“Sezione”" && info.depth == 2 && info.paragraphs == 1 && info.sections == 0)
         #expect(!info.canMoveInside && info.canMoveOutside)
-        #expect(h.editor.inspectorFacts == [InspectorModel.Fact(title: "Pagine", value: "1")])
+        #expect(h.editor.inspectorFacts == [InspectorModel.Fact(title: "Pages", value: "1")])
 
         h.editor.inspectSection(depth: 1)
         info = try #require(inspector.section)
-        #expect(info.title == "«Capitolo»" && info.paragraphs == 3 && info.sections == 1, "Testo., e la sezione col suo titolo e Fine.")
+        #expect(info.title == "“Capitolo”" && info.paragraphs == 3 && info.sections == 1, "Testo., e la sezione col suo titolo e Fine.")
 
         h.editor.inspectSection(depth: nil)
         inspector.setSectionRole?("paragrafo")
         h.step()
         #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo", "2 paragrafo Sezione"])
-        #expect(h.undoActionName == "Ruolo della sezione")
+        #expect(h.undoActionName == "Section Role")
         inspector.moveSection?(-1)
         h.step()
         #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo", "1 paragrafo Sezione"])
@@ -2445,7 +2445,7 @@ struct EditingBehaviourTests {
         #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo", "2 paragrafo Sezione"])
         inspector.removeSection?()
         h.step()
-        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo"] && h.editor.sectionPathTitlesForTests == ["Capitolo «Capitolo»"])
+        #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Capitolo"] && h.editor.sectionPathTitlesForTests == ["Capitolo “Capitolo”"])
         h.undo()
         h.undo()
         h.undo()
@@ -2467,7 +2467,7 @@ struct EditingBehaviourTests {
         h.editor.applyNamedStyle(.paragraph, name: "Titolo 2")
         h.step()
         #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Primo capitolo", "2 sezione Una sezione"])
-        #expect(h.undoActionName == "Stile «Titolo 2»")
+        #expect(h.undoActionName == "Style “Titolo 2”")
         h.type("X")
         #expect(outline(h.editor.currentDocument().sections) == ["1 capitolo Primo capitolo", "2 sezione XUna sezione"], "si scrive nel titolo")
         h.select(at("Primo capitolo"))
@@ -2507,7 +2507,7 @@ struct EditingBehaviourTests {
         #expect(try #require(h.editor.currentLayout()).pages.count == 1)
         inspector.setSectionStart?(.oddPage)
         h.step()
-        #expect(h.undoActionName == "Inizio della sezione" && inspector.section?.start == .oddPage)
+        #expect(h.undoActionName == "Section Start" && inspector.section?.start == .oddPage)
         #expect(try #require(h.editor.currentLayout()).pages.count == 3, "il capitolo va a pagina 3, la 2 resta bianca")
         h.select(at("Testo due."))
         h.editor.insertSectionSameLevel(nil)
@@ -2628,7 +2628,7 @@ struct EditingBehaviourTests {
         inspector.setPageSetup?(taller)
         h.step()
         #expect(h.editor.currentDocument().pageTypes.first?.setup.top == 80 && h.editor.currentDocument().pageSetup == document.pageSetup)
-        #expect(h.undoActionName == "Tipo di pagina «Orizzontale»")
+        #expect(h.undoActionName == "Page type “Orizzontale”")
         h.select(at("Premessa."))
         h.editor.inspect(.page)
         #expect(inspector.pageTypeName == nil, "la prima pagina ha il tipo predefinito")
@@ -2644,7 +2644,7 @@ struct EditingBehaviourTests {
         h.step()
         #expect(h.editor.currentDocument().pageTypes.map(\.name) == ["Larga"])
         #expect(h.editor.currentDocument().sections.first?.pageTypes.pages == "Larga", "la sezione segue la rinomina")
-        #expect(h.undoActionName == "Tipi di pagina")
+        #expect(h.undoActionName == "Page Types")
         h.undo()
         #expect(h.editor.currentDocument().pageTypes.map(\.name) == ["Orizzontale"] && h.editor.currentDocument().sections.first?.pageTypes.pages == "Orizzontale")
 
@@ -2668,12 +2668,12 @@ struct EditingBehaviourTests {
         let menu = NSMenu()
         FieldMenuFiller.shared.menuNeedsUpdate(menu)
         let titles = menu.items.map(\.title)
-        #expect(titles.prefix(2) == ["Numero di pagina", "Numero delle pagine"] && titles.contains("Titolo della sezione in corso: capitolo"))
+        #expect(titles.prefix(2) == ["Page number", "Number of pages"] && titles.contains("Title of the current section: capitolo"))
         h.select(7)
         let item = try #require(menu.items.first)
         h.editor.insertField(item)
         h.step()
-        #expect(h.undoActionName == "Campo")
+        #expect(h.undoActionName == "Field")
         // Il numero di pagina si inserisce come formula (Posizione → Pagina contenente → Numero).
         #expect(h.attributed.attribute(.field, at: 7, effectiveRange: nil) as? String == Field.formula(.pageContainingNumber).encoded)
         h.type("x")
@@ -2749,7 +2749,7 @@ struct EditingBehaviourTests {
         // L'aspetto del testo, non quello del titolo (Titolo 1, 18 pt in nero): cinque sesti del corpo del testo.
         let run = try #require(floats(in: title).first?.runs.first)
         #expect(run.text == "Apertura" && run.style.size == 10 && run.style.fontName == "HoeflerText-Regular")
-        #expect(h.editor.sectionPathTitlesForTests == ["Capitolo «Capitolo»"], "il nome della sezione non comprende l'intestazione")
+        #expect(h.editor.sectionPathTitlesForTests == ["Capitolo “Capitolo”"], "il nome della sezione non comprende l'intestazione")
     }
 
     @Test("SZ18 · Scheda Liste › Pagine numerate con; ispettore della Sezione › Numeri di pagina ripartono")
@@ -2913,7 +2913,7 @@ struct EditingBehaviourTests {
         let info = try #require(inspector.table)
         let shape: [Int] = [info.rows, info.columns, info.headerRows, info.row, info.column]
         #expect(shape == [4, 4, 1, 2, 2])
-        #expect(h.editor.inspectorFacts.contains { $0.title == "Pagine" })
+        #expect(h.editor.inspectorFacts.contains { $0.title == "Pages" })
         inspector.setTableHeaderRows?(2)
         h.step()
         #expect(table?.headerRows == 2)

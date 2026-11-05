@@ -196,12 +196,12 @@ extension TextStyling {
     static func describe(_ value: DetailValue, of detail: FontDetail, types: [FeatureType], axes: [FontAxis]) -> String {
         switch value {
         case .features(let settings):
-            guard case .feature(let key) = detail, let setting = settings.first else { return "Predefinita" }
+            guard case .feature(let key) = detail, let setting = settings.first else { return "Default" }
             switch key {
             case .aatSwitch(let type, _):
                 let owner = types.first { $0.key == .aat(type) }
-                if let selector = owner?.selectors.first(where: { $0.setting == setting }) { return selector.isDefault ? "Predefinita" : "Accesa" }
-                if owner?.selectors.contains(where: { $0.offSetting == setting }) == true { return "Spenta" }
+                if let selector = owner?.selectors.first(where: { $0.setting == setting }) { return selector.isDefault ? "Default" : "On" }
+                if owner?.selectors.contains(where: { $0.offSetting == setting }) == true { return "Off" }
                 return setting.description
             case .aatType(let type):
                 return types.first { $0.key == .aat(type) }?.selectors.first { $0.setting == setting }?.name ?? setting.description
@@ -209,16 +209,16 @@ extension TextStyling {
                 guard case .openType(_, let number) = setting else { return setting.description }
                 let owner = types.first { $0.key == .openType(tag) }
                 if owner?.isExclusive == true, let selector = owner?.selectors.first(where: { $0.setting == setting }) { return selector.name }
-                return switch number { case 0: "Spenta"; case 1: "Accesa"; default: "Variante \(number)" }
+                return switch number { case 0: "Off"; case 1: "On"; default: "Variant \(number)" }
             }
         case .axis(let number):
             guard case .axis(let tag) = detail else { return "" }
             if let number { return DocumentFormat.number(number) }
             // Senza un valore fissato, la dimensione ottica segue il corpo.
-            if tag == "opsz" { return "Automatica" }
-            return axes.first { $0.tag == tag }.map { "Naturale (\(DocumentFormat.number($0.defaultValue)))" } ?? "Naturale"
+            if tag == "opsz" { return "Automatic" }
+            return axes.first { $0.tag == tag }.map { "Natural (\(DocumentFormat.number($0.defaultValue)))" } ?? "Natural"
         case .optical(let size):
-            return size?.title ?? "Automatico"
+            return size?.title ?? "Automatic"
         }
     }
 
@@ -228,15 +228,15 @@ extension TextStyling {
         case .feature(.aatSwitch(let type, let selector)):
             let owner = types.first { $0.key == .aat(type) }
             let name = owner?.selectors.first { $0.setting == .aat(type: type, selector: selector) }?.name
-            return name ?? owner?.name ?? "Funzione \(type)/\(selector)"
+            return name ?? owner?.name ?? "Feature \(type)/\(selector)"
         case .feature(.aatType(let type)):
-            return types.first { $0.key == .aat(type) }?.name ?? "Funzione \(type)"
+            return types.first { $0.key == .aat(type) }?.name ?? "Feature \(type)"
         case .feature(.openType(let tag)):
             return types.first { $0.key == .openType(tag) }?.name ?? tag
         case .axis(let tag):
             return axes.first { $0.tag == tag }?.name ?? tag
         case .opticalSize:
-            return "Corpo ottico"
+            return "Optical size"
         }
     }
 

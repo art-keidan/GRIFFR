@@ -7,15 +7,15 @@ extension EditorWindowController {
         self.definitionsPanel.flushPending()
         self.flushStyleChanges()
         guard self.settings.styles == base, self.settings.rules == rules else {
-            return "Gli stili del documento sono cambiati. Ricarica la bacheca prima di applicare."
+            return "The document's styles have changed. Reload the composer before applying."
         }
         self.endUndoStep(next: .none)
         let undo = (self.document as? NSDocument)?.undoManager
         undo?.beginUndoGrouping()
-        self.changeStyles(to: updated, restyle: true, actionName: "Formule degli stili")
+        self.changeStyles(to: updated, restyle: true, actionName: "Style Formulas")
         if updatedRules != self.settings.rules { self.changeRules(updatedRules, styles: updated) }
         undo?.endUndoGrouping()
-        undo?.setActionName("Formule degli stili")
+        undo?.setActionName("Style Formulas")
         return nil
     }
 
@@ -40,7 +40,7 @@ extension EditorWindowController {
         composerModel = model
         if let name { model.selectStyle(name) }
         model.commit = { [weak self] base, rules, updated, updatedRules in
-            guard let self else { return "Il documento è stato chiuso." }
+            guard let self else { return "The document was closed." }
             return self.applyStyleBoard(base: base, rules: rules, updated: updated, updatedRules: updatedRules)
         }
         model.reload = { [weak self] in
@@ -52,7 +52,7 @@ extension EditorWindowController {
         let board = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
                              backing: .buffered, defer: false)
-        board.title = "Compositore di stili · " + ((document as? NSDocument)?.displayName ?? "Documento")
+        board.title = "Style Composer · " + ((document as? NSDocument)?.displayName ?? "Document")
         board.minSize = NSSize(width: 740, height: 480)
         board.isReleasedWhenClosed = false
         board.backgroundColor = Theme.desk
@@ -111,7 +111,7 @@ final class ComposerBoardModel: ObservableObject {
         self.documentBase = documentBase
         self.wordOwner = wordOwner
         self.sample = sample.trimmingCharacters(in: .whitespacesAndNewlines)
-        if self.sample.isEmpty { self.sample = "Ogni parola trova il proprio posto." }
+        if self.sample.isEmpty { self.sample = "Every word finds its place." }
     }
 
     var dirty: Bool { sheet != baseSheet || rules != baseRules }
@@ -122,22 +122,22 @@ final class ComposerBoardModel: ObservableObject {
     var validationIssue: String? {
         let formulaNames = sheet.reusableFormulas.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
         if formulaNames.contains("") || Set(formulaNames).count != formulaNames.count {
-            return "Assegna un nome diverso a ogni formula riutilizzabile."
+            return "Give each reusable formula a different name."
         }
         if (try? ReusableFormulaLibrary(definitions: sheet.reusableFormulas).validate()) == nil {
             do { try ReusableFormulaLibrary(definitions: sheet.reusableFormulas).validate() } catch { return sheet.reusableProblem(error) }
         }
         let names = sheet.selections.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
         if !incomplete.isEmpty || names.contains("") || Set(names).count != names.count {
-            return "Completa le operazioni e assegna nomi diversi alle selezioni condivise."
+            return "Complete the operations and give the shared selections different names."
         }
         for style in sheet.styles {
             guard style.formulas.allSatisfy({ (try? $0.validate(for: style.target)) != nil }) else {
-                return "Controlla proprietà e argomenti delle formule di «" + style.name + "»."
+                return "Check the properties and arguments of the formulas of “" + style.name + "”."
             }
             if dirty || (showingStyles && style.name == selectedStyle) {
                 if (try? preview(style)) == nil {
-                    return "Lo stile «" + style.name + "» non produce un risultato valido sul campione. Controlla font e misure."
+                    return "The style “" + style.name + "” produces no valid result on the sample. Check fonts and measures."
                 }
             }
         }
@@ -240,7 +240,7 @@ final class ComposerBoardModel: ObservableObject {
     func documentChanged(sheet updated: StyleSheet, rules updatedRules: [TextRule]) {
         guard !isApplying, updated != baseSheet || updatedRules != baseRules else { return }
         guard sheet == cleanDraft, rules == baseRules else {
-            problem = "Gli stili del documento sono cambiati. La bozza è conservata; ricarica prima di applicare."
+            problem = "The document's styles have changed. The draft is kept; reload before applying."
             return
         }
         install(sheet: updated, rules: updatedRules)
@@ -273,7 +273,7 @@ final class ComposerBoardModel: ObservableObject {
         let remaining = sheet.reusableFormulas.filter { $0.id != id }
         var candidate = sheet; candidate.reusableFormulas = remaining
         guard (try? candidate.resolvingReusable()) != nil else {
-            problem = "La formula è usata da un'altra definizione: rimuovi prima il collegamento."
+            problem = "The formula is used by another definition: remove that link first."
             return
         }
         sheet.reusableFormulas = remaining
@@ -349,13 +349,13 @@ struct ComposerBoard: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Compositore di stili").font(.title3.weight(.semibold))
+                Text("Style Composer").font(.title3.weight(.semibold))
                 Spacer()
-                Picker("Vista", selection: $model.section) {
-                    Text("Stili").tag(ComposerBoardModel.Section.styles)
-                    Text("Selezioni").tag(ComposerBoardModel.Section.selections)
-                    Text("Regole").tag(ComposerBoardModel.Section.rules)
-                    Text("Formule").tag(ComposerBoardModel.Section.reusable)
+                Picker("View", selection: $model.section) {
+                    Text("Styles").tag(ComposerBoardModel.Section.styles)
+                    Text("Selections").tag(ComposerBoardModel.Section.selections)
+                    Text("Rules").tag(ComposerBoardModel.Section.rules)
+                    Text("Formulas").tag(ComposerBoardModel.Section.reusable)
                 }.pickerStyle(.segmented).frame(width: 400)
                 if model.section == .selections {
                     Button { model.addSelection() } label: { Label("Formula", systemImage: "plus") }
@@ -370,7 +370,7 @@ struct ComposerBoard: View {
                 ScrollView([.horizontal, .vertical]) {
                     VStack(alignment: .leading, spacing: 20) {
                         if model.sheet.selections.isEmpty {
-                            Button("Aggiungi una selezione") { model.addSelection() }.padding(30)
+                            Button("Add a Selection") { model.addSelection() }.padding(30)
                         }
                         ForEach(model.sheet.selections) { selection in card(selection) }
                     }.padding(24).frame(minWidth: 710, alignment: .leading)
@@ -379,7 +379,7 @@ struct ComposerBoard: View {
             if model.section == .rules {
                 ScrollView([.horizontal, .vertical]) {
                     VStack(alignment: .leading, spacing: 20) {
-                        if model.rules.isEmpty { Text("Le regole del documento compariranno qui.").padding(24) }
+                        if model.rules.isEmpty { Text("The document's rules will appear here.").padding(24) }
                         ForEach(model.rules.indices, id: \.self) { i in historicalRuleCard(i) }
                     }.padding(24)
                 }.background(Color(nsColor: Theme.desk))
@@ -387,7 +387,7 @@ struct ComposerBoard: View {
             if model.section == .reusable {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        if model.sheet.reusableFormulas.isEmpty { Text("Aggiungi una formula riutilizzabile.").foregroundStyle(.secondary) }
+                        if model.sheet.reusableFormulas.isEmpty { Text("Add a reusable formula.").foregroundStyle(.secondary) }
                         ForEach(model.sheet.reusableFormulas) { formula in reusableCard(formula) }
                     }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
                 }.background(Color(nsColor: Theme.desk))
@@ -401,16 +401,16 @@ struct ComposerBoard: View {
     private var bottomBar: some View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("Testo di prova").foregroundStyle(.secondary)
-                    TextField("Scrivi un capoverso", text: $model.sample).textFieldStyle(.roundedBorder)
+                    Text("Sample text").foregroundStyle(.secondary)
+                    TextField("Write a paragraph", text: $model.sample).textFieldStyle(.roundedBorder)
                 }
                 HStack {
-                    Text(model.problem ?? (model.validationIssue ?? (model.dirty ? "Modifiche da applicare al documento" : "Bacheca aggiornata")))
+                    Text(model.problem ?? (model.validationIssue ?? (model.dirty ? "Changes to apply to the document" : "Composer up to date")))
                         .font(.caption).foregroundStyle(Color(nsColor: model.problem == nil ? Theme.secondary : Theme.warn))
                     Spacer()
-                    Button("Ricarica dal documento") { model.discard() }
-                        .help("Sostituisce le bozze con le definizioni attuali del documento")
-                    Button("Applica al documento") { model.apply() }
+                    Button("Reload from Document") { model.discard() }
+                        .help("Replaces the drafts with the document's current definitions")
+                    Button("Apply to Document") { model.apply() }
                         .disabled(!model.dirty || !model.valid)
                 }
             }.padding(16).background(Color(nsColor: Theme.bar))
@@ -418,9 +418,9 @@ struct ComposerBoard: View {
 
     private func sourceTitle(_ source: WordSelection.Source) -> String {
         switch source {
-        case .words: "Tutte le parole"
-        case .capitals: "Sigle maiuscole"
-        case .numbers: "Numeri"
+        case .words: "All words"
+        case .capitals: "Capitalized abbreviations"
+        case .numbers: "Numbers"
         }
     }
 
@@ -441,43 +441,43 @@ struct ComposerBoard: View {
     private func card(_ item: WordSelection) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                TextField("Nome della formula", text: selectionBinding(item.id, \.name, fallback: item.name))
+                TextField("Formula name", text: selectionBinding(item.id, \.name, fallback: item.name))
                     .font(.headline).textFieldStyle(.plain).frame(width: 300)
                 Spacer()
                 Button { model.removeSelection(item.id) } label: { Image(systemName: "trash") }
-                    .help("Togli la formula e le sue regole dalla bozza")
+                    .help("Remove the formula and its rules from the draft")
             }
             HStack(spacing: 10) {
                 Menu {
-                    Text("Oggetto di partenza")
-                    Button("Questo paragrafo") {}
-                } label: { ComposerPill(title: "Questo paragrafo") }
+                    Text("Starting object")
+                    Button("This paragraph") {}
+                } label: { ComposerPill(title: "This paragraph") }
                 arrow
                 Menu {
                     ForEach(WordSelection.Source.allCases, id: \.self) { source in
-                        Button("Raccogli · " + sourceTitle(source)) {
+                        Button("Collect · " + sourceTitle(source)) {
                             selectionBinding(item.id, \.source, fallback: source).wrappedValue = source
                             model.incomplete.remove(item.id)
                         }
                     }
                 } label: {
-                    ComposerPill(title: model.incomplete.contains(item.id) ? "＋ Predicato" : "Raccogli · " + sourceTitle(item.source),
+                    ComposerPill(title: model.incomplete.contains(item.id) ? "＋ Predicate" : "Collect · " + sourceTitle(item.source),
                                  placeholder: model.incomplete.contains(item.id))
                 }
                 if !model.incomplete.contains(item.id) {
                     arrow
                     ComposerPositionPill(index: selectionBinding(item.id, \.index, fallback: item.index))
                     arrow
-                    Text("Parola?").font(.caption).foregroundStyle(.secondary)
+                    Text("Word?").font(.caption).foregroundStyle(.secondary)
                 }
             }.menuStyle(.borderlessButton).fixedSize(horizontal: true, vertical: false)
             if !model.incomplete.contains(item.id) {
-                Text(item.preview(in: model.sample).map { "Risultato sul campione   «\($0)»" } ?? "Nessuna parola in questa posizione · effetti sospesi")
+                Text(item.preview(in: model.sample).map { "Result on the sample   “\($0)”" } ?? "No word at this position · effects suspended")
                     .foregroundStyle(Color(nsColor: Theme.glyph))
                 ForEach(model.rules.indices.filter { model.rules[$0].target == .selection(item.id) }, id: \.self) { i in
                     effectRow(i)
                 }
-                Button { model.addEffect(item.id) } label: { Label("Collega un trattamento", systemImage: "plus") }
+                Button { model.addEffect(item.id) } label: { Label("Link a Treatment", systemImage: "plus") }
             }
         }
         .padding(20).frame(width: 820, alignment: .leading)
@@ -494,21 +494,21 @@ struct ComposerBoard: View {
         HStack(spacing: 10) {
             Image(systemName: "arrow.turn.down.right").foregroundStyle(Color(nsColor: Theme.secondary))
             Menu {
-                Button("Qualsiasi stile di paragrafo") { model.rules[i].paragraphStyle = nil }
+                Button("Any paragraph style") { model.rules[i].paragraphStyle = nil }
                 ForEach(model.sheet.styles.filter { $0.target == .paragraph }, id: \.name) { style in
                     Button(style.name) { model.rules[i].paragraphStyle = style.name }
                 }
-            } label: { ComposerPill(title: model.rules[i].paragraphStyle.map { "Nei paragrafi · " + $0 } ?? "In tutti i paragrafi") }
+            } label: { ComposerPill(title: model.rules[i].paragraphStyle.map { "In paragraphs · " + $0 } ?? "In all paragraphs") }
             arrow
             Menu {
                 ForEach(model.appearances, id: \.name) { style in
-                    Button("Applica " + style.name) { model.rules[i].styleName = style.name }
+                    Button("Apply " + style.name) { model.rules[i].styleName = style.name }
                 }
-            } label: { ComposerPill(title: "Tratta con · " + model.rules[i].styleName) }
+            } label: { ComposerPill(title: "Treat with · " + model.rules[i].styleName) }
             Menu {
-                Button(model.rules[i].isEnabled ? "Sospendi il trattamento" : "Attiva il trattamento") { model.rules[i].isEnabled.toggle() }
-                Button("Togli il trattamento") { model.rules.remove(at: i) }
-            } label: { ComposerPill(title: model.rules[i].isEnabled ? "Attivo" : "Sospeso") }
+                Button(model.rules[i].isEnabled ? "Suspend Treatment" : "Activate Treatment") { model.rules[i].isEnabled.toggle() }
+                Button("Remove Treatment") { model.rules.remove(at: i) }
+            } label: { ComposerPill(title: model.rules[i].isEnabled ? "Active" : "Suspended") }
         }.menuStyle(.borderlessButton).fixedSize(horizontal: true, vertical: false)
     }
 }
@@ -521,16 +521,16 @@ private struct ComposerPositionPill: View {
     var body: some View {
         Menu {
             ForEach(1...10, id: \.self) { n in
-                Button("In posizione \(n)") { index = n }
+                Button("At position \(n)") { index = n }
             }
             Divider()
-            Button("Altra posizione…") { text = String(index); editing = true }
-        } label: { ComposerPill(title: "Scegli · \(index)") }
+            Button("Other Position…") { text = String(index); editing = true }
+        } label: { ComposerPill(title: "Choose · \(index)") }
         .popover(isPresented: $editing) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Posizione della parola").font(.headline)
-                TextField("A partire da 1", text: $text).frame(width: 180)
-                Button("Usa questa posizione") {
+                Text("Word position").font(.headline)
+                TextField("Starting from 1", text: $text).frame(width: 180)
+                Button("Use This Position") {
                     if let value = Int(text), value > 0 { index = value; editing = false }
                 }
                 .disabled(Int(text).map { $0 > 0 } != true)
@@ -542,9 +542,9 @@ private struct ComposerPositionPill: View {
 extension StylePredicate {
     var title: String {
         switch self {
-        case .set: "Imposta"
-        case .add: "Aggiungi"
-        case .subtract: "Sottrai"
+        case .set: "Set"
+        case .add: "Add"
+        case .subtract: "Subtract"
         }
     }
 }
@@ -552,31 +552,31 @@ extension StylePredicate {
 extension StyleProperty {
     var title: String {
         switch self {
-        case .pageStartSpacing: "Distanza a inizio pagina"
-        case .openingDistance: "Distanza di apertura"
-        case .opensSection: "Apre sezione"
-        case .nextStyle: "Stile dopo Invio"
-        case .outlineLevel: "Livello del titolo"
-        case .applyStyle: "Stile dei destinatari"
-        case .keepWithNext: "Tieni con il prossimo"
-        case .keepTogether: "Paragrafo indivisibile"
-        case .orphanLines: "Righe in fondo"
-        case .widowLines: "Righe in cima"
+        case .pageStartSpacing: "Page-start distance"
+        case .openingDistance: "Opening distance"
+        case .opensSection: "Opens section"
+        case .nextStyle: "Style after Return"
+        case .outlineLevel: "Heading level"
+        case .applyStyle: "Target style"
+        case .keepWithNext: "Keep with next"
+        case .keepTogether: "Keep lines together"
+        case .orphanLines: "Lines at the bottom"
+        case .widowLines: "Lines at the top"
         case .font: "Font"
-        case .family: "Famiglia"
-        case .face: "Faccia precisa"
-        case .size: "Corpo"
-        case .color: "Colore"
-        case .smallCaps: "Maiuscoletto"
-        case .hyphenates: "Sillabazione"
-        case .language: "Lingua"
-        case .alignment: "Allineamento"
-        case .spaceBefore: "Spazio prima"
-        case .spaceAfter: "Spazio dopo"
-        case .firstLineIndent: "Rientro prima riga"
-        case .leftIndent: "Rientro sinistro"
-        case .rightIndent: "Rientro destro"
-        case .lineSpacing: "Spazio fra righe"
+        case .family: "Family"
+        case .face: "Exact face"
+        case .size: "Size"
+        case .color: "Color"
+        case .smallCaps: "Small caps"
+        case .hyphenates: "Hyphenation"
+        case .language: "Language"
+        case .alignment: "Alignment"
+        case .spaceBefore: "Space before"
+        case .spaceAfter: "Space after"
+        case .firstLineIndent: "First-line indent"
+        case .leftIndent: "Left indent"
+        case .rightIndent: "Right indent"
+        case .lineSpacing: "Line spacing"
         }
     }
     var initialArgument: StyleArgument {
@@ -605,10 +605,10 @@ extension StyleProperty {
 
 func roleTitle(_ role: FontRole) -> String {
     switch role {
-    case .regular: "Tondo"
-    case .italic: "Corsivo"
-    case .bold: "Grassetto"
-    case .boldItalic: "Grassetto corsivo"
+    case .regular: "Roman"
+    case .italic: "Italic"
+    case .bold: "Bold"
+    case .boldItalic: "Bold italic"
     }
 }
 
@@ -618,24 +618,24 @@ extension ComposerBoard {
         switch property {
         case .pageStartSpacing:
             if case .distance(let points) = state.directives.pageStartSpacing { return points.formatted() + " pt" }
-            return "Nessuna distanza"
+            return "No distance"
         case .openingDistance: return (state.directives.openingDistance ?? 0).formatted() + " pt"
-        case .opensSection: return state.directives.opensSection.flatMap { $0.isEmpty ? nil : $0 } ?? "Nessuna sezione"
-        case .nextStyle: return state.directives.nextStyle.flatMap { $0.isEmpty ? nil : $0 } ?? "Stesso stile"
-        case .applyStyle: return state.directives.applyingStyle ?? "Nessun trattamento"
+        case .opensSection: return state.directives.opensSection.flatMap { $0.isEmpty ? nil : $0 } ?? "No section"
+        case .nextStyle: return state.directives.nextStyle.flatMap { $0.isEmpty ? nil : $0 } ?? "Same style"
+        case .applyStyle: return state.directives.applyingStyle ?? "No treatment"
         case .outlineLevel: return String(p.outlineLevel ?? 0)
-        case .keepWithNext: return state.directives.keeping.withNext == true ? "Sì" : "No"
-        case .keepTogether: return state.directives.keeping.together == true ? "Sì" : "No"
+        case .keepWithNext: return state.directives.keeping.withNext == true ? "Yes" : "No"
+        case .keepTogether: return state.directives.keeping.together == true ? "Yes" : "No"
         case .orphanLines: return String(state.directives.keeping.linesAtEnd ?? 1)
         case .widowLines: return String(state.directives.keeping.linesAtStart ?? 1)
         case .face: return c.fontName
         case .font: return model.resolver.role(of: c).map(roleTitle) ?? c.fontName
         case .family: return NSFont(name: c.fontName, size: CGFloat(c.size))?.familyName ?? c.fontName
         case .size: return c.size.formatted() + " pt"
-        case .color: return c.color ?? "Automatico"
+        case .color: return c.color ?? "Automatic"
         case .smallCaps: return c.smallCaps.rawValue
-        case .hyphenates: return c.hyphenates ? "Attiva" : "Disattivata"
-        case .language: return c.language ?? "Lingua documento"
+        case .hyphenates: return c.hyphenates ? "On" : "Off"
+        case .language: return c.language ?? "Document language"
         case .alignment: return p.alignment.title
         case .spaceBefore: return p.spaceBefore.formatted() + " pt"
         case .spaceAfter: return p.spaceAfter.formatted() + " pt"
@@ -648,12 +648,12 @@ extension ComposerBoard {
 
     func phaseTitle(_ phase: StyleFormulaPhase) -> String {
         switch phase {
-        case .base: "Formattazione di base"
-        case .placement: "Durante la collocazione"
-        case .textContext: "Dopo la base · contesto del testo"
-        case .composition: "Dopo il contesto · composizione naturale"
-        case .assignment: "Quando assegni lo stile"
-        case .paragraphCreation: "Quando premi Invio"
+        case .base: "Base formatting"
+        case .placement: "During placement"
+        case .textContext: "After the base · text context"
+        case .composition: "After the context · natural composition"
+        case .assignment: "When the style is assigned"
+        case .paragraphCreation: "When you press Return"
         }
     }
 
@@ -666,19 +666,19 @@ extension ComposerBoard {
         let v = style.values
         if v != StyleValues() {
             VStack(alignment: .leading, spacing: 5) {
-                Text("Altre proprietà conservate").font(.caption.weight(.semibold))
-                if let role = v.opensSection { Text("Apre sezione · " + role) }
-                if let level = v.outlineLevel { Text("Livello · \(level)") }
-                if let list = v.listName { Text("Lista · " + list) }
-                if let distance = v.openingDistance { Text("Apertura sequenza · \(distance.formatted()) pt") }
-                if v.pageStartSpacing != nil { Text("Variante di inizio pagina · configurata nella scheda Stili") }
-                if !v.keeping.isEmpty { Text("Tenuta delle righe · " + v.keeping.encoded) }
+                Text("Other preserved properties").font(.caption.weight(.semibold))
+                if let role = v.opensSection { Text("Opens section · " + role) }
+                if let level = v.outlineLevel { Text("Level · \(level)") }
+                if let list = v.listName { Text("List · " + list) }
+                if let distance = v.openingDistance { Text("Sequence opening · \(distance.formatted()) pt") }
+                if v.pageStartSpacing != nil { Text("Page-start variant · set in the Styles tab") }
+                if !v.keeping.isEmpty { Text("Line keeping · " + v.keeping.encoded) }
                 if v.family != nil || v.italic != nil || v.bold != nil || v.features != nil || v.variations != nil || v.fontName != nil || v.opticalSize != nil {
-                    Text("Scelte avanzate del font · modificabili nella scheda Stili")
+                    Text("Advanced font choices · editable in the Styles tab")
                 }
-                if v.italic == false || v.bold == false { Text("Esclusioni esplicite dei tratti del font · scheda Stili") }
+                if v.italic == false || v.bold == false { Text("Explicit exclusions of font traits · Styles tab") }
                 if v.verticalPosition != nil || v.decorations != nil || v.graphite != nil || v.lineHeightMultiple != nil {
-                    Text("Altri valori tipografici · modificabili nella scheda Stili")
+                    Text("Other typographic values · editable in the Styles tab")
                 }
             }.font(.caption).foregroundStyle(.secondary)
         }
@@ -695,20 +695,20 @@ struct FormulaArgumentPill: View {
 
     private var title: String {
         switch operation.argument {
-        case .boolean(let enabled): enabled ? "Sì" : "No"
+        case .boolean(let enabled): enabled ? "Yes" : "No"
         case .integer(let number): String(number)
-        case .text(let value): value.isEmpty ? "Nessuna" : value
-        case .styleName(let name): name ?? "Stesso stile"
+        case .text(let value): value.isEmpty ? "None" : value
+        case .styleName(let name): name ?? "Same style"
         case .pageStart(let spacing):
-            switch spacing { case .disabled: "Disattivata"; case .distance(let points): points.formatted() + " pt" }
+            switch spacing { case .disabled: "Off"; case .distance(let points): points.formatted() + " pt" }
         case .font(let role): roleTitle(role)
         case .length(let value, let unit): value.formatted() + " " + unit.rawValue
         case .family(let name), .face(let name): name
-        case .language(let language): language ?? "Lingua documento"
-        case .color(let color): color ?? "Automatico"
+        case .language(let language): language ?? "Document language"
+        case .color(let color): color ?? "Automatic"
         case .alignment(let alignment): alignment.title
         case .smallCaps(let mode): mode.rawValue
-        case .hyphenates(let enabled): enabled ? "Attiva" : "Disattivata"
+        case .hyphenates(let enabled): enabled ? "On" : "Off"
         }
     }
     /// Il valore come lo mostra la pastiglia (il compositore lo usa nel riassunto di un'azione richiusa).
@@ -736,23 +736,23 @@ struct FormulaArgumentPill: View {
         Menu {
             switch operation.argument {
             case .boolean:
-                Button("Sì") { commit(.boolean(true)) }
+                Button("Yes") { commit(.boolean(true)) }
                 Button("No") { commit(.boolean(false)) }
             case .integer:
                 ForEach((operation.property == .outlineLevel ? 0 : 1)...9, id: \.self) { n in Button(String(n)) { commit(.integer(n)) } }
             case .text:
                 ForEach(["", Section.Role.part, Section.Role.chapter, Section.Role.section, Section.Role.appendix], id: \.self) { value in
-                    Button(value.isEmpty ? "Nessuna sezione" : value) { commit(.text(value)) }
+                    Button(value.isEmpty ? "No section" : value) { commit(.text(value)) }
                 }
-                Button("Altro ruolo…") { if case .text(let value) = operation.argument { text = value }; editing = true }
+                Button("Other Role…") { if case .text(let value) = operation.argument { text = value }; editing = true }
             case .styleName:
                 // I nomi vengono forniti dalla bacheca per evitare riferimenti liberi.
                 ForEach(styleNames, id: \.self) { name in Button(name) { commit(.styleName(name)) } }
-                if operation.property == .nextStyle { Button("Stesso stile") { commit(.styleName(nil)) } }
+                if operation.property == .nextStyle { Button("Same style") { commit(.styleName(nil)) } }
             case .pageStart:
-                Button("Disattivata") { commit(.pageStart(.disabled)) }
+                Button("Off") { commit(.pageStart(.disabled)) }
                 ForEach([0, 36, 72, 108], id: \.self) { n in Button("\(n) pt") { commit(.pageStart(.distance(Double(n)))) } }
-                Button("Altra distanza…") { text = title; editing = true }
+                Button("Other Distance…") { text = title; editing = true }
             case .font:
                 ForEach(FontRole.allCases, id: \.self) { role in Button(roleTitle(role)) { commit(.font(role)) } }
             case .alignment:
@@ -762,8 +762,8 @@ struct FormulaArgumentPill: View {
             case .smallCaps:
                 ForEach(SmallCaps.allCases, id: \.self) { mode in Button(mode.rawValue) { commit(.smallCaps(mode)) } }
             case .hyphenates:
-                Button("Attiva") { commit(.hyphenates(true)) }
-                Button("Disattivata") { commit(.hyphenates(false)) }
+                Button("On") { commit(.hyphenates(true)) }
+                Button("Off") { commit(.hyphenates(false)) }
             case .face:
                 ForEach(NSFontManager.shared.availableFonts.sorted(), id: \.self) { name in
                     Button(name) { commit(.face(name)) }
@@ -773,21 +773,21 @@ struct FormulaArgumentPill: View {
                     Button(name) { commit(.family(name)) }
                 }
             case .length:
-                Button("Modifica misura…") { text = title; editing = true }
+                Button("Edit Measure…") { text = title; editing = true }
                 ForEach([0, 6, 12, 18, 24], id: \.self) { n in
                     if operation.property != .size || n > 0 {
                         Button("\(n) pt") { commit(.length(Double(n), .points)) }
                     }
                 }
             case .language, .color:
-                Button("Modifica valore…") {
+                Button("Edit Value…") {
                     switch operation.argument {
                     case .language(let value), .color(let value): text = value ?? ""
                     default: break
                     }
                     editing = true
                 }
-                Button("Automatico / documento") {
+                Button("Automatic / document") {
                     if operation.property == .color { commit(.color(nil)) } else { commit(.language(nil)) }
                 }
             }
@@ -795,9 +795,9 @@ struct FormulaArgumentPill: View {
         .popover(isPresented: $editing) {
             VStack(alignment: .leading, spacing: 10) {
                 Text(operation.property.title).font(.headline)
-                TextField("Valore", text: $text).frame(width: 220)
-                if case .length = operation.argument { Text("Unità ammesse · pt, mm, cm, in, pc").font(.caption) }
-                Button("Usa questo valore") {
+                TextField("Value", text: $text).frame(width: 220)
+                if case .length = operation.argument { Text("Accepted units · pt, mm, cm, in, pc").font(.caption) }
+                Button("Use This Value") {
                     if validEdit, let value = editedArgument { commit(value); editing = false }
                 }.disabled(!validEdit)
             }.padding(16).buttonStyle(ComposerButtonStyle())
@@ -817,12 +817,12 @@ struct FormulaNumberPill: View {
     var body: some View {
         Menu {
             ForEach([0, 1, 2, 3, 5, 10, 50, 100], id: \.self) { n in Button(String(n)) { commit(Double(n)) } }
-            Button("Altro valore…") { text = String(value); editing = true }
+            Button("Other Value…") { text = String(value); editing = true }
         } label: { ComposerPill(title: value.formatted()) }
         .popover(isPresented: $editing) {
             VStack(alignment: .leading, spacing: 10) {
-                TextField("Valore", text: $text).frame(width: 180)
-                Button("Usa questo valore") { if let parsed { commit(parsed); editing = false } }.disabled(parsed == nil)
+                TextField("Value", text: $text).frame(width: 180)
+                Button("Use This Value") { if let parsed { commit(parsed); editing = false } }.disabled(parsed == nil)
             }.padding(16).buttonStyle(ComposerButtonStyle())
         }
     }
@@ -842,17 +842,17 @@ struct FormulaQualifiers: View {
 
     static func title(of target: TextRule.Target, selections: [WordSelection]) -> String {
         switch target {
-        case .paragraph: "Questo paragrafo"
-        case .firstLetter: "Prima lettera"
-        case .firstWords(let count): "Prime \(count) parole"
-        case .firstSentence: "Prima frase"
-        case .firstLines(let count): "Prime \(count) righe"
-        case .lastLine: "Ultima riga"
-        case .words(.capitals): "Sigle maiuscole"
-        case .words(.romanNumerals): "Numeri romani"
-        case .words(.numbers): "Numeri"
-        case .words(.listed): "Parole date"
-        case .selection(let id): selections.first { $0.id == id }?.name ?? "Selezione condivisa"
+        case .paragraph: "This paragraph"
+        case .firstLetter: "First letter"
+        case .firstWords(let count): "First \(count) words"
+        case .firstSentence: "First sentence"
+        case .firstLines(let count): "First \(count) lines"
+        case .lastLine: "Last line"
+        case .words(.capitals): "Capitalized abbreviations"
+        case .words(.romanNumerals): "Roman numerals"
+        case .words(.numbers): "Numbers"
+        case .words(.listed): "Given words"
+        case .selection(let id): selections.first { $0.id == id }?.name ?? "Shared selection"
         }
     }
     private func choose(_ position: TextRule.Position) {
@@ -865,39 +865,39 @@ struct FormulaQualifiers: View {
     }
     private func metricTitle(_ metric: TextRule.Condition.Property) -> String {
         switch metric {
-        case .words: "Parole"
-        case .lines: "Righe"
-        case .lastLineFill: "Ultima riga %"
-        case .hyphens: "Righe con trattino"
+        case .words: "Words"
+        case .lines: "Lines"
+        case .lastLineFill: "Last line %"
+        case .hyphens: "Hyphenated lines"
         }
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Text("Quando").font(.caption).foregroundStyle(.secondary)
+                Text("When").font(.caption).foregroundStyle(.secondary)
                 Menu {
                     if valid(StyleCondition(position: .any, measurement: condition.measurement), target) {
-                        Button("Sempre") { choose(TextRule.Position.any) }
+                        Button("Always") { choose(TextRule.Position.any) }
                     }
                     if valid(StyleCondition(position: .firstOnPage, measurement: condition.measurement), target) {
-                        Button("Primo della pagina") { choose(TextRule.Position.firstOnPage) }
+                        Button("First on page") { choose(TextRule.Position.firstOnPage) }
                     }
                     if valid(StyleCondition(position: .sequenceStart, measurement: condition.measurement), target) {
-                        Button("Inizio sequenza") { choose(TextRule.Position.sequenceStart) }
+                        Button("Sequence start") { choose(TextRule.Position.sequenceStart) }
                     }
                     if !operation.property.isDirective {
-                        Menu("Dopo lo stile") {
+                        Menu("After style") {
                             ForEach(styleNames, id: \.self) { name in Button(name) { choose(TextRule.Position.firstAfter(name)) } }
                         }
                     }
                 } label: { ComposerPill(title: StyleCondition(position: condition.position).summary) }.fixedSize()
                 if !operation.property.isDirective {
                     Menu {
-                        Button("Nessuna condizione numerica") { choose(Optional<TextRule.Condition>.none) }
+                        Button("No numeric condition") { choose(Optional<TextRule.Condition>.none) }
                         ForEach(TextRule.Condition.Property.allCases, id: \.self) { metric in
                             Button(metricTitle(metric)) { choose(TextRule.Condition(metric, .greaterOrEqual, metric == .lastLineFill ? 50 : 2)) }
                         }
-                    } label: { ComposerPill(title: condition.measurement.map { metricTitle($0.property) } ?? "＋ Condizione") }.fixedSize()
+                    } label: { ComposerPill(title: condition.measurement.map { metricTitle($0.property) } ?? "＋ Condition") }.fixedSize()
                     if let metric = condition.measurement {
                         Menu {
                             ForEach(TextRule.Condition.Comparison.allCases, id: \.self) { comparison in
@@ -910,7 +910,7 @@ struct FormulaQualifiers: View {
             }
             if !operation.property.isDirective {
                 HStack(spacing: 8) {
-                    Text("Su").font(.caption).foregroundStyle(.secondary)
+                    Text("On").font(.caption).foregroundStyle(.secondary)
                     Menu {
                         ForEach(Array([TextRule.Target.paragraph, .firstLetter, .firstWords(2), .firstSentence, .firstLines(1), .lastLine,
                                        .words(.capitals), .words(.romanNumerals), .words(.numbers)].enumerated()), id: \.offset) { _, candidate in
@@ -934,16 +934,16 @@ struct FormulaQualifiers: View {
     }
     private func targetName(_ target: TextRule.Target) -> String {
         switch target {
-        case .paragraph: "Questo paragrafo"
-        case .firstLetter: "Prima lettera"
-        case .firstWords: "Prime parole"
-        case .firstSentence: "Prima frase"
-        case .firstLines: "Prime righe"
-        case .lastLine: "Ultima riga"
-        case .words(.capitals): "Sigle maiuscole"
-        case .words(.romanNumerals): "Numeri romani"
-        case .words(.numbers): "Numeri"
-        default: "Selezione"
+        case .paragraph: "This paragraph"
+        case .firstLetter: "First letter"
+        case .firstWords: "First words"
+        case .firstSentence: "First sentence"
+        case .firstLines: "First lines"
+        case .lastLine: "Last line"
+        case .words(.capitals): "Capitalized abbreviations"
+        case .words(.romanNumerals): "Roman numerals"
+        case .words(.numbers): "Numbers"
+        default: "Selection"
         }
     }
 }
@@ -952,31 +952,31 @@ extension ComposerBoard {
     func historicalRuleCard(_ i: Int) -> some View {
         let rule = model.rules[i]
         return VStack(alignment: .leading, spacing: 14) {
-            Text("Regola del documento \(i + 1)").font(.headline)
+            Text("Document rule \(i + 1)").font(.headline)
             HStack {
                 Menu {
-                    Button("Tutti i paragrafi") { model.rules[i].paragraphStyle = nil }
+                    Button("All paragraphs") { model.rules[i].paragraphStyle = nil }
                     ForEach(model.sheet.styles.filter { $0.target == .paragraph }, id: \.name) { style in
                         Button(style.name) { model.rules[i].paragraphStyle = style.name }
                     }
-                } label: { ComposerPill(title: rule.paragraphStyle ?? "Tutti i paragrafi") }
-                ComposerPill(title: "Imposta · Stile")
+                } label: { ComposerPill(title: rule.paragraphStyle ?? "All paragraphs") }
+                ComposerPill(title: "Set · Style")
                 Menu {
                     ForEach(model.sheet.styles.filter { $0.target != .paragraph || rule.target == .paragraph }, id: \.name) { style in
                         Button(style.name) { model.rules[i].styleName = style.name }
                     }
                 } label: { ComposerPill(title: rule.styleName) }
                 Menu {
-                    Button(rule.isEnabled ? "Sospendi" : "Attiva") { model.rules[i].isEnabled.toggle() }
-                    Button("Rimuovi regola") { model.rules.remove(at: i) }
-                } label: { ComposerPill(title: rule.isEnabled ? "Attiva" : "Sospesa") }
+                    Button(rule.isEnabled ? "Suspend" : "On") { model.rules[i].isEnabled.toggle() }
+                    Button("Remove Rule") { model.rules.remove(at: i) }
+                } label: { ComposerPill(title: rule.isEnabled ? "On" : "Suspended") }
             }
             FormulaQualifiers(condition: Binding(get: { StyleCondition(position: model.rules[i].position, measurement: model.rules[i].condition) },
                 set: { model.rules[i].position = $0.position; model.rules[i].condition = $0.measurement }),
                 target: Binding(get: { model.rules[i].target }, set: { model.rules[i].target = $0 }),
                 operation: StylePropertyOperation(.set, .applyStyle, .styleName(rule.styleName)),
                 styleNames: model.sheet.styles.filter { $0.target == .paragraph }.map(\.name), selections: model.sheet.selections)
-            Text("Mantiene ordine e precedenze della regola originale.").font(.caption).foregroundStyle(.secondary)
+            Text("Keeps the order and precedence of the original rule.").font(.caption).foregroundStyle(.secondary)
         }.menuStyle(.borderlessButton).padding(20).frame(width: 850, alignment: .leading)
             .background(Color(nsColor: Theme.side)).clipShape(RoundedRectangle(cornerRadius: 8))
     }
@@ -986,12 +986,12 @@ extension ParagraphStyle.Alignment {
     /// Il nome dell'allineamento nel compositore.
     var title: String {
         switch self {
-        case .natural: "Naturale"
-        case .left: "A sinistra"
-        case .right: "A destra"
-        case .center: "Al centro"
-        case .justified: "Giustificato"
-        case .decimal: "Sulla virgola"
+        case .natural: "Natural"
+        case .left: "Left"
+        case .right: "Right"
+        case .center: "Center"
+        case .justified: "Justified"
+        case .decimal: "Decimal"
         }
     }
 }

@@ -52,7 +52,7 @@ extension EditorWindowController {
         attributes[.kern] = nil
         attributes[.fontTracking] = nil
         insertFormatted(NSAttributedString(string: String(utf16CodeUnits: [FloatingObject.anchorCharacter], count: 1), attributes: attributes),
-                        replacing: NSRange(location: point, length: 0), actionName: style == FloatStyle.footnoteName ? "Nota a piè di pagina" : "Nota «\(style)»")
+                        replacing: NSRange(location: point, length: 0), actionName: style == FloatStyle.footnoteName ? "Footnote" : "Note “\(style)”")
         // L'inserimento della nota è un passo a sé: ciò che si scrive dentro si annulla separatamente.
         apply(TextSelection(caret: point + 1, affinity: .upstream))
         window?.makeFirstResponder(pagesView)
@@ -138,7 +138,7 @@ extension EditorWindowController {
         for key in [NSAttributedString.Key.inlineImage, .floatImage, .sectionTitle, .finalParagraphSection] { attributes[key] = nil }
         attributes[.field] = field.encoded
         let range = selection.range
-        insertFormatted(NSAttributedString(string: Field.placeholder, attributes: attributes), replacing: range, actionName: "Campo")
+        insertFormatted(NSAttributedString(string: Field.placeholder, attributes: attributes), replacing: range, actionName: "Field")
         typingAttributes = Self.typingAttributes(in: store, at: selection)
         window?.makeFirstResponder(pagesView)
     }
@@ -166,7 +166,7 @@ extension EditorWindowController {
         let point = selection.range.location
         let sheet = settings.styles
         var title = point
-        writeStore(actionName: "Sezione") { store in title = SectionEditing.insertSection(in: store, at: point, level: level, sheet: sheet) }
+        writeStore(actionName: "Section") { store in title = SectionEditing.insertSection(in: store, at: point, level: level, sheet: sheet) }
         setSelection(TextSelection(caret: title))
         // Anche se il cursore non si è mosso, ora si scrive nel titolo, con i suoi attributi.
         typingAttributes = Self.typingAttributes(in: store, at: selection)
@@ -184,7 +184,7 @@ extension EditorWindowController {
             let lastRow = TableEditing.paragraphs(ofTableAt: point, in: store).map(\.mark.row).max() ?? mark.row
             endUndoStep(next: .none)
             var first: Int?
-            writeStore(actionName: "Riga") { store in first = TableEditing.insertRow(below: lastRow, ofTableAt: point, in: store) }
+            writeStore(actionName: "Row") { store in first = TableEditing.insertRow(below: lastRow, ofTableAt: point, in: store) }
             guard let first else { return }
             target = TableEditing.cell(at: first, in: store)
             setSelection(TextSelection(caret: first))
@@ -287,7 +287,7 @@ extension EditorWindowController {
         guard marks.count > 1 || marks.contains(where: { $0.columnSpan > 1 || $0.rowSpan > 1 }) else { return NSSound.beep() }
         endUndoStep(next: .none)
         var start: Int?
-        writeStore(actionName: "Unisci le celle") { start = TableEditing.mergeCells(touching: marks, ofTableAt: point, in: $0) }
+        writeStore(actionName: "Merge Cells") { start = TableEditing.mergeCells(touching: marks, ofTableAt: point, in: $0) }
         guard let start else { return }
         setSelection(TextSelection(caret: start))
         typingAttributes = Self.typingAttributes(in: store, at: selection)
@@ -298,7 +298,7 @@ extension EditorWindowController {
     @objc func splitTableCell(_ sender: Any?) {
         let point = selection.range.location
         guard noteAnchor == nil, let cell = TableEditing.cell(at: point, in: store), cell.columnSpan > 1 || cell.rowSpan > 1 else { return NSSound.beep() }
-        changeTable(actionName: "Dividi la cella") { TableEditing.splitCell(row: cell.row, column: cell.column, ofTableAt: $0, in: $1) }
+        changeTable(actionName: "Split Cell") { TableEditing.splitCell(row: cell.row, column: cell.column, ofTableAt: $0, in: $1) }
     }
 
     /// Menu Tabella › Tabella flottante, con didascalia: la accende con lo stile «Tabella», o la rimette nel testo.
@@ -317,7 +317,7 @@ extension EditorWindowController {
         if let name, name == FloatStyle.tableName, !settings.floatStyles.contains(where: { $0.name == name }) {
             var lists = settings.lists
             if !lists.contains(where: { $0.name == ListDefinition.tables.name }) { lists.append(ListDefinition.tables) }
-            changeListSettings(lists: lists, noteList: nil, styles: settings.styles, floatStyles: settings.floatStyles + [.defaultTable], actionName: "Tabella flottante")
+            changeListSettings(lists: lists, noteList: nil, styles: settings.styles, floatStyles: settings.floatStyles + [.defaultTable], actionName: "Floating Table")
         }
         let kept = selection
         // Spegnendo, la didascalia va via: il cursore che stava dopo arretra di quanto era lunga, quello che stava dentro va
@@ -329,9 +329,9 @@ extension EditorWindowController {
             if keptLocation >= NSMaxRange(removed) { keptLocation -= removed.length } else if keptLocation >= removed.location { keptLocation = removed.location }
         }
         var caption: Int?
-        writeStore(actionName: "Tabella flottante") { caption = TableEditing.setFloat(name, ofTableAt: point, in: $0) }
+        writeStore(actionName: "Floating Table") { caption = TableEditing.setFloat(name, ofTableAt: point, in: $0) }
         document?.undoManager?.endUndoGrouping()
-        document?.undoManager?.setActionName(name == nil ? "Tabella nel testo" : "Tabella flottante")
+        document?.undoManager?.setActionName(name == nil ? "Inline Table" : "Floating Table")
         if let caption, name != nil {
             setSelection(TextSelection(caret: caption))
         } else {
@@ -349,9 +349,9 @@ extension EditorWindowController {
         if store.length > 0, !result.renames.isEmpty {
             writeStore(actionName: nil) { TableEditing.renameTableStyles(result.renames, in: $0) }
         }
-        change(\.tableStyles, to: result.styles, actionName: "Stili di tabella")
+        change(\.tableStyles, to: result.styles, actionName: "Table Styles")
         document?.undoManager?.endUndoGrouping()
-        document?.undoManager?.setActionName("Stili di tabella")
+        document?.undoManager?.setActionName("Table Styles")
         return true
     }
 
@@ -360,7 +360,7 @@ extension EditorWindowController {
         let point = selection.range.location
         guard TableEditing.cell(at: point, in: store) != nil else { return }
         endUndoStep(next: .none)
-        writeStore(actionName: "Righe d'intestazione") { TableEditing.setHeaderRows(count, ofTableAt: point, in: $0) }
+        writeStore(actionName: "Header Rows") { TableEditing.setHeaderRows(count, ofTableAt: point, in: $0) }
         refreshInspector()
     }
 
@@ -375,7 +375,7 @@ extension EditorWindowController {
         let point = selection.range.location
         let sheet = settings.styles
         var first: Int?
-        writeStore(actionName: "Tabella") { store in first = TableEditing.insertTable(in: store, after: point, sheet: sheet) }
+        writeStore(actionName: "Table") { store in first = TableEditing.insertTable(in: store, after: point, sheet: sheet) }
         guard let first else { return }
         setSelection(TextSelection(caret: first))
         typingAttributes = Self.typingAttributes(in: store, at: selection)
@@ -390,7 +390,7 @@ extension EditorWindowController {
         }
         endUndoStep(next: .none)
         let point = selection
-        writeStore(actionName: "Togli la sezione") { store in SectionEditing.removeSection(title, in: store) }
+        writeStore(actionName: "Remove Section") { store in SectionEditing.removeSection(title, in: store) }
         setSelection(point)
         // Il segno della sezione tolta non deve tornare con ciò che si scrive.
         typingAttributes = Self.typingAttributes(in: store, at: selection)
@@ -405,7 +405,7 @@ extension EditorWindowController {
             return
         }
         endUndoStep(next: .none)
-        writeStore(actionName: "Torna alla sezione esterna") { SectionEditing.returnParagraph(in: $0, containing: point.range.location) }
+        writeStore(actionName: "Back to the Outer Section") { SectionEditing.returnParagraph(in: $0, containing: point.range.location) }
         setSelection(point, textChanged: true)
     }
 
@@ -417,7 +417,7 @@ extension EditorWindowController {
             return
         }
         endUndoStep(next: .none)
-        writeStore(actionName: "Entra nella sezione precedente") { SectionEditing.removeReturn(in: $0, containing: point.range.location) }
+        writeStore(actionName: "Into the Previous Section") { SectionEditing.removeReturn(in: $0, containing: point.range.location) }
         setSelection(point, textChanged: true)
     }
 
@@ -426,16 +426,16 @@ extension EditorWindowController {
         guard noteAnchor == nil, store.length > 0,
               let target = SectionEditing.returnTarget(in: store, atParagraphContaining: selection.range.location) else { return nil }
         guard !target.isEmpty, let title = SectionEditing.titles(in: store).first(where: { $0.mark.id == target }) else {
-            return "Torna fuori dalle sezioni"
+            return "Back Out of the Sections"
         }
-        return "Torna a \(displayTitle(of: title))"
+        return "Back to \(displayTitle(of: title))"
     }
 
     /// Il titolo della voce «Entra in…», o `nil` se il capoverso del cursore non torna a una sezione esterna.
     func joinMenuTitle() -> String? {
         guard noteAnchor == nil, store.length > 0,
               let title = SectionEditing.joinTarget(in: store, atParagraphContaining: selection.range.location) else { return nil }
-        return "Entra in \(displayTitle(of: title))"
+        return "Into \(displayTitle(of: title))"
     }
 
     /// Le sezioni in cui sta il cursore, dalla più esterna.
@@ -483,8 +483,8 @@ extension EditorWindowController {
     /// Il testo del titolo di una sezione, per mostrarlo: le prime parole, o «senza titolo».
     func displayTitle(of title: SectionEditing.Title) -> String {
         let text = SectionEditing.titleText(of: title, in: store)
-        guard !text.isEmpty else { return "senza titolo" }
-        return "«" + (text.count > 40 ? String(text.prefix(40)) + "…" : text) + "»"
+        guard !text.isEmpty else { return "untitled" }
+        return "“" + (text.count > 40 ? String(text.prefix(40)) + "…" : text) + "”"
     }
 
     func confirmSectionRemoval(_ title: SectionEditing.Title, then remove: @escaping () -> Void) {
@@ -494,10 +494,10 @@ extension EditorWindowController {
         }
         guard let window else { return }
         let alert = NSAlert()
-        alert.messageText = "Togliere la sezione \(displayTitle(of: title)) (\(title.mark.role))?"
-        alert.informativeText = "Il suo testo passa alla sezione che la precede e le sue sezioni interne salgono di un livello. Il titolo resta come paragrafo e si unisce a quello prima."
-        alert.addButton(withTitle: "Togli la sezione")
-        alert.addButton(withTitle: "Annulla")
+        alert.messageText = "Remove the section \(displayTitle(of: title)) (\(title.mark.role))?"
+        alert.informativeText = "Its text goes to the previous section and its inner sections move up a level. The title stays as a paragraph and joins the one before."
+        alert.addButton(withTitle: "Remove Section")
+        alert.addButton(withTitle: "Cancel")
         alert.beginSheetModal(for: window) { response in
             guard response == .alertFirstButtonReturn else { return }
             remove()
@@ -514,7 +514,7 @@ extension EditorWindowController {
         }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.image, .pdf]
-        let link = NSButton(checkboxWithTitle: "Collega al file invece di includerlo nel documento", target: nil, action: nil)
+        let link = NSButton(checkboxWithTitle: "Link to the file instead of including it in the document", target: nil, action: nil)
         panel.accessoryView = link
         panel.isAccessoryViewDisclosed = true
         let range = selection.range
@@ -529,7 +529,7 @@ extension EditorWindowController {
             var attributes = self.typingAttributes
             attributes[.footnote] = nil
             attributes[.inlineImage] = ImageAttachment(image)
-            self.insertFormatted(NSAttributedString(string: "\u{FFFC}", attributes: attributes), replacing: range, actionName: "Immagine")
+            self.insertFormatted(NSAttributedString(string: "\u{FFFC}", attributes: attributes), replacing: range, actionName: "Image")
             self.window?.makeFirstResponder(self.pagesView)
         }
     }
@@ -544,7 +544,7 @@ extension EditorWindowController {
         let chosen = (sender as? NSMenuItem)?.representedObject as? String
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.image, .pdf]
-        let link = NSButton(checkboxWithTitle: "Collega al file invece di includerlo nel documento", target: nil, action: nil)
+        let link = NSButton(checkboxWithTitle: "Link to the file instead of including it in the document", target: nil, action: nil)
         panel.accessoryView = link
         panel.isAccessoryViewDisclosed = true
         panel.beginSheetModal(for: window) { [weak self] response in
@@ -553,7 +553,7 @@ extension EditorWindowController {
                 var lists = self.settings.lists
                 if !lists.contains(where: { $0.name == ListDefinition.figures.name }) { lists.append(ListDefinition.figures) }
                 self.changeListSettings(lists: lists, noteList: nil, styles: self.settings.styles,
-                                        floatStyles: self.settings.floatStyles + [.defaultFigure], actionName: "Figura")
+                                        floatStyles: self.settings.floatStyles + [.defaultFigure], actionName: "Figure")
             }
             // Lo stile di figura scelto nel menu, se è uno stile di figura del documento; altrimenti il primo.
             let figures = self.settings.floatStyles.filter { $0.placement == .figure }.map(\.name)
@@ -580,17 +580,17 @@ extension EditorWindowController {
         guard let window, let image = selectedImage else { return }
         let range = selection.range
         let alert = NSAlert()
-        alert.messageText = "Misure dell'immagine"
-        alert.informativeText = "In punti. Con le proporzioni bloccate conta la larghezza."
+        alert.messageText = "Image Size"
+        alert.informativeText = "In points. With proportions locked, the width counts."
         let width = NSTextField(string: String(format: "%g", image.width))
         let height = NSTextField(string: String(format: "%g", image.height))
-        let keep = NSButton(checkboxWithTitle: "Mantieni le proporzioni", target: nil, action: nil)
+        let keep = NSButton(checkboxWithTitle: "Keep proportions", target: nil, action: nil)
         keep.state = .on
-        let grid = NSGridView(views: [[NSTextField(labelWithString: "Larghezza:"), width], [NSTextField(labelWithString: "Altezza:"), height], [NSView(), keep]])
+        let grid = NSGridView(views: [[NSTextField(labelWithString: "Width:"), width], [NSTextField(labelWithString: "Height:"), height], [NSView(), keep]])
         grid.frame = NSRect(x: 0, y: 0, width: 260, height: 80)
         alert.accessoryView = grid
         alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Annulla")
+        alert.addButton(withTitle: "Cancel")
         alert.beginSheetModal(for: window) { [weak self] response in
             guard response == .alertFirstButtonReturn, let self, let newWidth = Double(width.stringValue.replacingOccurrences(of: ",", with: ".")), newWidth > 0 else { return }
             var newHeight = Double(height.stringValue.replacingOccurrences(of: ",", with: ".")) ?? image.height
@@ -600,7 +600,7 @@ extension EditorWindowController {
             resized.width = newWidth.rounded()
             resized.height = newHeight.rounded()
             self.endUndoStep(next: .none)
-            self.writeStore(actionName: "Misure dell'immagine") { $0.addAttribute(.inlineImage, value: ImageAttachment(resized), range: range) }
+            self.writeStore(actionName: "Image Size") { $0.addAttribute(.inlineImage, value: ImageAttachment(resized), range: range) }
         }
     }
 
@@ -608,9 +608,9 @@ extension EditorWindowController {
         guard let window else { return }
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = names.count == 1 ? "Un font del documento non è installato" : "\(names.count) font del documento non sono installati"
+        alert.messageText = names.count == 1 ? "A font of the document is not installed" : "\(names.count) fonts of the document are not installed"
         alert.informativeText = names.joined(separator: "\n")
-            + "\n\nIl testo è mostrato con un font di ripiego. Nel file resta il nome del font originale, finché non assegni tu un altro font a quel testo."
+            + "\n\nThe text is shown with a fallback font. The file keeps the original font name until you give that text another font."
         // La finestra non è ancora a schermo quando il documento viene aperto.
         DispatchQueue.main.async { alert.beginSheetModal(for: window) }
     }

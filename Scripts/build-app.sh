@@ -36,8 +36,8 @@ cat > $app/Contents/Info.plist <<'PLIST'
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
-    <key>CFBundleDevelopmentRegion</key><string>it</string>
-    <key>CFBundleLocalizations</key><array><string>it</string></array>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleLocalizations</key><array><string>en</string></array>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>

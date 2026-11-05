@@ -95,8 +95,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         if lastEdit != next || next == .none { store.breakUndoCoalescing() }
         lastEdit = next
     }
-    let familyPopup = BandPopUp(width: 190, help: "Famiglia del font")
-    let facePopup = BandPopUp(width: 120, help: "Faccia")
+    let familyPopup = BandPopUp(width: 190, help: "Font family")
+    let facePopup = BandPopUp(width: 120, help: "Face")
     /// La famiglia le cui facce sono caricate ora nel menu; può cambiare prima che si aggiorni il font selezionato.
     private var facePopupFamily: String?
     /// Il grassetto e, nell'avanzata, le facce statiche offerte come pulsanti.
@@ -110,7 +110,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
                                                     faceAction: #selector(faceButtonChanged(_:)),
                                                     weightAction: #selector(weightSliderChanged(_:)))
     let sizeBox = BandSizeBox()
-    let opticalSizePopup = BandPopUp(width: 104, help: "Corpo ottico")
+    let opticalSizePopup = BandPopUp(width: 104, help: "Optical size")
     let zoomPopup = BandPopUp(width: 76, help: "Zoom")
     /// Le impostazioni del documento (pagina, lingua, sillabazione, `trak`, margini ottici), senza il contenuto.
     var settings: Document
@@ -130,9 +130,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
     /// Il nome di una lingua come compare nei menu.
     static func languageName(_ code: String) -> String {
-        if code == "la-x-classic" { return "Latino classico" }
-        // Solo l'iniziale maiuscola: «Greco antico», non «Greco Antico».
-        guard let name = Locale(identifier: "it").localizedString(forLanguageCode: code), let first = name.first else { return code }
+        if code == "la-x-classic" { return "Classical Latin" }
+        guard let name = Locale(identifier: "en").localizedString(forLanguageCode: code), let first = name.first else { return code }
         return first.uppercased() + name.dropFirst()
     }
 
@@ -152,7 +151,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     private static var spellingLanguages: [String: String?] = [:]
     static let zoomLevels: [CGFloat] = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
     private static var cascadePoint = NSPoint.zero
-    let stylePopup = BandPopUp(width: 150, help: "Stile del paragrafo")
+    let stylePopup = BandPopUp(width: 150, help: "Paragraph style")
     /// Nome dell'azione raccolta nel gruppo di annullamento durante il trascinamento di un cursore.
     private var undoGroupName: String?
 
@@ -195,14 +194,14 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         panelModel.setAxis = { [weak self] tag, value in
             self?.updateVariations { current in current.filter { $0.tag != tag } + (value.map { [AxisValue(tag: tag, value: $0)] } ?? []) }
         }
-        panelModel.axisDragging = { [weak self] dragging in self?.groupContinuousChanges(dragging, actionName: "Assi del font") }
+        panelModel.axisDragging = { [weak self] dragging in self?.groupContinuousChanges(dragging, actionName: "Font axes") }
         faceStrip.weightSlider.onDrag = { [weak self] dragging in
             self?.faceStrip.isDraggingWeight = dragging
-            self?.groupContinuousChanges(dragging, actionName: "Peso")
+            self?.groupContinuousChanges(dragging, actionName: "Weight")
         }
         panelModel.setUsesVariableFont = { [weak self] variable in self?.switchFontFile(variable: variable) }
-        panelModel.setFontTracking = { [weak self] enabled in self?.change(\.appliesFontTracking, to: enabled, actionName: "Spaziatura per corpo") }
-        panelModel.setOpticalMargins = { [weak self] enabled in self?.change(\.usesOpticalMargins, to: enabled, actionName: "Margini ottici") }
+        panelModel.setFontTracking = { [weak self] enabled in self?.change(\.appliesFontTracking, to: enabled, actionName: "Size-specific tracking") }
+        panelModel.setOpticalMargins = { [weak self] enabled in self?.change(\.usesOpticalMargins, to: enabled, actionName: "Optical margins") }
         panelModel.setGraphite = { [weak self] features in
             var values = StyleValues()
             values.graphite = Graphite.encodedChoice(features)
@@ -235,7 +234,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     // MARK: Costruzione dell'interfaccia
 
@@ -334,11 +333,11 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     private var statusBand: BandView!
     private var panelMinimumWidth: NSLayoutConstraint?
     /// Un solo comando compatto: acceso mostra gli strumenti dettagliati, spento quelli essenziali.
-    lazy var modeButton = BandButton(symbol: "slider.horizontal.3", help: "Mostra gli strumenti dettagliati (⌥⌘A)",
+    lazy var modeButton = BandButton(symbol: "slider.horizontal.3", help: "Show detailed tools (⌥⌘A)",
                                              target: self, action: #selector(toggleInterfaceMode(_:)))
     /// Il pulsante che accende la modalità di disposizione delle zone (nella zona «interfaccia» della dettagliata).
     lazy var layoutEditButton: BandButton = {
-        let button = BandButton(symbol: "square.dashed", help: "Sistema la disposizione: trascina zone e pulsanti",
+        let button = BandButton(symbol: "square.dashed", help: "Arrange the layout: drag zones and buttons",
                                 target: self, action: #selector(toggleLayoutEditing(_:)))
         button.setButtonType(.pushOnPushOff)
         bandControls["disposizione"] = button
@@ -390,7 +389,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
     private func later<Control: NSControl>(_ control: Control, _ what: String) -> Control {
         control.isEnabled = false
-        control.toolTip = "\(what): arriva con una delle prossime tappe"
+        control.toolTip = "\(what): coming in a later version"
         return control
     }
 
@@ -459,7 +458,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             if let recorded = updatedTyping.role { typingAttributes[.fontRole] = recorded.rawValue }
             else { typingAttributes.removeValue(forKey: .fontRole) }
         }
-        if selection.range.length > 0 { document?.undoManager?.setActionName(bold ? "Grassetto" : "Corsivo") }
+        if selection.range.length > 0 { document?.undoManager?.setActionName(bold ? "Bold" : "Italic") }
         window?.makeFirstResponder(pagesView)
     }
 
@@ -477,7 +476,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         var table = settings.fontRoles
         table.customize(family: family, role: role, to: equivalence)
         guard table != settings.fontRoles else { return }
-        let actionName = "Ruolo \(role.displayName)"
+        let actionName = "Role \(role.displayName)"
         endUndoStep(next: .none)
         document?.undoManager?.beginUndoGrouping()
         changeDocumentFontRoles(table, actionName: actionName)
@@ -544,7 +543,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     func reapplyFontRoles() {
         let resolver = fontRoleResolver
         if store.length > 0 {
-            writeStore(actionName: "Equivalenze tipografiche") {
+            writeStore(actionName: "Typographic equivalences") {
                 TextStyling.reapplyFontRoles(in: $0, range: NSRange(location: 0, length: $0.length), styles: settings.styles, resolver: resolver)
             }
         }
@@ -576,20 +575,20 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         case .uppercase: .all
         case .all: .uppercase
         }
-        editInspected(.smallCaps, actionName: "Maiuscoletto") { text, range in TextStyling.setValue(values, of: .smallCaps, in: text, range: range) }
+        editInspected(.smallCaps, actionName: "Small caps") { text, range in TextStyling.setValue(values, of: .smallCaps, in: text, range: range) }
         refreshBandState()
         window?.makeFirstResponder(pagesView)
     }
 
     /// La tavolozza del pulsante del colore: pochi colori sobri, il colore automatico, e il selettore di macOS.
     static let palette: [(name: String, hex: String)] = [
-        ("Grigio", "#6b6b6b"), ("Rosso scuro", "#9b1c1c"), ("Arancio scuro", "#a65200"), ("Marrone", "#6e4520"),
-        ("Verde scuro", "#2e6b30"), ("Blu scuro", "#1f3f8f"), ("Viola", "#6a2c8c"),
+        ("Gray", "#6b6b6b"), ("Dark red", "#9b1c1c"), ("Dark orange", "#a65200"), ("Brown", "#6e4520"),
+        ("Dark green", "#2e6b30"), ("Dark blue", "#1f3f8f"), ("Purple", "#6a2c8c"),
     ]
 
     /// Il nome di un colore per il monitor degli stili: quello della tavolozza, o il codice.
     static func colorName(_ hex: String?) -> String {
-        guard let hex, !hex.isEmpty else { return "automatico" }
+        guard let hex, !hex.isEmpty else { return "automatic" }
         return palette.first { $0.hex == hex }?.name.lowercased() ?? hex
     }
 
@@ -602,7 +601,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
                 return true
             }
         }
-        let automatic = menu.addItem(withTitle: "Automatico", action: #selector(chooseColor(_:)), keyEquivalent: "")
+        let automatic = menu.addItem(withTitle: "Automatic", action: #selector(chooseColor(_:)), keyEquivalent: "")
         automatic.target = self
         automatic.image = swatch(.black)
         automatic.state = current == nil ? .on : .off
@@ -615,7 +614,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             item.state = current == entry.hex ? .on : .off
         }
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Altro colore…", action: #selector(showColorPanel(_:)), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Other Color…", action: #selector(showColorPanel(_:)), keyEquivalent: "").target = self
     }
 
     /// Il colore del testo selezionato (o di quello che si scriverà); `nil` se automatico.
@@ -643,14 +642,14 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     func setTextColor(_ hex: String?) {
         var values = StyleValues()
         values.color = hex ?? ""
-        editInspected(.color, actionName: "Colore") { text, range in TextStyling.setValue(values, of: .color, in: text, range: range) }
+        editInspected(.color, actionName: "Color") { text, range in TextStyling.setValue(values, of: .color, in: text, range: range) }
         refreshBandState()
         window?.makeFirstResponder(pagesView)
     }
 
     /// Formato › Sottolineato (⌘U) e Barrato: aggiungono il filetto già pronto, o tolgono i filetti in quella posizione.
-    @objc func toggleUnderline(_ sender: Any?) { toggleDecoration(.underline, name: "Sottolineato") }
-    @objc func toggleStrikethrough(_ sender: Any?) { toggleDecoration(.strikethrough, name: "Barrato") }
+    @objc func toggleUnderline(_ sender: Any?) { toggleDecoration(.underline, name: "Underline") }
+    @objc func toggleStrikethrough(_ sender: Any?) { toggleDecoration(.strikethrough, name: "Strikethrough") }
 
     /// I filetti del testo selezionato (o di quello che si scriverà).
     private func currentDecorations() -> [LineDecoration] {
@@ -671,8 +670,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     }
 
     /// Formato › Apice e Pedice: il valore già pronto, o di nuovo la linea di base se c'era già.
-    @objc func toggleSuperscript(_ sender: Any?) { toggleVerticalPosition(.superscript, name: "Apice") }
-    @objc func toggleSubscript(_ sender: Any?) { toggleVerticalPosition(.subscript, name: "Pedice") }
+    @objc func toggleSuperscript(_ sender: Any?) { toggleVerticalPosition(.superscript, name: "Superscript") }
+    @objc func toggleSubscript(_ sender: Any?) { toggleVerticalPosition(.subscript, name: "Subscript") }
 
     /// La posizione verticale del testo selezionato (o di quello che si scriverà).
     private func currentVerticalPosition() -> VerticalPosition? {
@@ -706,8 +705,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
     func fillSpacesMenu(_ menu: NSMenu) {
         let style = currentParagraphStyle()
-        for (title, property, current) in [("Spazio prima", InspectorProperty.spaceBefore, style?.paragraphSpacingBefore ?? 0),
-                                           ("Spazio dopo", InspectorProperty.spaceAfter, style?.paragraphSpacing ?? 0)] {
+        for (title, property, current) in [("Space before", InspectorProperty.spaceBefore, style?.paragraphSpacingBefore ?? 0),
+                                           ("Space after", InspectorProperty.spaceAfter, style?.paragraphSpacing ?? 0)] {
             menu.addItem(withTitle: title, action: nil, keyEquivalent: "").isEnabled = false
             for value in [0.0, 3, 6, 12, 18, 24] {
                 let item = menu.addItem(withTitle: "\(Int(value)) pt", action: #selector(chooseSpace(_:)), keyEquivalent: "")
@@ -729,13 +728,13 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
     /// I caratteri tecnici del menu «Carattere», a gruppi; in fondo il Visualizzatore caratteri di macOS.
     static let specialCharacters: [(group: String, items: [(title: String, character: String, note: String)])] = [
-        ("Spazi", [("Spazio non divisibile", "\u{00A0}", "U+00A0"), ("Spazio fine non divisibile", "\u{202F}", "U+202F"),
-                   ("Spazio fine", "\u{2009}", "U+2009")]),
-        ("Trattini", [("Lineetta —", "\u{2014}", "U+2014"), ("Trattino medio –", "\u{2013}", "U+2013"),
-                      ("Trattino non divisibile", "\u{2011}", "U+2011"), ("Trattino facoltativo (sillabazione)", "\u{00AD}", "U+00AD")]),
-        ("Interruzioni e legami", [("A capo nello stesso paragrafo", "\u{2028}", "⇧↩"), ("Possibile a capo, senza spazio", "\u{200B}", "U+200B"),
-                                   ("Legame: qui non si va a capo", "\u{2060}", "U+2060"), ("Non unire (legature)", "\u{200C}", "U+200C"),
-                                   ("Unisci (legature)", "\u{200D}", "U+200D")]),
+        ("Spaces", [("No-break space", "\u{00A0}", "U+00A0"), ("Narrow no-break space", "\u{202F}", "U+202F"),
+                   ("Thin space", "\u{2009}", "U+2009")]),
+        ("Dashes", [("Em dash —", "\u{2014}", "U+2014"), ("En dash –", "\u{2013}", "U+2013"),
+                      ("Non-breaking hyphen", "\u{2011}", "U+2011"), ("Soft hyphen (hyphenation)", "\u{00AD}", "U+00AD")]),
+        ("Breaks and joins", [("Line break in the same paragraph", "\u{2028}", "⇧↩"), ("Zero-width break opportunity", "\u{200B}", "U+200B"),
+                                   ("Word joiner: no break here", "\u{2060}", "U+2060"), ("Zero-width non-joiner (ligatures)", "\u{200C}", "U+200C"),
+                                   ("Zero-width joiner (ligatures)", "\u{200D}", "U+200D")]),
     ]
 
     func fillSpecialCharacters(_ menu: NSMenu) {
@@ -749,7 +748,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             }
         }
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Altri caratteri…", action: #selector(showCharacterViewer(_:)), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "More Characters…", action: #selector(showCharacterViewer(_:)), keyEquivalent: "").target = self
     }
 
     @objc func insertSpecialCharacter(_ sender: NSMenuItem) {
@@ -766,14 +765,14 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     /// Gli avvisi della composizione: note a margine sovrapposte, Liste che hanno finito i segni.
     private func warnings() -> [(title: String, range: NSRange?)] {
         guard let layout = pagesView.layout else { return [] }
-        var result: [(String, NSRange?)] = layout.marginConflicts.map { ("Nota a margine sovrapposta", $0) }
-        result += layout.listsNeedingOverflowChoice.map { ("La Lista «\($0)» ha finito i segni", nil) }
+        var result: [(String, NSRange?)] = layout.marginConflicts.map { ("Overlapping margin note", $0) }
+        result += layout.listsNeedingOverflowChoice.map { ("The list “\($0)” has run out of markers", nil) }
         // Un foglio con formule non risolvibili si compone senza di esse: lo si dice, invece di tacerlo.
-        if let problem = formulaProblem() { result.append(("Formule degli stili: " + problem, nil)) }
+        if let problem = formulaProblem() { result.append(("Style formulas: " + problem, nil)) }
         if layout.graphiteFallbacks > 0 {
-            let count = layout.graphiteFallbacks == 1 ? "1 tratto composto" : "\(layout.graphiteFallbacks) tratti composti"
-            result.append((Graphite.isAvailable ? "Graphite chiesto su un font senza tabelle Graphite: \(count) con Core Text"
-                                                : "Graphite non è installato: \(count) con Core Text", nil))
+            let count = layout.graphiteFallbacks == 1 ? "1 run" : "\(layout.graphiteFallbacks) runs"
+            result.append((Graphite.isAvailable ? "Graphite requested for a font without Graphite tables: \(count) with Core Text"
+                                                : "Graphite is not installed: \(count) with Core Text", nil))
         }
         return result
     }
@@ -814,7 +813,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     private func applyInterfaceMode() {
         let advanced = interfaceMode == .advanced
         modeButton.state = advanced ? .on : .off
-        modeButton.toolTip = advanced ? "Mostra gli strumenti essenziali (⌥⌘A)" : "Mostra gli strumenti dettagliati (⌥⌘A)"
+        modeButton.toolTip = advanced ? "Show essential tools (⌥⌘A)" : "Show detailed tools (⌥⌘A)"
         modeButton.setAccessibilityLabel(modeButton.toolTip)
         composeBands()
 
@@ -1000,11 +999,11 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         switch (source.kind, target.kind) {
         case (.paragraph, .heading(_)) where placement == .afterSection:
             // Dopo la sezione: il capoverso torna a quella che la contiene.
-            writeStore(actionName: "Sposta il capoverso") { moved = $0.moveParagraph(sourceID, afterSection: targetID) }
+            writeStore(actionName: "Move Paragraph") { moved = $0.moveParagraph(sourceID, afterSection: targetID) }
         case (.paragraph, .paragraph), (.paragraph, .listItem), (.paragraph, .heading(_)):
             // Accanto a un titolo il capoverso va subito prima del titolo o subito dopo (primo della sezione).
             guard placement == .before || placement == .after else { return }
-            writeStore(actionName: "Sposta il capoverso") {
+            writeStore(actionName: "Move Paragraph") {
                 moved = $0.moveParagraph(sourceID, placement == .before ? .before : .after, targetID)
             }
         case (.heading(_), .heading(_)):
@@ -1013,11 +1012,11 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             case .after, .afterSection: .after
             case .inside: .inside
             }
-            writeStore(actionName: "Sposta la sezione") { moved = $0.moveSection(sourceID, position, targetID) }
+            writeStore(actionName: "Move Section") { moved = $0.moveSection(sourceID, position, targetID) }
         case (.heading(_), .paragraph), (.heading(_), .listItem):
             // Davanti a un capoverso: lui e quelli che lo seguono restano alla loro sezione.
             guard placement == .before else { return }
-            writeStore(actionName: "Sposta la sezione") { moved = $0.moveSection(sourceID, beforeParagraph: targetID) }
+            writeStore(actionName: "Move Section") { moved = $0.moveSection(sourceID, beforeParagraph: targetID) }
         default:
             return
         }
@@ -1105,7 +1104,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
                 let choices = [""] + OpticalFonts.availableSizes(of: font).map(\.rawValue)
                 if opticalSizePopup.itemArray.compactMap({ $0.representedObject as? String }) != choices {
                     opticalSizePopup.removeAllItems()
-                    opticalSizePopup.addItem(withTitle: "Automatico")
+                    opticalSizePopup.addItem(withTitle: "Automatic")
                     opticalSizePopup.lastItem?.representedObject = ""
                     for size in OpticalFonts.availableSizes(of: font) {
                         opticalSizePopup.addItem(withTitle: size.title)
@@ -1122,7 +1121,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             // Si mostra la lingua che vale davvero: quella del testo, o quella del documento; «—» se sono più d'una.
             if let current = selectionLanguage() {
                 language.selectItem(at: language.itemArray.firstIndex { $0.representedObject as? String == current } ?? 0)
-                language.fixedTitle = (current ?? settings.language).map(Self.languageName) ?? "Nessuna"
+                language.fixedTitle = (current ?? settings.language).map(Self.languageName) ?? "None"
             } else {
                 language.fixedTitle = "—"
             }
@@ -1153,7 +1152,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         (bandControls["pedice"] as? NSButton)?.state = position == .subscript ? .on : .off
         if let runStyles = bandControls["stileCarattere"] as? BandPopUp {
             let names = [selectionStyleName(.word), selectionStyleName(.character)].compactMap { $0 }
-            runStyles.fixedTitle = "Stile: " + (names.isEmpty ? "—" : names.joined(separator: " › "))
+            runStyles.fixedTitle = "Style: " + (names.isEmpty ? "—" : names.joined(separator: " › "))
             runStyles.needsDisplay = true
         }
         if let color = bandControls["colore"] as? BandPopUp {
@@ -1162,11 +1161,11 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         if let lists = bandControls["lista"] as? BandPopUp {
             let text = documentText
             let item = text.length > 0 ? TextStyling.listItem(in: text, at: min(selection.range.location, text.length - 1)) : nil
-            lists.fixedTitle = "Lista: " + (item?.listName ?? "—")
+            lists.fixedTitle = "List: " + (item?.listName ?? "—")
             lists.needsDisplay = true
         }
         if let spelling = bandControls["ortografia"] as? BandPopUp {
-            spelling.fixedTitle = (settings.language.map(Self.languageName) ?? "Nessuna lingua") + (checksSpelling ? " ✓" : "")
+            spelling.fixedTitle = (settings.language.map(Self.languageName) ?? "No language") + (checksSpelling ? " ✓" : "")
             spelling.invalidateIntrinsicContentSize()
             spelling.needsDisplay = true
         }
@@ -1220,11 +1219,11 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             ? [runTarget.text.attribute(.wordStyleName, at: probeIndex, effectiveRange: nil) as? String,
                runTarget.text.attribute(.characterStyleName, at: probeIndex, effectiveRange: nil) as? String].compactMap { $0 }
             : []
-        stylePills.styleName = ([paragraphName ?? "Senza stile"] + runNames).joined(separator: " › ")
+        stylePills.styleName = ([paragraphName ?? "No style"] + runNames).joined(separator: " › ")
         var additions: [StyleAddition] = []
         for level in [StyleTarget.character, .word, .paragraph] {
             let target = inspectionTarget(level)
-            let prefix = switch level { case .character: "car."; case .word: "parola"; case .paragraph: "par." }
+            let prefix = switch level { case .character: "char."; case .word: "word"; case .paragraph: "para." }
             let font = target.range.location < target.text.length
                 ? (target.text.attribute(.font, at: target.range.location, effectiveRange: nil) as? NSFont).map { $0 as CTFont } : nil
             for value in TextStyling.inspect(level, in: target.text, range: target.range, sheet: settings.styles, resolver: fontRoleResolver) where value.source == .own {
@@ -1239,7 +1238,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         for detail in TextStyling.inspectDetails(in: characterTarget.text, range: characterTarget.range, sheet: settings.styles, resolver: fontRoleResolver)
         where detail.source == .own && !(faceGiven && detail.detail == .axis("wght")) {
             let text = Self.shortDescription(detail)
-            additions.append(StyleAddition(label: "car. \(text)", property: nil, title: text, detail: detail.detail))
+            additions.append(StyleAddition(label: "char. \(text)", property: nil, title: text, detail: detail.detail))
         }
         styleAdditions = additions
         stylePills.titles = additions.map(\.title)
@@ -1268,7 +1267,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
                 if run.length > 0 { edits.append((addition, run)) }
             }
         }
-        let name = chosen.count == 1 ? "Togli «\(chosen[0].label)»" : "Togli le aggiunte"
+        let name = chosen.count == 1 ? "Remove “\(chosen[0].label)”" : "Remove the Additions"
         if !edits.isEmpty {
             writeStore(actionName: name) { text in
                 for (addition, range) in edits { Self.remove(addition, in: text, range: range, sheet: sheet, resolver: resolver) }
@@ -1314,7 +1313,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             if case .aatType = key, !detail.settings.isEmpty { return detail.value }
             return "\(detail.title) \(detail.value.lowercased())"
         case .axis: return "\(detail.title.lowercased()) \(detail.value)"
-        case .opticalSize: return "corpo ottico \(detail.value.lowercased())"
+        case .opticalSize: return "optical size \(detail.value.lowercased())"
         }
     }
 
@@ -1323,54 +1322,54 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         let v = value.value
         func points(_ number: Double?) -> String { (number ?? 0).formatted(.number.precision(.fractionLength(0...1))) + " pt" }
         switch value.property {
-        case .family: return v.family ?? "famiglia"
+        case .family: return v.family ?? "family"
         case .face:
-            guard let name = v.fontName, let traits = TextStyling.traits(ofFace: name) else { return "faccia" }
+            guard let name = v.fontName, let traits = TextStyling.traits(ofFace: name) else { return "face" }
             // In un font variabile il nome è quello del font di base: il nero lo dice il peso del font del testo.
             let bold = font.flatMap { FontVariations.coordinates(of: $0)["wght"] }.map { $0 >= 600 } ?? traits.bold
             let italic = font.map { NSFontManager.shared.traits(of: $0 as NSFont).contains(.italicFontMask) } ?? traits.italic
-            let words = [bold ? "nero" : nil, italic ? "corsivo" : nil].compactMap { $0 }
-            return words.isEmpty ? "tondo" : words.joined(separator: " ")
-        case .size: return "corpo \((v.size ?? 0).formatted(.number.precision(.fractionLength(0...1))))"
+            let words = [bold ? "bold" : nil, italic ? "italic" : nil].compactMap { $0 }
+            return words.isEmpty ? "roman" : words.joined(separator: " ")
+        case .size: return "size \((v.size ?? 0).formatted(.number.precision(.fractionLength(0...1))))"
         case .smallCaps:
             return switch v.smallCaps ?? .off {
-            case .off: "senza maiuscoletto"
-            case .lowercase: "maiuscoletto"
-            case .uppercase: "maiuscoletto delle sigle"
-            case .all: "maiuscoletto anche delle sigle"
+            case .off: "no small caps"
+            case .lowercase: "small caps"
+            case .uppercase: "all small caps"
+            case .all: "small caps and all small caps"
             }
-        case .color: return "colore " + colorName(v.color)
+        case .color: return "color " + colorName(v.color)
         case .decorations:
             let list = LineDecoration.decode(v.decorations ?? "") ?? []
-            if list.isEmpty { return "senza filetti" }
+            if list.isEmpty { return "no lines" }
             return list.map { decoration in
-                if decoration == .underline { return "sottolineato" }
-                if decoration == .strikethrough { return "barrato" }
-                let position = switch decoration.position { case .under: "sotto"; case .through: "in mezzo"; case .over: "sopra" }
-                return "filetto \(position)"
+                if decoration == .underline { return "underline" }
+                if decoration == .strikethrough { return "strikethrough" }
+                let position = switch decoration.position { case .under: "under"; case .through: "through"; case .over: "over" }
+                return "line \(position)"
             }.joined(separator: ", ")
         case .shaping: return (v.graphite ?? "off") == "off" ? "Core Text" : "Graphite"
         case .verticalPosition:
-            guard let position = (v.verticalPosition).flatMap(VerticalPosition.init(encoded:)) else { return "sulla linea di base" }
-            return position == .superscript ? "apice" : (position == .subscript ? "pedice" : (position.isRaised ? "alzato" : "abbassato"))
-        case .language: return "lingua " + ((v.language ?? "").isEmpty ? "del documento" : languageName(v.language!))
-        case .hyphenates: return v.hyphenates == false ? "senza sillabazione" : "con sillabazione"
+            guard let position = (v.verticalPosition).flatMap(VerticalPosition.init(encoded:)) else { return "on the baseline" }
+            return position == .superscript ? "superscript" : (position == .subscript ? "subscript" : (position.isRaised ? "raised" : "lowered"))
+        case .language: return "language " + ((v.language ?? "").isEmpty ? "of the document" : languageName(v.language!))
+        case .hyphenates: return v.hyphenates == false ? "no hyphenation" : "hyphenation"
         case .alignment:
-            let name = switch v.alignment ?? .natural { case .natural: "naturale"; case .left: "a sinistra"; case .center: "centrato"; case .right: "a destra"; case .justified: "giustificato"; case .decimal: "sulla virgola" }
-            return "allineamento \(name)"
-        case .leftIndent: return "rientro sinistro \(points(v.leftIndent))"
-        case .rightIndent: return "rientro destro \(points(v.rightIndent))"
-        case .firstLineIndent: return "rientro 1ª riga \(points(v.firstLineIndent))"
-        case .spaceBefore: return "spazio prima \(points(v.spaceBefore))"
-        case .spaceAfter: return "spazio dopo \(points(v.spaceAfter))"
-        case .lineHeightMultiple: return "interlinea \((v.lineHeightMultiple ?? 0).formatted(.number.precision(.fractionLength(0...2))))"
-        case .lineSpacing: return "spazio tra le righe \(points(v.lineSpacing))"
-        case .list: return "Lista \((v.listName ?? "").isEmpty ? "nessuna" : v.listName!)"
-        case .openingDistance: return "distanza d'apertura \(Length.text(CGFloat(v.openingDistance ?? 0)))"
-        case .keepWithNext: return v.keeping.withNext == true ? "tenuto col seguente" : "non tenuto col seguente"
-        case .keepTogether: return v.keeping.together == true ? "indivisibile" : "divisibile"
-        case .orphanLines: return "righe in fondo: \((v.keeping.linesAtEnd ?? 1) > 1 ? "\(v.keeping.linesAtEnd!)" : "nessun minimo")"
-        case .widowLines: return "righe in cima: \((v.keeping.linesAtStart ?? 1) > 1 ? "\(v.keeping.linesAtStart!)" : "nessun minimo")"
+            let name = switch v.alignment ?? .natural { case .natural: "natural"; case .left: "left"; case .center: "centered"; case .right: "right"; case .justified: "justified"; case .decimal: "decimal" }
+            return "alignment \(name)"
+        case .leftIndent: return "left indent \(points(v.leftIndent))"
+        case .rightIndent: return "right indent \(points(v.rightIndent))"
+        case .firstLineIndent: return "first-line indent \(points(v.firstLineIndent))"
+        case .spaceBefore: return "space before \(points(v.spaceBefore))"
+        case .spaceAfter: return "space after \(points(v.spaceAfter))"
+        case .lineHeightMultiple: return "line height \((v.lineHeightMultiple ?? 0).formatted(.number.precision(.fractionLength(0...2))))"
+        case .lineSpacing: return "line spacing \(points(v.lineSpacing))"
+        case .list: return "List \((v.listName ?? "").isEmpty ? "none" : v.listName!)"
+        case .openingDistance: return "opening distance \(Length.text(CGFloat(v.openingDistance ?? 0)))"
+        case .keepWithNext: return v.keeping.withNext == true ? "kept with next" : "not kept with next"
+        case .keepTogether: return v.keeping.together == true ? "kept together" : "may split"
+        case .orphanLines: return "lines at the bottom: \((v.keeping.linesAtEnd ?? 1) > 1 ? "\(v.keeping.linesAtEnd!)" : "no minimum")"
+        case .widowLines: return "lines at the top: \((v.keeping.linesAtStart ?? 1) > 1 ? "\(v.keeping.linesAtStart!)" : "no minimum")"
         }
     }
 
@@ -1378,7 +1377,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     private func refreshStatus() {
         guard let layout = pagesView.layout else { return }
         let page = layout.caret(at: selection.head, affinity: selection.affinity)?.page ?? 0
-        countsLabel.stringValue = "Pag. \(page + 1) di \(layout.pages.count)" + lastCounts
+        countsLabel.stringValue = "Page \(page + 1) of \(layout.pages.count)" + lastCounts
         refreshRuler()
     }
 
@@ -1402,18 +1401,18 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         guard let layout = pagesView.layout else { return }
         let facts = layout.documentFacts()
         func format(_ value: Int) -> String { value.formatted(.number) }
-        let words = "\(format(facts.wordCount)) " + (facts.wordCount == 1 ? "parola" : "parole")
+        let words = "\(format(facts.wordCount)) " + (facts.wordCount == 1 ? "word" : "words")
         if interfaceMode == .simple {
             lastCounts = " · \(words)"
         } else {
             let text = documentText
             let figures = figureCount(in: text)
             let characters = TextCounts(in: text, range: NSRange(location: 0, length: text.length)).characters
-            lastCounts = " · \(words) · \(format(characters)) car. · \(format(facts.paragraphCount)) par. · "
-                + "\(format(facts.noteCount - figures)) note · \(format(figures)) fig."
+            lastCounts = " · \(words) · \(format(characters)) chars · \(format(facts.paragraphCount)) paras · "
+                + "\(format(facts.noteCount - figures)) notes · \(format(figures)) figs"
         }
         let page = layout.caret(at: selection.head, affinity: selection.affinity)?.page ?? 0
-        countsLabel.stringValue = "Pag. \(page + 1) di \(layout.pages.count)" + lastCounts
+        countsLabel.stringValue = "Page \(page + 1) of \(layout.pages.count)" + lastCounts
         let warningCount = warnings().count
         if let button = bandControls["avvisi"] as? BandPopUp {
             button.fixedTitle = "\(warningCount)"
@@ -1442,22 +1441,22 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         let notes = layout.notes.count - figures
         let page = (layout.caret(at: selection.head, affinity: selection.affinity)?.page ?? 0) + 1
         func format(_ value: Int) -> String { value.formatted(.number) }
-        var sections: [(title: String, rows: [(String, String)])] = [("Documento", [
-            ("Pagine", "\(format(layout.pages.count)) (sei alla \(page))"),
-            ("Parole", format(all.words)),
-            ("Caratteri", format(all.characters)),
-            ("Caratteri senza spazi", format(all.charactersWithoutSpaces)),
-            ("Paragrafi", format(all.paragraphs)),
-            ("Note", format(notes)),
-            ("Figure", format(figures)),
+        var sections: [(title: String, rows: [(String, String)])] = [("Document", [
+            ("Pages", "\(format(layout.pages.count)) (you are on \(page))"),
+            ("Words", format(all.words)),
+            ("Characters", format(all.characters)),
+            ("Characters without spaces", format(all.charactersWithoutSpaces)),
+            ("Paragraphs", format(all.paragraphs)),
+            ("Notes", format(notes)),
+            ("Figures", format(figures)),
         ])]
         if selection.range.length > 0 {
             let selected = TextCounts(in: text, range: selection.range)
-            sections.append(("Selezione", [
-                ("Parole", format(selected.words)),
-                ("Caratteri", format(selected.characters)),
-                ("Caratteri senza spazi", format(selected.charactersWithoutSpaces)),
-                ("Paragrafi", format(selected.paragraphs)),
+            sections.append(("Selection", [
+                ("Words", format(selected.words)),
+                ("Characters", format(selected.characters)),
+                ("Characters without spaces", format(selected.charactersWithoutSpaces)),
+                ("Paragraphs", format(selected.paragraphs)),
             ]))
         }
         return sections
@@ -1559,9 +1558,9 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         if let name = inspector.pageTypeName, let index = settings.pageTypes.firstIndex(where: { $0.name == name }) {
             var types = settings.pageTypes
             types[index].setup = setup
-            change(\.pageTypes, to: types, actionName: "Tipo di pagina «\(name)»")
+            change(\.pageTypes, to: types, actionName: "Page type “\(name)”")
         } else {
-            change(\.pageSetup, to: setup, actionName: "Formato della pagina")
+            change(\.pageSetup, to: setup, actionName: "Page Setup")
         }
     }
 
@@ -1573,9 +1572,9 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         if store.length > 0, !result.renames.isEmpty {
             writeStore(actionName: nil) { SectionEditing.renamePageTypes(result.renames, in: $0) }
         }
-        change(\.pageTypes, to: result.types, actionName: "Tipi di pagina")
+        change(\.pageTypes, to: result.types, actionName: "Page Types")
         document?.undoManager?.endUndoGrouping()
-        document?.undoManager?.setActionName("Tipi di pagina")
+        document?.undoManager?.setActionName("Page Types")
         return true
     }
 
@@ -1639,8 +1638,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         let note = fallbacks.isEmpty ? nil : "→ " + fallbacks.joined(separator: ", ")
         if familyPopup.trailingNote != note {
             familyPopup.trailingNote = note
-            familyPopup.toolTip = note.map { _ in "Famiglia del font: \(family). Dove non ha i caratteri, si vede \(fallbacks.joined(separator: ", "))." }
-                ?? "Famiglia del font"
+            familyPopup.toolTip = note.map { _ in "Font family: \(family). Characters it lacks are shown in \(fallbacks.joined(separator: ", "))." }
+                ?? "Font family"
         }
         if facePopupFamily != family { reloadFaces(for: family) }
         // Variabile o istanze: il pulsante solo se la famiglia ha tutte e due le forme; con il font variabile (e l'asse
@@ -1936,7 +1935,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         edit(
             selection: { TextStyling.updateVariations(in: $0, range: $1, ofFontNamed: FontVariations.baseName(of: reference), transform) },
             typing: { FontVariations.font($0, with: transform(FontVariations.values(of: $0))) })
-        if selection.range.length > 0 { document?.undoManager?.setActionName("Assi del font") }
+        if selection.range.length > 0 { document?.undoManager?.setActionName("Font axes") }
     }
 
     /// Il simbolo dei font variabili: una «A» sopra un piccolo cursore, la lettera il cui disegno si regola lungo un asse.
@@ -1957,7 +1956,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             NSBezierPath(ovalIn: NSRect(x: 8.4, y: 0, width: 4, height: 4)).fill()
             return true
         }
-        image.accessibilityDescription = "Font variabile"
+        image.accessibilityDescription = "Variable font"
         return image
     }()
 
@@ -1975,7 +1974,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         edit(
             selection: { TextStyling.switchFontFile(in: $0, range: $1, family: family, variable: variable) },
             typing: { CTFontCopyFamilyName($0) as String == family ? FontVariations.counterpart(of: $0, variable: variable) : nil })
-        if selection.range.length > 0 { document?.undoManager?.setActionName(variable ? "Font a più assi" : "Font statico") }
+        if selection.range.length > 0 { document?.undoManager?.setActionName(variable ? "Multi-axis font" : "Static font") }
     }
 
     /// Mentre si trascina un cursore del pannello ogni passo modifica il documento: li si raccoglie in un solo
@@ -2084,7 +2083,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         guard let family = sender.titleOfSelectedItem else { return }
         var values = StyleValues()
         values.family = family
-        editInspected(.family, actionName: "Famiglia") {
+        editInspected(.family, actionName: "Family") {
             TextStyling.setValue(values, of: .family, in: $0, range: $1, resolver: fontRoleResolver)
         }
         window?.makeFirstResponder(pagesView)
@@ -2128,7 +2127,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             else { typingAttributes.removeValue(forKey: .fontOpticalSize) }
             refreshFromSelection()
         } else {
-            document?.undoManager?.setActionName(size == nil ? "Corpo ottico automatico" : "Corpo ottico fisso")
+            document?.undoManager?.setActionName(size == nil ? "Automatic optical size" : "Fixed optical size")
         }
         window?.makeFirstResponder(pagesView)
     }
@@ -2145,7 +2144,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         edit(
             selection: { TextStyling.setOpticalSize(automatic: automatic, in: $0, range: $1, ofFontNamed: FontVariations.baseName(of: reference)) },
             typing: { FontVariations.font($0, automaticOpticalSize: automatic) })
-        if selection.range.length > 0 { document?.undoManager?.setActionName(automatic ? "Corpo ottico automatico" : "Corpo ottico fisso") }
+        if selection.range.length > 0 { document?.undoManager?.setActionName(automatic ? "Automatic optical size" : "Fixed optical size") }
         window?.makeFirstResponder(pagesView)
     }
 
@@ -2176,8 +2175,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         let title = (document as? NSDocument)?.displayName ?? window.title
         panel.nameFieldStringValue = (title as NSString).deletingPathExtension + ".pdf"
         // Che si distingua da «Salva con nome…», che altrimenti ha lo stesso aspetto.
-        panel.message = "Esporta il documento come PDF"
-        panel.prompt = "Esporta"
+        panel.message = "Export the document as PDF"
+        panel.prompt = "Export"
         panel.isExtensionHidden = false
         let text = NSAttributedString(attributedString: documentText)
         let setup = settings.pageSetup
@@ -2365,11 +2364,11 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     // MARK: Sillabazione e lingua (menu Formato)
 
     @objc func toggleHyphenation(_ sender: Any?) {
-        change(\.hyphenates, to: !settings.hyphenates, actionName: "Sillabazione")
+        change(\.hyphenates, to: !settings.hyphenates, actionName: "Hyphenation")
     }
 
     @objc func setDocumentLanguage(_ sender: NSMenuItem) {
-        change(\.language, to: sender.representedObject as? String, actionName: "Lingua del documento")
+        change(\.language, to: sender.representedObject as? String, actionName: "Document Language")
     }
 
     /// Assegna una lingua al testo selezionato (o, senza selezione, a quello che si scriverà); `nil` lo riporta
@@ -2381,7 +2380,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             typingAttributes[.language] = language
         } else {
             endUndoStep(next: .none)
-            writeStore(actionName: "Lingua del testo") { store in
+            writeStore(actionName: "Text Language") { store in
                 if let language { store.addAttribute(.language, value: language, range: range) } else { store.removeAttribute(.language, range: range) }
             }
         }

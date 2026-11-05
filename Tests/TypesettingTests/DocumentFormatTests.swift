@@ -188,7 +188,7 @@ extension TypesettingSuite {
             ("<document version=\"1\" font=\"X\" size=\"12\">\n<p>a</p>\n<tabella/>\n</document>",
              DocumentFormatError.unexpectedElement(line: 3, element: "tabella", parent: "document")),
             ("<document version=\"1\" font=\"X\" size=\"12\">\n<p>a</p>\n<table/>\n</document>",
-             .malformed(line: 3, detail: "una tabella ha almeno una riga")),
+             .malformed(line: 3, detail: "a table has at least one row")),
             ("<document version=\"1\" font=\"X\" size=\"12\">\n<p colour=\"red\">a</p>\n</document>",
              .unknownAttribute(line: 2, element: "p", attribute: "colour")),
             ("<document version=\"1\" size=\"12\">\n<p>a</p>\n</document>", .missingAttribute(line: 2, attribute: "font")),

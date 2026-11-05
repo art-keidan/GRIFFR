@@ -107,17 +107,17 @@ final class ListsSheetModel: ObservableObject {
         var seen: Set<String> = []
         for row in rows {
             let name = row.definition.name.trimmingCharacters(in: .whitespaces)
-            if name.isEmpty { return "Ogni Lista deve avere un nome." }
-            if !seen.insert(name).inserted { return "Ci sono due Liste di nome «\(name)»." }
+            if name.isEmpty { return "Every list needs a name." }
+            if !seen.insert(name).inserted { return "There are two lists named “\(name)”." }
         }
         return nil
     }
 
     func add() {
-        var name = "Lista nuova"
+        var name = "New List"
         var number = 2
         while rows.contains(where: { $0.definition.name == name }) {
-            name = "Lista nuova \(number)"
+            name = "New List \(number)"
             number += 1
         }
         let row = ListRow(original: nil, definition: ListDefinition(name: name, counter: .decimal, suffix: "."), parent: .none)
@@ -173,16 +173,16 @@ final class ListsSheetModel: ObservableObject {
         case .upperRoman: "I, II, III"
         case .asterisks: "*, **, ***"
         case .symbols: "*, †, ‡, §, ‖, ¶"
-        case .none: "Nessun numero (solo il segno)"
+        case .none: "No number (marker only)"
         }
     }
 
     static func overflowTitle(_ overflow: ListOverflow, series: Bool) -> String {
         switch overflow {
-        case .ask: "Chiedilo quando succede"
-        case .restart: "Ricomincia dal primo"
-        case .double: series ? "Raddoppia i segni (**, ††…)" : "Prosegue oltre"
-        case .numbers: "Passa ai numeri"
+        case .ask: "Ask when it happens"
+        case .restart: "Restart from the first"
+        case .double: series ? "Double the markers (**, ††…)" : "Continue beyond"
+        case .numbers: "Switch to numbers"
         }
     }
 }
@@ -195,29 +195,29 @@ struct ListsSheetView: View {
         VStack(alignment: .leading, spacing: 8) {
             List(selection: $model.selection) {
                 ForEach(model.rows) { row in
-                    Text(row.definition.name.isEmpty ? "(senza nome)" : row.definition.name).tag(row.id)
+                    Text(row.definition.name.isEmpty ? "(untitled)" : row.definition.name).tag(row.id)
                 }
             }
             .frame(height: 150)
             HStack(spacing: 4) {
-                Button { model.add() } label: { Image(systemName: "plus") }.help("Una Lista nuova")
-                Button { model.removeSelected() } label: { Image(systemName: "minus") }.disabled(model.selection == nil).help("Togli la Lista scelta")
+                Button { model.add() } label: { Image(systemName: "plus") }.help("A new list")
+                Button { model.removeSelected() } label: { Image(systemName: "minus") }.disabled(model.selection == nil).help("Remove the chosen list")
                 Spacer()
                 if let problem = model.problem { Text(problem).font(.caption).foregroundStyle(.red).lineLimit(2) }
             }
-            Picker("Note numerate con", selection: $model.noteList) {
-                Text("1, 2, 3 (nessuna Lista)").tag(ListRow.ID?.none)
+            Picker("Notes numbered with", selection: $model.noteList) {
+                Text("1, 2, 3 (no list)").tag(ListRow.ID?.none)
                 ForEach(model.rows) { row in Text(row.definition.name).tag(Optional(row.id)) }
             }
-            Picker("Pagine numerate con", selection: $model.pageList) {
-                Text("1, 2, 3 (nessuna Lista)").tag(ListRow.ID?.none)
+            Picker("Pages numbered with", selection: $model.pageList) {
+                Text("1, 2, 3 (no list)").tag(ListRow.ID?.none)
                 ForEach(model.rows) { row in Text(row.definition.name).tag(Optional(row.id)) }
             }
-            .help("Dall'inizio del documento; una sezione può farle ripartire con un'altra Lista (ispettore della Sezione)")
+            .help("From the start of the document; a section can restart them with another list (Section inspector)")
             if let id = model.selection, model.rows.contains(where: { $0.id == id }) {
                 ListDetailView(model: model, id: id, embedded: true)
             } else {
-                Text("Nessuna Lista scelta.").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text("No list chosen.").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .padding(10)
@@ -241,47 +241,47 @@ private struct ListDetailView: View {
         let definition = row?.definition ?? ListDefinition(name: "", counter: .decimal)
         let excluded = model.descendants(of: id).union([id])
         Form {
-            TextField("Nome:", text: field(\.name, ""))
-            Picker("Numero:", selection: field(\.counter, .decimal)) {
+            TextField("Name:", text: field(\.name, ""))
+            Picker("Number:", selection: field(\.counter, .decimal)) {
                 ForEach(ListCounter.allCases, id: \.self) { Text(ListsSheetModel.counterTitle($0)).tag($0) }
             }
             HStack {
-                TextField("Prima:", text: field(\.prefix, "")).fieldWidth(130, embedded: embedded)
-                TextField("Dopo:", text: field(\.suffix, "")).fieldWidth(110, embedded: embedded)
+                TextField("Before:", text: field(\.prefix, "")).fieldWidth(130, embedded: embedded)
+                TextField("After:", text: field(\.suffix, "")).fieldWidth(110, embedded: embedded)
             }
             HStack {
-                TextField("Comincia da:", value: field(\.start, 1), format: .number).fieldWidth(150, embedded: embedded)
-                TextField("Ultimo valore:", text: Binding(
+                TextField("Starts at:", value: field(\.start, 1), format: .number).fieldWidth(150, embedded: embedded)
+                TextField("Last value:", text: Binding(
                     get: { definition.end.map(String.init) ?? "" },
                     set: { field(\.end, nil).wrappedValue = Int($0.trimmingCharacters(in: .whitespaces)) }),
-                    prompt: Text(definition.counter.seriesLength.map { "\($0)" } ?? "nessuno"))
+                    prompt: Text(definition.counter.seriesLength.map { "\($0)" } ?? "none"))
                 .fieldWidth(170, embedded: embedded)
             }
-            Picker("Riparte:", selection: model.binding(id, \.parent, fallback: .none)) {
-                Text("Solo come dice la riga sotto").tag(ListRow.Parent.none)
-                Text("A ogni pagina").tag(ListRow.Parent.page)
+            Picker("Restarts:", selection: model.binding(id, \.parent, fallback: .none)) {
+                Text("Only as the line below says").tag(ListRow.Parent.none)
+                Text("On every page").tag(ListRow.Parent.page)
                 ForEach(model.rows.filter { !excluded.contains($0.id) }) { other in
-                    Text("A ogni voce di «\(other.definition.name)»").tag(ListRow.Parent.list(other.id))
+                    Text("At every item of “\(other.definition.name)”").tag(ListRow.Parent.list(other.id))
                 }
                 ForEach(model.roles, id: \.self) { role in
-                    Text("A ogni sezione di ruolo «\(role)»").tag(ListRow.Parent.section(role))
+                    Text("At every section of role “\(role)”").tag(ListRow.Parent.section(role))
                 }
             }
-            Picker("Numera le sezioni:", selection: field(\.numbersSections, nil)) {
-                Text("Nessuna").tag(String?.none)
-                ForEach(model.roles, id: \.self) { role in Text("Di ruolo «\(role)»: il numero davanti al titolo").tag(Optional(role)) }
+            Picker("Numbers sections:", selection: field(\.numbersSections, nil)) {
+                Text("None").tag(String?.none)
+                ForEach(model.roles, id: \.self) { role in Text("Of role “\(role)”: the number before the title").tag(Optional(role)) }
             }
-            Toggle("Prosegue dopo un paragrafo che non ne fa parte", isOn: field(\.continues, false))
-            Toggle("Scrive davanti il numero della lista superiore (1.2, 3a)", isOn: field(\.showsParent, false))
+            Toggle("Continues after a paragraph that is not part of it", isOn: field(\.continues, false))
+            Toggle("Writes the parent list number in front (1.2, 3a)", isOn: field(\.showsParent, false))
                 .disabled({ switch row?.parent { case .list?, .section?: false; default: true } }())
             if definition.lastValue != nil {
-                Picker("Oltre l'ultimo valore:", selection: field(\.overflow, .ask)) {
+                Picker("Past the last value:", selection: field(\.overflow, .ask)) {
                     ForEach(ListOverflow.allCases, id: \.self) {
                         Text(ListsSheetModel.overflowTitle($0, series: definition.counter.seriesLength != nil)).tag($0)
                     }
                 }
             }
-            LabeledContent("Anteprima:") { Text(model.preview(of: id)).font(.body.monospacedDigit()) }
+            LabeledContent("Preview:") { Text(model.preview(of: id)).font(.body.monospacedDigit()) }
         }
         .definitionForm(embedded: embedded, width: 590)
     }

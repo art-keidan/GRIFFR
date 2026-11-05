@@ -23,7 +23,7 @@ extension ComposerBoardModel {
 
     /// Una variabile nuova nello stile scelto, con un nome libero («Valore», «Valore 2»…). Restituisce la sua identità.
     @discardableResult
-    func addVariable(named base: String = "Valore", expression: FormulaExpression) -> UUID? {
+    func addVariable(named base: String = "Value", expression: FormulaExpression) -> UUID? {
         guard let name = selectedStyle else { return nil }
         selectStyle(name)
         guard let i = currentStyleIndex else { return nil }
@@ -63,8 +63,8 @@ extension ComposerBoardModel {
         guard let i = currentStyleIndex else { return }
         let count = users(of: id)
         guard count == 0 else {
-            problem = count == 1 ? "La variabile è usata da un'azione: scegli prima un altro valore."
-                : "La variabile è usata da \(count) azioni: scegli prima un altro valore."
+            problem = count == 1 ? "The variable is used by an action: choose another value first."
+                : "The variable is used by \(count) actions: choose another value first."
             return
         }
         sheet.styles[i].variables.removeAll { $0.id == id }
@@ -107,7 +107,7 @@ extension ComposerBoardModel {
     func extractVariable(from formulaID: UUID) {
         guard let formula = currentStyle?.formulas.first(where: { $0.id == formulaID }), let binding = formula.binding else { return }
         if case .variable = binding { return }
-        if let id = addVariable(named: "Calcolo", expression: binding) { bind(formulaID, to: id) }
+        if let id = addVariable(named: "Calculation", expression: binding) { bind(formulaID, to: id) }
     }
 
     /// Il valore attuale di un'azione come nuova variabile: «Distanza = 18 pt», che poi altre azioni possono usare.
@@ -124,7 +124,7 @@ extension ComposerBoardModel {
         when.position = position
         let candidate = StyleFormula(id: formula.id, operation: formula.operation, when: when, target: formula.target)
         guard (try? candidate.validate(for: style.target)) != nil else {
-            problem = "«\(formula.operation.property.title)» non accetta questa condizione: si valuta in un'altra fase."
+            problem = "“\(formula.operation.property.title)” does not accept this condition: it is evaluated in another phase."
             return
         }
         problem = nil

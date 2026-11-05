@@ -176,7 +176,7 @@ final class PagesView: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     private let margin: CGFloat = 18
     private let labelHeight: CGFloat = 20
@@ -272,7 +272,7 @@ final class PagesView: NSView {
     }
 
     private static let lineSelectionCursor: NSCursor = {
-        guard let image = NSImage(systemSymbolName: "arrow.right", accessibilityDescription: "Seleziona la riga") else { return .arrow }
+        guard let image = NSImage(systemSymbolName: "arrow.right", accessibilityDescription: "Select Line") else { return .arrow }
         return NSCursor(image: image, hotSpot: NSPoint(x: 1, y: image.size.height / 2))
     }()
 
@@ -510,7 +510,7 @@ final class PagesView: NSView {
                 context.strokePath()
                 context.restoreGState()
             }
-            let label = NSAttributedString(string: "Pagina \(index + 1) di \(layout.pages.count)", attributes: [
+            let label = NSAttributedString(string: "Page \(index + 1) of \(layout.pages.count)", attributes: [
                 .font: NSFont.systemFont(ofSize: 10), .foregroundColor: NSColor.secondaryLabelColor,
             ])
             label.draw(at: NSPoint(x: pageFrame.midX - label.size().width / 2, y: pageFrame.maxY + 4))

@@ -55,10 +55,10 @@ final class PageTypesSheetModel: ObservableObject {
         var seen: Set<String> = []
         for row in rows {
             let name = row.type.name.trimmingCharacters(in: .whitespaces)
-            if name.isEmpty { return "Ogni tipo di pagina deve avere un nome." }
-            if name == PageType.defaultName { return "«\(PageType.defaultName)» è il nome del tipo predefinito del documento." }
-            if name.contains("\n") { return "Il nome di un tipo di pagina sta su una riga." }
-            if !seen.insert(name).inserted { return "Ci sono due tipi di pagina di nome «\(name)»." }
+            if name.isEmpty { return "Every page type needs a name." }
+            if name == PageType.defaultName { return "“\(PageType.defaultName)” is the name of the document's default type." }
+            if name.contains("\n") { return "A page type name fits on one line." }
+            if !seen.insert(name).inserted { return "There are two page types named “\(name)”." }
         }
         return nil
     }
@@ -74,7 +74,7 @@ final class PageTypesSheetModel: ObservableObject {
     }
 
     func add() {
-        let row = PageTypeRow(original: nil, type: PageType(name: freeName("Pagina nuova"), setup: defaultSetup))
+        let row = PageTypeRow(original: nil, type: PageType(name: freeName("New Page"), setup: defaultSetup))
         rows.append(row)
         selection = row.id
     }
@@ -118,11 +118,11 @@ struct PageTypesSheetView: View {
             }
             .frame(height: 160)
             HStack(spacing: 4) {
-                Button { model.add() } label: { Image(systemName: "plus") }.help("Un tipo di pagina nuovo, come il predefinito")
+                Button { model.add() } label: { Image(systemName: "plus") }.help("A new page type, like the default")
                 Button { model.duplicateSelected() } label: { Image(systemName: "plus.square.on.square") }
-                    .disabled(model.selection == nil).help("Duplica il tipo scelto")
+                    .disabled(model.selection == nil).help("Duplicate the chosen type")
                 Button { model.removeSelected() } label: { Image(systemName: "minus") }
-                    .disabled(model.selection == nil).help("Togli il tipo: le sezioni che lo usavano tornano a quello della sezione esterna, o al predefinito")
+                    .disabled(model.selection == nil).help("Remove the type: sections that used it go back to the outer section's, or to the default")
                 Spacer()
             }
             .padding(.horizontal, 10)
@@ -133,14 +133,14 @@ struct PageTypesSheetView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .firstTextBaseline) {
-                            Text("Nome").frame(width: 118, alignment: .leading)
+                            Text("Name").frame(width: 118, alignment: .leading)
                             TextField("", text: $nameDraft)
                                 .focused($nameFocused)
                                 .onSubmit { model.rename(nameDraft) }
                                 .onChange(of: nameFocused) { _, focused in if !focused { model.rename(nameDraft) } }
                         }
                         PageSetupForm(setup: model.rows[index].type.setup) { transform in model.changeSelected(transform) }
-                        Text("Le sezioni scelgono i tipi nell'ispettore della Sezione. Il tipo predefinito, delle pagine senza un tipo, si cambia in File › Formato della pagina.")
+                        Text("Sections choose their types in the Section inspector. The default type, for pages without a type, is changed in File › Page Setup.")
                             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(14)
@@ -149,7 +149,7 @@ struct PageTypesSheetView: View {
                 .onAppear { nameDraft = model.rows[index].type.name }
                 .onChange(of: model.selection) { _, _ in nameDraft = model.selectedIndex.map { model.rows[$0].type.name } ?? "" }
             } else {
-                Text("Nessun tipo di pagina: tutte le pagine hanno il formato predefinito. Con + se ne crea uno.")
+                Text("No page types: all pages have the default setup. Create one with +.")
                     .foregroundStyle(.secondary).padding(14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }

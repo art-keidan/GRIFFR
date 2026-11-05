@@ -43,7 +43,7 @@ final class WeightSlider: NSSlider {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: Theme.height) }
 
@@ -227,8 +227,8 @@ final class FontFaceStrip: NSStackView {
     init(target: AnyObject, boldAction: Selector, faceAction: Selector, weightAction: Selector? = nil) {
         faceTarget = target
         self.faceAction = faceAction
-        boldButton = BandButton(label: "G", help: "Grassetto (⌘B)", target: target, action: boldAction)
-        disclosureButton = BandButton(symbol: "chevron.right", help: "Mostra tutte le facce", target: nil, action: nil)
+        boldButton = BandButton(label: "B", help: "Bold (⌘B)", target: target, action: boldAction)
+        disclosureButton = BandButton(symbol: "chevron.right", help: "Show all faces", target: nil, action: nil)
         super.init(frame: .zero)
         orientation = .horizontal
         alignment = .centerY
@@ -242,8 +242,8 @@ final class FontFaceStrip: NSStackView {
         weightSlider.isContinuous = true
         weightSlider.controlSize = .small
         weightSlider.widthAnchor.constraint(equalToConstant: 110).isActive = true
-        weightSlider.toolTip = "Peso del font variabile"
-        weightSlider.setAccessibilityLabel("Peso")
+        weightSlider.toolTip = "Variable font weight"
+        weightSlider.setAccessibilityLabel("Weight")
         addArrangedSubview(boldButton)
         addArrangedSubview(disclosureButton)
         addArrangedSubview(weightSlider)
@@ -251,7 +251,7 @@ final class FontFaceStrip: NSStackView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     /// Aggiorna pesi, stato e aspetto dei campioni senza cambiare la scelta di espansione fatta dall'utente.
     func update(faces newFaces: [FontFaceChoice], currentFace: String?, currentIsItalic: Bool,
@@ -266,8 +266,8 @@ final class FontFaceStrip: NSStackView {
             showWeight(variableWeight.value)
             let instances = zip(variableWeight.stops, variableWeight.titles).filter { !$0.1.isEmpty }
             weightSlider.toolTip = instances.isEmpty
-                ? "Peso del font variabile (il font non dichiara istanze: punti equidistanti)"
-                : "Peso del font variabile. Istanze del font: " + instances.map { "\($0.1) \(Self.number($0.0))" }.joined(separator: ", ")
+                ? "Variable font weight (the font declares no instances: evenly spaced stops)"
+                : "Variable font weight. Font instances: " + instances.map { "\($0.1) \(Self.number($0.0))" }.joined(separator: ", ")
         }
         self.currentFace = currentFace
         self.currentIsItalic = currentIsItalic
@@ -286,7 +286,7 @@ final class FontFaceStrip: NSStackView {
             button.labelFont = NSFont(name: name, size: 13) ?? .systemFont(ofSize: 13)
             button.isEnabled = targetName != nil
             button.state = targetName == currentFace ? .on : .off
-            button.toolTip = "Peso \(face.title)" + (currentIsItalic ? " · corsivo" : "")
+            button.toolTip = "Weight \(face.title)" + (currentIsItalic ? " · italic" : "")
             button.invalidateIntrinsicContentSize()
             button.needsDisplay = true
         }
@@ -299,7 +299,7 @@ final class FontFaceStrip: NSStackView {
             button.removeFromSuperview()
         }
         faceButtons = faces.map { face in
-            let button = BandButton(label: "G", help: "Faccia \(face.title)", target: faceTarget, action: faceAction)
+            let button = BandButton(label: "B", help: "Face \(face.title)", target: faceTarget, action: faceAction)
             button.identifier = NSUserInterfaceItemIdentifier(face.name)
             button.labelFont = NSFont(name: face.name, size: 13) ?? .systemFont(ofSize: 13)
             button.minimumWidth = 24
@@ -340,8 +340,8 @@ final class FontFaceStrip: NSStackView {
         for button in faceButtons { button.isHidden = !showFaces }
         disclosureButton.isHidden = !canExpand
         disclosureButton.symbolImage = Theme.symbol(isExpanded ? "chevron.left" : "chevron.right",
-                                                    isExpanded ? "Riduci le facce" : "Mostra tutte le facce")
-        let help = isExpanded ? "Riduci le facce" : "Mostra tutte le facce"
+                                                    isExpanded ? "Collapse faces" : "Show all faces")
+        let help = isExpanded ? "Collapse faces" : "Show all faces"
         disclosureButton.toolTip = help
         disclosureButton.setAccessibilityLabel(help)
         disclosureButton.needsDisplay = true
@@ -378,14 +378,14 @@ final class FontRoleSlots: NSStackView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     /// I valori sotto i nomi dei ruoli e il ruolo della faccia attuale.
     func update(values: [FontRole: String], current: FontRole?) {
         for slot in slots {
             slot.value = values[slot.role] ?? "—"
             slot.state = slot.role == current ? .on : .off
-            slot.toolTip = "\(slot.role.displayName): \(slot.value). Clic: usa la faccia attuale come \(slot.role.displayName)"
+            slot.toolTip = "\(slot.role.displayName): \(slot.value). Click: use the current face as \(slot.role.displayName)"
             slot.invalidateIntrinsicContentSize()
             slot.needsDisplay = true
         }
@@ -427,7 +427,7 @@ final class RoleSlot: NSButton {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) non è usato") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     override var intrinsicContentSize: NSSize {
         let text = (Self.abbreviation(role) as NSString).size(withAttributes: [.font: font]).width

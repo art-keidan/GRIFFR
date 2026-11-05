@@ -15,27 +15,27 @@ extension EditorWindowController {
 
     /// Tutti i comandi della barra, nell'ordine in cui il foglio li propone. «|» è una riga di separazione.
     static let toolbarCommands: [ToolbarCommand] = [
-        .init(id: "nuovo", title: "Nuovo", symbol: "doc.badge.plus"),
-        .init(id: "apri", title: "Apri…", symbol: "folder"),
-        .init(id: "salva", title: "Salva", symbol: "square.and.arrow.down"),
-        .init(id: "salvaCome", title: "Salva con nome…", symbol: "square.and.arrow.down.on.square"),
-        .init(id: "chiudi", title: "Chiudi", symbol: "xmark.square"),
-        .init(id: "stampa", title: "Stampa…", symbol: "printer"),
-        .init(id: "pdf", title: "Esporta come PDF…", symbol: "arrow.down.doc"),
-        .init(id: "annulla", title: "Annulla", symbol: "arrow.uturn.backward"),
-        .init(id: "ripeti", title: "Ripeti", symbol: "arrow.uturn.forward"),
-        .init(id: "cerca", title: "Cerca e sostituisci", symbol: "magnifyingglass"),
-        .init(id: "nota", title: "Nota", symbol: "text.append"),
-        .init(id: "illustrazione", title: "Illustrazione", symbol: "photo"),
-        .init(id: "tabella", title: "Tabella", symbol: "tablecells"),
-        .init(id: "carattere", title: "Carattere speciale", symbol: "character"),
-        .init(id: "nuovoStile", title: "Nuovo stile dalla selezione…", symbol: "paintbrush"),
-        .init(id: "liste", title: "Liste…", symbol: "list.number"),
-        .init(id: "stiliFlottante", title: "Stili di flottante…", symbol: "rectangle.on.rectangle"),
-        .init(id: "regole", title: "Regole…", symbol: "wand.and.rays"),
-        .init(id: "nascosti", title: "Caratteri nascosti", symbol: "paragraphsign"),
-        .init(id: "provenienza", title: "Segni della provenienza", symbol: "highlighter"),
-        .init(id: "correzione", title: "Correzione ortografica", symbol: "textformat.abc.dottedunderline"),
+        .init(id: "nuovo", title: "New", symbol: "doc.badge.plus"),
+        .init(id: "apri", title: "Open…", symbol: "folder"),
+        .init(id: "salva", title: "Save", symbol: "square.and.arrow.down"),
+        .init(id: "salvaCome", title: "Save As…", symbol: "square.and.arrow.down.on.square"),
+        .init(id: "chiudi", title: "Close", symbol: "xmark.square"),
+        .init(id: "stampa", title: "Print…", symbol: "printer"),
+        .init(id: "pdf", title: "Export as PDF…", symbol: "arrow.down.doc"),
+        .init(id: "annulla", title: "Undo", symbol: "arrow.uturn.backward"),
+        .init(id: "ripeti", title: "Redo", symbol: "arrow.uturn.forward"),
+        .init(id: "cerca", title: "Find and Replace", symbol: "magnifyingglass"),
+        .init(id: "nota", title: "Note", symbol: "text.append"),
+        .init(id: "illustrazione", title: "Illustration", symbol: "photo"),
+        .init(id: "tabella", title: "Table", symbol: "tablecells"),
+        .init(id: "carattere", title: "Special Character", symbol: "character"),
+        .init(id: "nuovoStile", title: "New Style from Selection…", symbol: "paintbrush"),
+        .init(id: "liste", title: "Lists…", symbol: "list.number"),
+        .init(id: "stiliFlottante", title: "Float Styles…", symbol: "rectangle.on.rectangle"),
+        .init(id: "regole", title: "Rules…", symbol: "wand.and.rays"),
+        .init(id: "nascosti", title: "Invisibles", symbol: "paragraphsign"),
+        .init(id: "provenienza", title: "Provenance Marks", symbol: "highlighter"),
+        .init(id: "correzione", title: "Spelling", symbol: "textformat.abc.dottedunderline"),
         .init(id: "lorem", title: "Lorem", symbol: "text.page"),
     ]
 
@@ -104,8 +104,8 @@ extension EditorWindowController {
         named("interfaccia", modeButton)
         let band = Bands.band([])
         let menu = NSMenu()
-        menu.addItem(withTitle: "Personalizza gli strumenti…", action: #selector(customizeToolbar(_:)), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Ripristina questo livello…", action: #selector(resetToolbar(_:)), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Customize Tools…", action: #selector(customizeToolbar(_:)), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Restore This Level…", action: #selector(resetToolbar(_:)), keyEquivalent: "").target = self
         band.menu = menu
         toolbarBand = band
         notificationTokens.append(NotificationCenter.default.addObserver(forName: Self.toolbarChanged, object: nil, queue: .main) { [weak self] _ in
@@ -149,19 +149,19 @@ extension EditorWindowController {
         func kind(_ id: String) -> String {
             switch id {
             case "nuovo", "apri", "salva", "salvaCome", "chiudi": "file"
-            case "stampa", "pdf": "stampa"
-            case "annulla", "ripeti", "cerca": "modifica"
-            case "nota", "illustrazione", "tabella", "carattere", "lorem": "inserisci"
-            case "nuovoStile", "liste", "stiliFlottante", "regole": "stili"
-            case "nascosti", "provenienza", "correzione": "vista"
-            default: "strumenti"
+            case "stampa", "pdf": "print"
+            case "annulla", "ripeti", "cerca": "edit"
+            case "nota", "illustrazione", "tabella", "carattere", "lorem": "insert"
+            case "nuovoStile", "liste", "stiliFlottante", "regole": "styles"
+            case "nascosti", "provenienza", "correzione": "view"
+            default: "tools"
             }
         }
         let kinds = commands.map(kind)
         return kinds.max { a, b in
             let (countA, countB) = (kinds.filter { $0 == a }.count, kinds.filter { $0 == b }.count)
             return countA != countB ? countA < countB : kinds.firstIndex(of: a)! > kinds.firstIndex(of: b)!
-        } ?? "strumenti"
+        } ?? "tools"
     }
 
     /// I gruppi della barra, ciascuno nella sua zona.
@@ -208,43 +208,43 @@ extension EditorWindowController {
     /// Il controllo di un comando della barra.
     func toolbarControl(_ id: String) -> NSView? {
         switch id {
-        case "nuovo": return button(id, "doc.badge.plus", help: "Nuovo", action: #selector(bandNew(_:)))
-        case "apri": return button(id, "folder", help: "Apri…", action: #selector(bandOpen(_:)))
-        case "salva": return button(id, "square.and.arrow.down", help: "Salva", action: #selector(bandSave(_:)))
-        case "salvaCome": return button(id, "square.and.arrow.down.on.square", help: "Salva con nome…", action: #selector(bandSaveAs(_:)))
-        case "chiudi": return button(id, "xmark.square", help: "Chiudi", action: #selector(bandClose(_:)))
-        case "stampa": return button(id, "printer", help: "Stampa… (⌘P)", action: #selector(printFromBar(_:)))
-        case "pdf": return button(id, "arrow.down.doc", help: "Esporta come PDF…", action: #selector(exportPDF(_:)))
-        case "annulla": return button(id, "arrow.uturn.backward", help: "Annulla", action: #selector(bandUndo(_:)))
-        case "ripeti": return button(id, "arrow.uturn.forward", help: "Ripeti", action: #selector(bandRedo(_:)))
-        case "cerca": return button(id, "magnifyingglass", help: "Cerca e sostituisci (⌘F)", action: #selector(showFindBar(_:)))
-        case "tabella": return button(id, "tablecells", help: "Inserisci una tabella", action: #selector(insertTable(_:)))
-        case "nuovoStile": return button(id, "paintbrush", help: "Nuovo stile dalla selezione…", action: #selector(newStyleFromSelection(_:)))
-        case "liste": return button(id, "list.number", help: "Liste…", action: #selector(editLists(_:)))
-        case "stiliFlottante": return button(id, "rectangle.on.rectangle", help: "Stili di flottante…", action: #selector(editFloatStyles(_:)))
-        case "regole": return button(id, "wand.and.rays", help: "Regole…", action: #selector(editRules(_:)))
-        case "lorem": return button(id, nil, label: "Lorem", help: "Inserisci circa due pagine di testo di prova, con titoletti, in Garamond Premier Pro",
+        case "nuovo": return button(id, "doc.badge.plus", help: "New", action: #selector(bandNew(_:)))
+        case "apri": return button(id, "folder", help: "Open…", action: #selector(bandOpen(_:)))
+        case "salva": return button(id, "square.and.arrow.down", help: "Save", action: #selector(bandSave(_:)))
+        case "salvaCome": return button(id, "square.and.arrow.down.on.square", help: "Save As…", action: #selector(bandSaveAs(_:)))
+        case "chiudi": return button(id, "xmark.square", help: "Close", action: #selector(bandClose(_:)))
+        case "stampa": return button(id, "printer", help: "Print… (⌘P)", action: #selector(printFromBar(_:)))
+        case "pdf": return button(id, "arrow.down.doc", help: "Export as PDF…", action: #selector(exportPDF(_:)))
+        case "annulla": return button(id, "arrow.uturn.backward", help: "Undo", action: #selector(bandUndo(_:)))
+        case "ripeti": return button(id, "arrow.uturn.forward", help: "Redo", action: #selector(bandRedo(_:)))
+        case "cerca": return button(id, "magnifyingglass", help: "Find and Replace (⌘F)", action: #selector(showFindBar(_:)))
+        case "tabella": return button(id, "tablecells", help: "Insert a table", action: #selector(insertTable(_:)))
+        case "nuovoStile": return button(id, "paintbrush", help: "New Style from Selection…", action: #selector(newStyleFromSelection(_:)))
+        case "liste": return button(id, "list.number", help: "Lists…", action: #selector(editLists(_:)))
+        case "stiliFlottante": return button(id, "rectangle.on.rectangle", help: "Float Styles…", action: #selector(editFloatStyles(_:)))
+        case "regole": return button(id, "wand.and.rays", help: "Rules…", action: #selector(editRules(_:)))
+        case "lorem": return button(id, nil, label: "Lorem", help: "Insert about two pages of sample text, with headings, in Garamond Premier Pro",
                                     action: #selector(insertLorem(_:)))
         case "nascosti":
-            let invisibles = button(id, "paragraphsign", help: "Mostra caratteri nascosti", action: #selector(toggleInvisibles(_:)))
+            let invisibles = button(id, "paragraphsign", help: "Show invisibles", action: #selector(toggleInvisibles(_:)))
             invisibles.state = pagesView.showsInvisibles ? .on : .off
             return invisibles
         case "provenienza":
             let provenance = button(id, "highlighter",
-                                    help: "Segni della provenienza (⌥⌘P): in arancio ciò che è dato a mano, in verde azzurro ciò che dà una regola",
+                                    help: "Provenance marks (⌥⌘P): orange for what was set by hand, teal for what a rule sets",
                                     action: #selector(toggleProvenanceMarks(_:)))
             provenance.state = showsProvenanceMarks ? .on : .off
             return provenance
         case "correzione":
-            let spelling = button(id, "textformat.abc.dottedunderline", help: "Correzione ortografica durante la digitazione",
+            let spelling = button(id, "textformat.abc.dottedunderline", help: "Check spelling while typing",
                                   action: #selector(toggleSpellChecking(_:)))
             spelling.state = checksSpelling ? .on : .off
             return spelling
         case "nota":
             // Una voce per la nota a piè di pagina e una per ogni altra serie del documento (gli stili di flottante).
-            return pullDown(id, symbol: "text.append", title: "", width: 42, help: "Inserisci una nota") { [weak self] menu in
+            return pullDown(id, symbol: "text.append", title: "", width: 42, help: "Insert a note") { [weak self] menu in
                 guard let self else { return }
-                menu.addItem(withTitle: "Nota a piè di pagina", action: #selector(self.insertFootnote(_:)), keyEquivalent: "").target = self
+                menu.addItem(withTitle: "Footnote", action: #selector(self.insertFootnote(_:)), keyEquivalent: "").target = self
                 for style in self.otherFloatStyles() {
                     let item = menu.addItem(withTitle: style, action: #selector(self.insertNoteOfSeries(_:)), keyEquivalent: "")
                     item.target = self
@@ -253,19 +253,19 @@ extension EditorWindowController {
             }
         case "illustrazione":
             // Una voce per ogni stile di figura del documento, poi l'immagine nella riga.
-            return pullDown(id, symbol: "photo", title: "", width: 42, help: "Inserisci un'illustrazione") { [weak self] menu in
+            return pullDown(id, symbol: "photo", title: "", width: 42, help: "Insert an illustration") { [weak self] menu in
                 guard let self else { return }
                 let figures = self.settings.floatStyles.filter { $0.placement == .figure }.map(\.name)
                 for style in figures.isEmpty ? [FloatStyle.defaultFigure.name] : figures {
-                    let title = figures.count <= 1 ? "Figura con didascalia…" : "\(style)…"
+                    let title = figures.count <= 1 ? "Figure with Caption…" : "\(style)…"
                     let item = menu.addItem(withTitle: title, action: #selector(self.insertFigure(_:)), keyEquivalent: "")
                     item.target = self
                     item.representedObject = style
                 }
-                menu.addItem(withTitle: "Immagine nella riga…", action: #selector(self.insertImage(_:)), keyEquivalent: "").target = self
+                menu.addItem(withTitle: "Inline Image…", action: #selector(self.insertImage(_:)), keyEquivalent: "").target = self
             }
         case "carattere":
-            return pullDown(id, symbol: "character", title: "", width: 42, help: "Inserisci un carattere speciale") { [weak self] menu in
+            return pullDown(id, symbol: "character", title: "", width: 42, help: "Insert a special character") { [weak self] menu in
                 self?.fillSpecialCharacters(menu)
             }
         default: return nil
@@ -274,7 +274,7 @@ extension EditorWindowController {
 
     /// Cambia gli stili di flottante come la finestra degli stili (per le prove).
     func editFloatStylesForTests(_ styles: [FloatStyle]) {
-        changeListSettings(lists: settings.lists, noteList: nil, styles: settings.styles, floatStyles: styles, actionName: "Stili di flottante")
+        changeListSettings(lists: settings.lists, noteList: nil, styles: settings.styles, floatStyles: styles, actionName: "Float Styles")
     }
 
     /// File › Formato della pagina… (⇧⌘P): formato, margini e pagine affacciate, in un foglio. Lo stesso modulo sta
@@ -285,7 +285,7 @@ extension EditorWindowController {
         let sheet = model.makeWindow()
         model.finish = { [weak self, weak window, weak sheet] setup in
             if let sheet { window?.endSheet(sheet) }
-            if let setup { self?.change(\.pageSetup, to: setup, actionName: "Formato della pagina") }
+            if let setup { self?.change(\.pageSetup, to: setup, actionName: "Page Setup") }
         }
         window.beginSheet(sheet)
     }
@@ -313,12 +313,12 @@ extension EditorWindowController {
     func buildCharacterBand() -> BandView {
         named("grassetto", faceStrip.boldButton)
         named("mostraFacce", faceStrip.disclosureButton)
-        let italic = button("corsivo", nil, label: "C", help: "Corsivo (⌘I)", action: #selector(toggleItalic(_:)))
+        let italic = button("corsivo", nil, label: "I", help: "Italic (⌘I)", action: #selector(toggleItalic(_:)))
         italic.labelFont = NSFont(name: "Georgia-Italic", size: 13) ?? .systemFont(ofSize: 13)
-        let smallCaps = button("maiuscoletto", nil, label: "Aᴀ", help: "Maiuscoletto", action: #selector(toggleSmallCaps(_:)))
+        let smallCaps = button("maiuscoletto", nil, label: "Aᴀ", help: "Small caps", action: #selector(toggleSmallCaps(_:)))
         smallCaps.labelFont = NSFont(name: "Georgia", size: 13) ?? .systemFont(ofSize: 13)
-        let language = named("lingua", BandPopUp(width: 112, help: "Lingua del testo selezionato"))
-        language.addItem(withTitle: "Come il documento")
+        let language = named("lingua", BandPopUp(width: 112, help: "Language of selected text"))
+        language.addItem(withTitle: "Same as document")
         language.lastItem?.representedObject = nil
         for code in Self.languages {
             language.addItem(withTitle: Self.languageName(code))
@@ -328,22 +328,22 @@ extension EditorWindowController {
             item.target = self
             item.action = #selector(setSelectionLanguage(_:))
         }
-        let underline = button("sottolineato", nil, label: "S\u{0332}", help: "Sottolineato (⌘U)", action: #selector(toggleUnderline(_:)))
-        let strikethrough = button("barrato", nil, label: "S\u{0336}", help: "Barrato", action: #selector(toggleStrikethrough(_:)))
+        let underline = button("sottolineato", nil, label: "S\u{0332}", help: "Underline (⌘U)", action: #selector(toggleUnderline(_:)))
+        let strikethrough = button("barrato", nil, label: "S\u{0336}", help: "Strikethrough", action: #selector(toggleStrikethrough(_:)))
         for control in [underline, strikethrough] { control.labelFont = .systemFont(ofSize: 13) }
-        let superscript = button("apice", nil, label: "x²", help: "Apice", action: #selector(toggleSuperscript(_:)))
-        let subscriptButton = button("pedice", nil, label: "x₂", help: "Pedice", action: #selector(toggleSubscript(_:)))
+        let superscript = button("apice", nil, label: "x²", help: "Superscript", action: #selector(toggleSuperscript(_:)))
+        let subscriptButton = button("pedice", nil, label: "x₂", help: "Subscript", action: #selector(toggleSubscript(_:)))
         for control in [superscript, subscriptButton] { control.labelFont = .systemFont(ofSize: 13) }
-        let color = pullDown("colore", title: "A", width: 46, help: "Colore del testo") { [weak self] menu in self?.fillColorMenu(menu) }
+        let color = pullDown("colore", title: "A", width: 46, help: "Text color") { [weak self] menu in self?.fillColorMenu(menu) }
         color.titleFont = .systemFont(ofSize: 13, weight: .semibold)
         color.swatchColor = Theme.text
         // Gli stili di parola e di carattere del documento, come comandi.
-        let runStyles = pullDown("stileCarattere", title: "Stile: —", width: 120, help: "Stile di parola o di carattere") { [weak self] menu in
+        let runStyles = pullDown("stileCarattere", title: "Style: —", width: 120, help: "Word or character style") { [weak self] menu in
             guard let self else { return }
-            for (target, title, action) in [(StyleTarget.word, "Parola", #selector(self.setWordStyle(_:))), (.character, "Carattere", #selector(self.setCharacterStyle(_:)))] {
+            for (target, title, action) in [(StyleTarget.word, "Word", #selector(self.setWordStyle(_:))), (.character, "Character", #selector(self.setCharacterStyle(_:)))] {
                 menu.addItem(withTitle: title, action: nil, keyEquivalent: "").isEnabled = false
                 let current = self.selectionStyleName(target)
-                let none = menu.addItem(withTitle: "Nessuno", action: action, keyEquivalent: "")
+                let none = menu.addItem(withTitle: "None", action: action, keyEquivalent: "")
                 none.target = self
                 none.indentationLevel = 1
                 none.state = current == nil ? .on : .off
@@ -356,13 +356,13 @@ extension EditorWindowController {
                 }
             }
         }
-        let opticalSize = button("corpoOttico", "textformat.size", help: "Corpo ottico automatico", action: #selector(toggleOpticalSize(_:)))
+        let opticalSize = button("corpoOttico", "textformat.size", help: "Automatic optical size", action: #selector(toggleOpticalSize(_:)))
         let specialCharacter = pullDown("carattereSpeciale", symbol: "character", title: "", width: 42,
-                                        help: "Inserisci un carattere speciale") { [weak self] menu in self?.fillSpecialCharacters(menu) }
+                                        help: "Insert a special character") { [weak self] menu in self?.fillSpecialCharacters(menu) }
         characterStylesControl = runStyles
         // Famiglia e faccia; peso; corpo e disegno ottico; corsivo; le altre funzioni (disposizione dell'utente, 29 ottobre).
         // Acceso: il font variabile della famiglia; spento: le istanze statiche. Solo se la famiglia ha tutte e due.
-        let variable = button("variabile", nil, help: "Font variabile (acceso) o istanze statiche (spento)",
+        let variable = button("variabile", nil, help: "Variable font (on) or static instances (off)",
                               action: #selector(toggleVariableFont(_:)))
         variable.symbolImage = Self.variableFontSymbol
         variable.isHidden = true
@@ -377,28 +377,28 @@ extension EditorWindowController {
     /// La fascia del paragrafo (il righello di Word 5): stile, allineamento, interlinea, spazi, elenchi, livello.
     func buildParagraphBand() -> BandView {
         let alignment = named("allineamento", BandSegments([
-            .init(image: Theme.symbol("text.alignleft", "A sinistra"), help: "A sinistra"),
-            .init(image: Theme.symbol("text.aligncenter", "Al centro"), help: "Al centro"),
-            .init(image: Theme.symbol("text.alignright", "A destra"), help: "A destra"),
-            .init(image: Theme.symbol("text.justify", "Giustificato"), help: "Giustificato"),
-            .init(label: "0,0", help: "Sulla virgola: i segni decimali uno sotto l'altro (in una colonna di tabella)"),
-        ], help: "Allineamento"))
+            .init(image: Theme.symbol("text.alignleft", "Left"), help: "Left"),
+            .init(image: Theme.symbol("text.aligncenter", "Center"), help: "Center"),
+            .init(image: Theme.symbol("text.alignright", "Right"), help: "Right"),
+            .init(image: Theme.symbol("text.justify", "Justified"), help: "Justified"),
+            .init(label: "0,0", help: "On the decimal point: decimal separators aligned (in a table column)"),
+        ], help: "Alignment"))
         alignment.onSelect = { [weak self] index in
             let value: ParagraphStyle.Alignment = [.left, .center, .right, .justified, .decimal][index]
-            self?.setParagraphValue(.alignment, actionName: "Allineamento") { $0.alignment = value }
+            self?.setParagraphValue(.alignment, actionName: "Alignment") { $0.alignment = value }
         }
-        let spacing = named("interlinea", BandSegments([.init(label: "1", help: "Interlinea singola"), .init(label: "1,5", help: "Interlinea 1,5"),
-                                                         .init(label: "2", help: "Interlinea doppia")], help: "Interlinea"))
+        let spacing = named("interlinea", BandSegments([.init(label: "1", help: "Single spacing"), .init(label: "1,5", help: "1.5 spacing"),
+                                                         .init(label: "2", help: "Double spacing")], help: "Line spacing"))
         spacing.onSelect = { [weak self] index in
             let value = [0, 1.5, 2][index]
-            self?.setParagraphValue(.lineHeightMultiple, actionName: "Interlinea") { $0.lineHeightMultiple = value }
+            self?.setParagraphValue(.lineHeightMultiple, actionName: "Line spacing") { $0.lineHeightMultiple = value }
         }
-        let spaces = pullDown("spazi", title: "0 · 0 pt", width: 96, help: "Spazio prima e dopo il paragrafo") { [weak self] menu in
+        let spaces = pullDown("spazi", title: "0 · 0 pt", width: 96, help: "Space before and after the paragraph") { [weak self] menu in
             self?.fillSpacesMenu(menu)
         }
-        let bullets = pullDown("puntato", symbol: "list.bullet", title: "", width: 46, help: "Elenco puntato") { [weak self] menu in
+        let bullets = pullDown("puntato", symbol: "list.bullet", title: "", width: 46, help: "Bulleted list") { [weak self] menu in
             guard let self else { return }
-            let none = menu.addItem(withTitle: "Nessun elenco", action: #selector(self.setListMarker(_:)), keyEquivalent: "")
+            let none = menu.addItem(withTitle: "No list", action: #selector(self.setListMarker(_:)), keyEquivalent: "")
             none.target = self
             for marker in Self.bulletMarkers {
                 let item = menu.addItem(withTitle: Self.bulletTitle(marker), action: #selector(self.setListMarker(_:)), keyEquivalent: "")
@@ -406,7 +406,7 @@ extension EditorWindowController {
                 item.representedObject = marker
             }
         }
-        let numbers = pullDown("numerato", symbol: "list.number", title: "", width: 46, help: "Elenco numerato") { [weak self] menu in
+        let numbers = pullDown("numerato", symbol: "list.number", title: "", width: 46, help: "Numbered list") { [weak self] menu in
             guard let self else { return }
             for marker in Self.numberMarkers {
                 let item = menu.addItem(withTitle: (1...3).map { ListItem(marker: marker).text(number: $0) }.joined(separator: "  "),
@@ -415,11 +415,11 @@ extension EditorWindowController {
                 item.representedObject = marker
             }
             menu.addItem(.separator())
-            menu.addItem(withTitle: "Altro segno…", action: #selector(self.chooseListMarker(_:)), keyEquivalent: "").target = self
+            menu.addItem(withTitle: "Other Marker…", action: #selector(self.chooseListMarker(_:)), keyEquivalent: "").target = self
         }
-        let lists = pullDown("lista", title: "Lista: —", width: 110, help: "Lista con un nome") { [weak self] menu in
+        let lists = pullDown("lista", title: "List: —", width: 110, help: "Named list") { [weak self] menu in
             guard let self else { return }
-            let none = menu.addItem(withTitle: "Nessuna", action: #selector(self.setListMarker(_:)), keyEquivalent: "")
+            let none = menu.addItem(withTitle: "None", action: #selector(self.setListMarker(_:)), keyEquivalent: "")
             none.target = self
             for (name, sample) in self.namedLists() {
                 let item = menu.addItem(withTitle: "\(name)    \(sample)", action: #selector(self.setNamedList(_:)), keyEquivalent: "")
@@ -427,15 +427,15 @@ extension EditorWindowController {
                 item.representedObject = name
             }
             menu.addItem(.separator())
-            menu.addItem(withTitle: "Liste…", action: #selector(self.editLists(_:)), keyEquivalent: "").target = self
+            menu.addItem(withTitle: "Lists…", action: #selector(self.editLists(_:)), keyEquivalent: "").target = self
         }
         // Gli stili (paragrafo, carattere, flottanti); allineamento e spazi; elenchi e regole (disposizione dell'utente, 29 ottobre).
         var items: [String: NSView] = ["stile": named("stile", stylePopup), "allineamento": alignment, "interlinea": spacing, "spazi": spaces,
                                        "puntato": bullets, "numerato": numbers, "lista": lists,
-                                       "riduciLivello": button("riduciLivello", "decrease.indent", help: "Riduci livello (Maiusc-Tab)", action: #selector(decreaseListLevel(_:))),
-                                       "aumentaLivello": button("aumentaLivello", "increase.indent", help: "Aumenta livello (Tab)", action: #selector(increaseListLevel(_:))),
-                                       "regoleBanda": button("regoleBanda", "wand.and.rays", help: "Regole…", action: #selector(editRules(_:))),
-                                       "stiliFlottanteBanda": button("stiliFlottanteBanda", "rectangle.on.rectangle", help: "Stili di flottante…", action: #selector(editFloatStyles(_:)))]
+                                       "riduciLivello": button("riduciLivello", "decrease.indent", help: "Decrease level (Shift-Tab)", action: #selector(decreaseListLevel(_:))),
+                                       "aumentaLivello": button("aumentaLivello", "increase.indent", help: "Increase level (Tab)", action: #selector(increaseListLevel(_:))),
+                                       "regoleBanda": button("regoleBanda", "wand.and.rays", help: "Rules…", action: #selector(editRules(_:))),
+                                       "stiliFlottanteBanda": button("stiliFlottanteBanda", "rectangle.on.rectangle", help: "Float Styles…", action: #selector(editFloatStyles(_:)))]
         if let characterStylesControl { items["stileCarattere"] = characterStylesControl }
         register(items)
         return Bands.band([])
@@ -448,15 +448,15 @@ extension EditorWindowController {
         countsLabel.lineBreakMode = .byTruncatingTail
         countsLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         countsLabel.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        countsLabel.toolTip = "Un clic: tutti i conteggi, del documento e della selezione"
+        countsLabel.toolTip = "Click: all counts, for the document and the selection"
         countsLabel.onClick = { [weak self] in self?.showCounts(nil) }
-        let spelling = pullDown("ortografia", title: "Italiano ✓", help: "Lingua e ortografia") { [weak self] menu in
+        let spelling = pullDown("ortografia", title: "Italian ✓", help: "Language and spelling") { [weak self] menu in
             guard let self else { return }
-            let check = menu.addItem(withTitle: "Controlla ortografia durante la digitazione", action: #selector(self.toggleSpellChecking(_:)), keyEquivalent: "")
+            let check = menu.addItem(withTitle: "Check Spelling While Typing", action: #selector(self.toggleSpellChecking(_:)), keyEquivalent: "")
             check.target = self
             check.state = self.checksSpelling ? .on : .off
             menu.addItem(.separator())
-            menu.addItem(withTitle: "Lingua del documento", action: nil, keyEquivalent: "").isEnabled = false
+            menu.addItem(withTitle: "Document Language", action: nil, keyEquivalent: "").isEnabled = false
             for code in Self.languages {
                 let item = menu.addItem(withTitle: Self.languageName(code), action: #selector(self.setDocumentLanguage(_:)), keyEquivalent: "")
                 item.target = self
@@ -467,14 +467,14 @@ extension EditorWindowController {
         }
         spelling.drawsBox = false
         spelling.titleFont = Theme.smallFont
-        let warnings = pullDown("avvisi", symbol: "exclamationmark.triangle", title: "0", help: "Avvisi") { [weak self] menu in
+        let warnings = pullDown("avvisi", symbol: "exclamationmark.triangle", title: "0", help: "Warnings") { [weak self] menu in
             self?.fillWarnings(menu)
         }
         warnings.borderColor = Theme.warn
         warnings.inkColor = Theme.warn
         warnings.titleFont = Theme.smallFont
-        let smaller = button("riduci", "minus", help: "Riduci", action: #selector(zoomOut(_:)))
-        let larger = button("ingrandisci", "plus", help: "Ingrandisci", action: #selector(zoomIn(_:)))
+        let smaller = button("riduci", "minus", help: "Zoom out", action: #selector(zoomOut(_:)))
+        let larger = button("ingrandisci", "plus", help: "Zoom in", action: #selector(zoomIn(_:)))
         named("zoom", zoomPopup)
         // Lo stile non si accorcia: se manca spazio, si accorciano i conteggi.
         stylePills.setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -512,7 +512,7 @@ extension EditorWindowController {
         facePopup.action = #selector(faceChanged(_:))
         sizeBox.target = self
         sizeBox.action = #selector(sizeChanged(_:))
-        opticalSizePopup.addItem(withTitle: "Automatico")
+        opticalSizePopup.addItem(withTitle: "Automatic")
         opticalSizePopup.lastItem?.representedObject = ""
         for size in StaticOpticalSize.allCases {
             opticalSizePopup.addItem(withTitle: size.title)
@@ -521,7 +521,7 @@ extension EditorWindowController {
         opticalSizePopup.target = self
         opticalSizePopup.action = #selector(opticalSizeChanged(_:))
 
-        zoomPopup.addItems(withTitles: ["Automatico"] + Self.zoomLevels.map { "\(Int($0 * 100))%" } + ["—"])
+        zoomPopup.addItems(withTitles: ["Automatic"] + Self.zoomLevels.map { "\(Int($0 * 100))%" } + ["—"])
         zoomPopup.lastItem?.isHidden = true
         zoomPopup.target = self
         zoomPopup.action = #selector(zoomPopupChanged(_:))
