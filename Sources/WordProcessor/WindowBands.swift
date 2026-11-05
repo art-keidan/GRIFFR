@@ -643,10 +643,14 @@ enum Bands {
         let center = row.centerYAnchor.constraint(equalTo: band.centerYAnchor)
         band.heightConstraint = heightConstraint
         band.rowCenter = center
+        // La fila riempie la fascia ma non allarga la finestra: sotto la priorità con cui la finestra tiene la sua misura,
+        // così un font con più facce (Lorem in Garamond) non la fa crescere da sola.
+        let trailing = row.trailingAnchor.constraint(equalTo: band.trailingAnchor, constant: -12)
+        trailing.priority = NSLayoutConstraint.Priority(NSLayoutConstraint.Priority.windowSizeStayPut.rawValue - 10)
         NSLayoutConstraint.activate([
             heightConstraint,
             row.leadingAnchor.constraint(equalTo: band.leadingAnchor, constant: 12),
-            row.trailingAnchor.constraint(equalTo: band.trailingAnchor, constant: -12),
+            trailing,
             center,
         ])
         return band
