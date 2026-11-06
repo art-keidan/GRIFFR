@@ -669,12 +669,8 @@ public enum PageLayout {
         }
         /// Il testo di un campo, nel punto della composizione in cui si è.
         func fieldText(_ field: Field) -> String {
-            switch field.asFormula {
-            case .pageContainingNumber: pages[pages.count - 1].number
-            case .documentPageCount: pageCount.map(String.init) ?? "?"
-            case .sectionContainingTitle(let role): openSections.reversed().first { $0.mark.role == role }?.title ?? ""
-            case .sectionContainingNumber(let role): openSections.reversed().first { $0.mark.role == role }?.number ?? ""
-            }
+            field.asFormula.value(in: FieldContext(pageNumber: pages[pages.count - 1].number, pageCount: pageCount.map(String.init) ?? "?",
+                                                   sections: openSections.map { FieldContext.Section(role: $0.mark.role, title: $0.title, number: $0.number) }))
         }
         /// Il tipo della pagina `number`: il nome (`nil` per il predefinito) e le misure.
         func pageType(number: Int, sectionFirst: Bool) -> (name: String?, setup: PageSetup) {
@@ -2138,12 +2134,8 @@ public enum PageLayout {
                 let area = pageSetup.textRect
                 let sections = index < pageSections.count ? pageSections[index] : []
                 func value(_ field: Field) -> String {
-                    switch field.asFormula {
-                    case .pageContainingNumber: pages[index].number
-                    case .documentPageCount: pageCount.map(String.init) ?? String(pages.count)
-                    case .sectionContainingTitle(let role): sections.last { $0.role == role }?.title ?? ""
-                    case .sectionContainingNumber(let role): sections.last { $0.role == role }?.number ?? ""
-                    }
+                    field.asFormula.value(in: FieldContext(pageNumber: pages[index].number, pageCount: pageCount.map(String.init) ?? String(pages.count),
+                                                           sections: sections.map { FieldContext.Section(role: $0.role, title: $0.title, number: $0.number) }))
                 }
                 var note = entry.note
                 let resolved = NSMutableAttributedString()

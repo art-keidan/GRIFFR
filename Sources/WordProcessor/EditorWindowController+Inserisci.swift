@@ -143,6 +143,50 @@ extension EditorWindowController {
         window?.makeFirstResponder(pagesView)
     }
 
+    /// Il campo scelto: la selezione è il suo carattere.
+    var selectedField: (range: NSRange, field: Field)? {
+        let range = selection.range
+        guard range.length == 1, NSMaxRange(range) <= store.length,
+              let field = (store.attribute(.field, at: range.location, effectiveRange: nil) as? String).flatMap(Field.init(encoded:)) else { return nil }
+        return (range, field)
+    }
+
+    /// La formula del campo scelto (doppio clic su di lui, o il menu del tasto destro): la catena si cambia nell'editor, e
+    /// il campo resta lo stesso carattere con il suo aspetto. Si annulla con Annulla.
+    @objc func editFieldFormula(_ sender: Any?) {
+        guard let (range, field) = selectedField else { return }
+        presentFieldEditor(formula: field.asFormula, at: range.location, editing: true) { [weak self] formula in
+            guard let self, NSMaxRange(range) <= self.store.length, self.store.attribute(.field, at: range.location, effectiveRange: nil) != nil else { return }
+            self.endUndoStep(next: .none)
+            self.writeStore(actionName: "Field Formula") { $0.addAttribute(.field, value: Field.formula(formula).encoded, range: range) }
+        }
+    }
+
+    /// Inserisci › Campo › Altro campo…: una catena composta nell'editor, inserita al cursore.
+    @objc func insertCustomField(_ sender: Any?) {
+        presentFieldEditor(formula: .pageContainingNumber, at: selection.range.location, editing: false) { [weak self] formula in
+            self?.insert(field: .formula(formula))
+        }
+    }
+
+    /// Apre l'editor della formula di un campo nel punto `location`: l'anteprima legge la composizione attuale.
+    func presentFieldEditor(formula: FieldFormula, at location: Int, editing: Bool, apply: @escaping (FieldFormula) -> Void) {
+        guard let window, fieldEditor == nil else { return }
+        let layout = pagesView.layout
+        let context = layout?.fieldContext(at: location)
+        let model = FieldFormulaEditorModel(formula: formula, roles: fieldRoles(), editing: editing) { formula in
+            context.map { formula.value(in: $0) } ?? ""
+        }
+        let sheet = model.makeWindow()
+        model.finish = { [weak self, weak window, weak sheet] chosen in
+            if let sheet { window?.endSheet(sheet) }
+            self?.fieldEditor = nil
+            if let chosen, chosen.problem == nil { apply(chosen) }
+        }
+        fieldEditor = model
+        window.beginSheet(sheet)
+    }
+
     /// I ruoli offerti dai campi delle sezioni: quelli pronti e quelli del testo.
     func fieldRoles() -> [String] {
         var roles = Section.Role.builtIn

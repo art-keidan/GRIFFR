@@ -185,6 +185,15 @@ extension EditorWindowController: PagesViewEditing {
             let index = !isImage(index) && isImage(index - 1) ? index - 1 : index
             dragOrigin = selectionUnit(at: index, word: true)
             apply(TextSelection(anchor: dragOrigin.location, head: NSMaxRange(dragOrigin)))
+            // Un doppio clic su un campo lo sceglie e ne apre la formula, finito il clic.
+            let isField = { (position: Int) in position >= 0 && position < self.store.length && self.store.attribute(.field, at: position, effectiveRange: nil) != nil }
+            if let field = [index, index - 1].first(where: isField), !isImage(index) {
+                dragOrigin = NSRange(location: field, length: 1)
+                apply(TextSelection(anchor: field, head: field + 1))
+                RunLoop.main.perform(inModes: [.common]) { [weak self] in
+                    MainActor.assumeIsolated { self?.editFieldFormula(nil) }
+                }
+            }
             // Un doppio clic su un'immagine ne apre le misure, finito il clic.
             if selectedImage != nil {
                 RunLoop.main.perform(inModes: [.common]) { [weak self] in

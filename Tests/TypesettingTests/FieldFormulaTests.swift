@@ -3,7 +3,7 @@ import PDFKit
 import Testing
 @testable import Typesetting
 
-@Suite("Campi formula")
+@Suite("Campi formula", .serialized)
 struct FieldFormulaTests {
     private let body = CharacterStyle(fontName: "HoeflerText-Regular", size: 12)
 
@@ -83,5 +83,55 @@ struct FieldFormulaTests {
         _ = PageLayout.layout(attributed, setup: document.pageSetup, options: document.layoutOptions)
         let reopened = try DocumentFormat.document(from: DocumentFormat.string(for: Document(attributedString: attributed, settings: document.settingsOnly)))
         #expect(fieldCount(reopened.attributedString().text) == 4)
+    }
+
+    @Test("La catena si legge passo per passo: le formule pronte sono catene, le altre si spiegano; il valore segue l'ultimo oggetto")
+    func chain() throws {
+        // Le formule pronte sono catene come le altre, e il file le scrive come prima.
+        #expect(FieldFormula.pageContainingNumber == FieldFormula(origin: .position, steps: [.containingPage], reading: .number))
+        #expect(FieldFormula.pageContainingNumber.expression == "position.page-containing.number.write-here")
+        #expect(FieldFormula.documentPageCount.expression == "document.page-count.write-here")
+        #expect(FieldFormula.sectionContainingNumber(role: "part").expression == "position.section-containing.number.write-here")
+        #expect(FieldFormula.sectionContainingTitle(role: "chapter").chain == "Position → Containing section (chapter) → Title")
+        #expect(FieldFormula.sectionContainingTitle(role: "chapter").title == "Title of the current section: chapter")
+        // Ogni passo deve partire dall'oggetto raggiunto; il risultato deve essere dell'ultimo.
+        #expect(FieldFormula(origin: .document, steps: [.containingPage], reading: .number).problem != nil, "il documento non sta in una pagina")
+        #expect(FieldFormula(origin: .position, steps: [.containingPage], reading: .title).problem?.contains("page") == true)
+        #expect(FieldFormula(origin: .position, reading: .number).problem?.contains("add a step") == true)
+        #expect(FieldFormula(origin: .position, steps: [.containingSection(role: " ")], reading: .title).problem?.contains("role") == true)
+        #expect(FieldFormula(origin: .position, steps: [.containingPage, .containingPage], reading: .number).problem != nil)
+        // Il file: le catene sbagliate, i ruoli mancanti o in più non si leggono.
+        #expect(FieldFormula(expression: "document.page-containing.number.write-here") == nil)
+        #expect(FieldFormula(expression: "position.page-containing.number.write-here", role: "chapter") == nil, "un ruolo senza sezione")
+        #expect(FieldFormula(expression: "position.page-containing.number") == nil, "senza «write-here»")
+        // Il valore: dall'oggetto a cui la catena arriva.
+        let context = FieldContext(pageNumber: "iv", pageCount: "12", sections: [
+            .init(role: "part", title: "Prima parte", number: "I"), .init(role: "chapter", title: "Il mare", number: "3"),
+            .init(role: "chapter", title: "Interno", number: nil)])
+        #expect(FieldFormula.pageContainingNumber.value(in: context) == "iv")
+        #expect(FieldFormula.documentPageCount.value(in: context) == "12")
+        #expect(FieldFormula.sectionContainingTitle(role: "part").value(in: context) == "Prima parte")
+        #expect(FieldFormula.sectionContainingTitle(role: "chapter").value(in: context) == "Interno", "la più interna del ruolo")
+        #expect(FieldFormula.sectionContainingNumber(role: "chapter").value(in: context) == "", "una sezione senza numero")
+        #expect(FieldFormula.sectionContainingTitle(role: "appendix").value(in: context) == "")
+        #expect(FieldFormula(origin: .document, steps: [.containingPage], reading: .number).value(in: context) == "", "una catena sbagliata non scrive")
+    }
+
+    @Test("Ciò che un campo legge in un punto della composizione: pagina, pagine e sezioni che lo contengono")
+    func contextAtPosition() throws {
+        func text(_ string: String) -> Inline { .text(TextRun(string, style: body)) }
+        let long = String(repeating: "Una frase abbastanza lunga da riempire molte righe di testo. ", count: 120)
+        var document = Document(lists: [ListDefinition(name: "Capitoli", counter: .decimal, numbersSections: "chapter")],
+                                blocks: [.paragraph(Paragraph(inlines: [text("Premessa.")]))])
+        document.sections = [Section(id: "c1", role: "chapter", title: Paragraph(inlines: [text("Il mare")]),
+                                     blocks: [.paragraph(Paragraph(inlines: [text(long)])), .paragraph(Paragraph(inlines: [text("Fine.")]))],
+                                     start: .newPage)]
+        let attributed = document.attributedString().text
+        let layout = PageLayout.layout(attributed, setup: document.pageSetup, options: document.layoutOptions)
+        let start = layout.fieldContext(at: 2)
+        #expect(start.pageNumber == "1" && start.sections.isEmpty)
+        let end = layout.fieldContext(at: attributed.length - 2)
+        #expect(end.pageCount == String(layout.pages.count) && end.pageNumber == layout.pages.last?.number)
+        #expect(end.sections == [FieldContext.Section(role: "chapter", title: "Il mare", number: "1")])
     }
 }

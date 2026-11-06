@@ -212,6 +212,9 @@ final class FieldMenuFiller: NSObject, NSMenuDelegate {
         for role in roles { add(.sectionContainingTitle(role: role)) }
         menu.addItem(.separator())
         for role in roles { add(.sectionContainingNumber(role: role)) }
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Other Field…", action: #selector(EditorWindowController.insertCustomField(_:)), keyEquivalent: "")
+            .toolTip = "Compose the field's formula: start, steps, result"
     }
 }
 

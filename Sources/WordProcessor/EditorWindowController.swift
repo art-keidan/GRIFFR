@@ -33,6 +33,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     }()
     var composerController: NSWindowController?
     var composerModel: ComposerBoardModel?
+    /// L'editor della formula di un campo, mentre è aperto.
+    var fieldEditor: FieldFormulaEditorModel?
     private(set) lazy var stylesTab = StylesTabModel(inspector: styleInspector)
     /// L'albero degli oggetti, a sinistra della pagina nell'interfaccia avanzata.
     private(set) var objectTree = ObjectTreeModel()
