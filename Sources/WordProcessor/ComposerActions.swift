@@ -168,11 +168,13 @@ extension ComposerBoardModel {
     /// testata, ne nasce una con il solo titolo.
     func addHeadingPart(_ part: HeadingPart) {
         changeHeading { heading in
-            var parts = heading?.parts ?? [.title]
-            if part == .title, parts.contains(.title) { return }
+            var parts = heading?.parts ?? [.plainTitle]
+            if part.isTitle, parts.contains(where: \.isTitle) { return }
+            // Un solo numero accanto al titolo.
+            if case .numberBeside = part, parts.contains(where: { if case .numberBeside = $0 { true } else { false } }) { return }
             switch part {
-            case .label, .number:
-                let title = parts.firstIndex(of: .title) ?? parts.count
+            case .label, .number, .numberBeside:
+                let title = parts.firstIndex(where: \.isTitle) ?? parts.count
                 parts.insert(part, at: title)
             default:
                 parts.append(part)

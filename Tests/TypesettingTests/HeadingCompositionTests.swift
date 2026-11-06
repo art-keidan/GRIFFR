@@ -3,7 +3,7 @@ import PDFKit
 import Testing
 @testable import Typesetting
 
-@Suite("Testate di capitolo")
+@Suite("Testate di capitolo", .serialized)
 struct HeadingCompositionTests {
     private let mm = 72 / 25.4
     private let body = CharacterStyle(fontName: "HoeflerText-Regular", size: 12)
@@ -122,7 +122,120 @@ struct HeadingCompositionTests {
         #expect(DocumentFormat.string(for: read) == xml)
         #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"14\"", with: "version=\"13\"")) }
         var bad = heading
-        bad.parts.append(.title)
+        bad.parts.append(.plainTitle)
         #expect(bad.problem != nil)
+    }
+
+    // MARK: Numero accanto, sezioni senza numero, titolo con lato e altezza propri (formato 15)
+
+    /// La prima riga del titolo e i segni del suo paragrafo, sulla pagina del capitolo `n`.
+    private func titleLine(_ layout: DocumentLayout, chapter n: Int = 0, title: String = "Il mare") throws -> (page: Int, line: PlacedLine, markers: [PlacedMarker], column: CGRect) {
+        let index = try bodyTop(layout, chapter: n).page
+        let page = layout.pages[index]
+        let text = layout.text.string as NSString
+        let line = try #require(page.lines.first { text.substring(with: $0.range).hasPrefix(title) })
+        return (index, line, page.markers.filter { $0.paragraphLocation == line.paragraphLocation }, page.setup.textRect(forPage: index))
+    }
+
+    private func width(_ line: CTLine) -> CGFloat { CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil)) }
+
+    @Test("Il numero accanto al titolo: sulla sua prima riga, a sinistra; il titolo si scosta della larghezza del numero più 4 mm")
+    func numberBesideLeft() throws {
+        let heading = HeadingComposition(parts: [.numberBeside(prefix: "", style: nil, side: .left, gap: 4 * mm), .plainTitle, .space(8 * mm)])
+        let composed = layout(book(title: "Il mare", heading: heading))
+        let found = try titleLine(composed)
+        #expect(found.markers.count == 1, "il numero una volta sola")
+        let number = try #require(found.markers.first)
+        #expect(abs(number.origin.x - found.column.minX) < 0.01)
+        #expect(abs(number.origin.y - found.line.origin.y) < 0.01, "sulla linea di base del titolo")
+        // Il titolo tiene i rientri del suo stile, dopo il numero.
+        let indent = try titleLine(layout(book(title: "Il mare", heading: nil))).line.origin.x - found.column.minX
+        #expect(abs(found.line.origin.x - (found.column.minX + width(number.line) + 4 * mm + indent)) < 0.01)
+        // Accanto, non sopra: il corpo scende soltanto degli 8 mm dopo il titolo.
+        let plain = try bodyTop(layout(book(title: "Il mare", heading: nil))).top
+        #expect(abs(try bodyTop(composed).top - plain - 8 * mm) < 0.01)
+    }
+
+    @Test("Il numero accanto sul lato esterno: a destra sulle dispari, a sinistra sulle pari; le righe lunghe restano nella misura")
+    func numberBesideOutside() throws {
+        let long = String(repeating: "Un titolo molto lungo che va a capo ", count: 4)
+        let heading = HeadingComposition(parts: [.numberBeside(prefix: "", style: nil, side: .outside, gap: 6 * mm), .plainTitle])
+        let composed = layout(book(title: long, heading: heading, facing: true, chapters: 2))
+        let text = composed.text.string as NSString
+        for chapter in 0..<2 {
+            let found = try titleLine(composed, chapter: chapter, title: "Un titolo")
+            let number = try #require(found.markers.first)
+            let reserve = width(number.line) + 6 * mm
+            let titleLines = composed.pages[found.page].lines.filter { $0.paragraphLocation == found.line.paragraphLocation }
+            #expect(titleLines.count > 1)
+            if found.page % 2 == 1 {
+                #expect(abs(number.origin.x - found.column.minX) < 0.01, "pagina pari: numero a sinistra")
+                #expect(titleLines.allSatisfy { $0.origin.x >= found.column.minX + reserve - 0.01 })
+            } else {
+                #expect(abs(number.origin.x - (found.column.maxX - width(number.line))) < 0.01, "pagina dispari: numero a destra")
+                #expect(titleLines.allSatisfy { $0.origin.x + $0.width <= found.column.maxX - reserve + 0.01 })
+            }
+            _ = text
+        }
+    }
+
+    @Test("Una sezione senza numero: la parte «numero» sparisce con la sua fascia, il numero accanto lascia tutta la misura")
+    func unnumberedSection() throws {
+        var document = book(title: "Il mare", heading: .standard, chapters: 2)
+        document.sections[0].role = "preface"
+        let composed = layout(document)
+        let numbered = try bodyTop(composed, chapter: 1).top
+        let unnumbered = try bodyTop(composed, chapter: 0).top
+        #expect(abs((numbered - unnumbered) - 12 * mm) < 0.01, "senza numero manca la fascia di 12 mm: \((numbered - unnumbered) / mm) mm")
+        #expect(try titleLine(composed, chapter: 0).markers.isEmpty)
+
+        var beside = book(title: "Il mare", heading: HeadingComposition(parts: [.numberBeside(prefix: "", style: nil, side: .left, gap: 4 * mm), .plainTitle]))
+        beside.sections[0].role = "preface"
+        let found = try titleLine(layout(beside))
+        var alone = book(title: "Il mare", heading: HeadingComposition(parts: [.plainTitle]))
+        alone.sections[0].role = "preface"
+        #expect(found.markers.isEmpty)
+        #expect(abs(found.line.origin.x - (try titleLine(layout(alone)).line.origin.x)) < 0.01, "come il titolo senza numero accanto")
+    }
+
+    @Test("Il titolo con lato e altezza propri: a destra, o all'esterno; in una fascia di 30 mm poggia sul fondo")
+    func titleOptions() throws {
+        let right = layout(book(title: "Il mare", heading: HeadingComposition(parts: [.title(alignment: .right, minHeight: nil)])))
+        let found = try titleLine(right)
+        #expect(abs(found.line.origin.x + found.line.width - found.column.maxX) < 0.5, "il titolo finisce al margine destro")
+
+        let outside = layout(book(title: "Il mare", heading: HeadingComposition(parts: [.title(alignment: .outside, minHeight: nil)]), facing: true, chapters: 2))
+        let styled = layout(book(title: "Il mare", heading: HeadingComposition(parts: [.plainTitle]), facing: true, chapters: 2))
+        for chapter in 0..<2 {
+            let found = try titleLine(outside, chapter: chapter)
+            // A sinistra il titolo tiene i rientri del suo stile, come senza allineamento proprio.
+            if found.page % 2 == 1 { #expect(abs(found.line.origin.x - (try titleLine(styled, chapter: chapter).line.origin.x)) < 0.01, "pari: a sinistra") }
+            else { #expect(abs(found.line.origin.x + found.line.width - found.column.maxX) < 0.5, "dispari: a destra") }
+        }
+
+        let plain = layout(book(title: "Il mare", heading: HeadingComposition(parts: [.plainTitle])))
+        let tall = layout(book(title: "Il mare", heading: HeadingComposition(parts: [.title(alignment: nil, minHeight: 30 * mm)])))
+        let plainTitle = try titleLine(plain), tallTitle = try titleLine(tall)
+        let titleHeight = plainTitle.line.ascent + plainTitle.line.descent
+        #expect(titleHeight < 30 * mm)
+        let drop = plainTitle.line.origin.y - tallTitle.line.origin.y
+        let bodyDrop = try bodyTop(tall).top - bodyTop(plain).top
+        #expect(drop > 0 && abs(drop - bodyDrop) < 0.01, "il titolo e il corpo scendono insieme: lo spazio in più è sopra")
+    }
+
+    @Test("Numero accanto e lato del titolo si salvano nel formato 15; le testate di prima restano nel 14")
+    func version15() throws {
+        let heading = HeadingComposition(parts: [.numberBeside(prefix: "§ ", style: "Body", side: .inside, gap: 5 * mm),
+                                                 .title(alignment: .center, minHeight: 20 * mm), .space(8 * mm)])
+        let xml = DocumentFormat.string(for: book(title: "Il mare", heading: heading))
+        #expect(xml.contains("version=\"15\""))
+        let read = try DocumentFormat.document(from: xml)
+        #expect(read.styles.style(named: "Titolo capitolo")?.heading == heading)
+        #expect(DocumentFormat.string(for: read) == xml)
+        #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"15\"", with: "version=\"13\"")) }
+        #expect(DocumentFormat.string(for: book(title: "Il mare", heading: .standard)).contains("version=\"14\""))
+        #expect(HeadingComposition(parts: [.numberBeside(prefix: "", style: nil, side: .center, gap: 0), .plainTitle]).problem != nil)
+        #expect(HeadingComposition(parts: [.numberBeside(prefix: "", style: nil, side: .left, gap: 0),
+                                           .numberBeside(prefix: "", style: nil, side: .right, gap: 0), .plainTitle]).problem != nil)
     }
 }

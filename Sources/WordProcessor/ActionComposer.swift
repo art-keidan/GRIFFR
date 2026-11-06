@@ -117,6 +117,7 @@ private struct ComposerLibrary: View {
             if matches("Heading") { item("Ready-made heading", symbol: "rectangle.split.1x2") { model.useStandardHeading() } }
             if matches("Label") { item("Label", symbol: "textformat") { model.addHeadingPart(.label(text: "Chapter", style: nil, alignment: .left, minHeight: nil)) } }
             if matches("Number") { item("Section number", symbol: "number") { model.addHeadingPart(.number(prefix: "", style: nil, alignment: .left, minHeight: nil)) } }
+            if matches("Number") { item("Number beside title", symbol: "text.insert") { model.addHeadingPart(.numberBeside(prefix: "", style: nil, side: .left, gap: 4 * mm)) } }
             if matches("Rule") { item("Rule", symbol: "minus") { model.addHeadingPart(.rule(thickness: 0.5 * mm, length: nil, alignment: .left)) } }
             if matches("Space") { item("Space", symbol: "arrow.up.and.down") { model.addHeadingPart(.space(3 * mm)) } }
         }
@@ -841,6 +842,9 @@ struct HeadingBlock: View {
                         .textFieldStyle(.roundedBorder).frame(maxWidth: 160)
                 case .title:
                     Text("the title lines").foregroundStyle(.secondary).lineLimit(1)
+                case .numberBeside(let prefix, let style, let side, let gap):
+                    TextField("Before the number", text: Binding(get: { prefix }, set: { model.updateHeadingPart(at: index, to: .numberBeside(prefix: $0, style: style, side: side, gap: gap)) }))
+                        .textFieldStyle(.roundedBorder).frame(maxWidth: 160)
                 case .rule(let thickness, let length, let alignment):
                     FormulaNumberPill(value: (thickness / mm * 100).rounded() / 100) { if $0 > 0 { model.updateHeadingPart(at: index, to: .rule(thickness: $0 * mm, length: length, alignment: alignment)) } }
                         .fixedSize()
@@ -865,6 +869,26 @@ struct HeadingBlock: View {
                     styleMenu(style) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: $0, alignment: alignment, minHeight: minHeight)) }
                     alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: style, alignment: $0, minHeight: minHeight)) }
                     heightPill(minHeight) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: style, alignment: alignment, minHeight: $0)) }
+                case .title(let alignment, let minHeight):
+                    Menu {
+                        Button("Style's alignment") { model.updateHeadingPart(at: index, to: .title(alignment: nil, minHeight: minHeight)) }
+                        Divider()
+                        ForEach(HeadingAlignment.allCases, id: \.self) { value in
+                            Button(value.title) { model.updateHeadingPart(at: index, to: .title(alignment: value, minHeight: minHeight)) }
+                        }
+                    } label: { ComposerPill(title: alignment?.title ?? "Style's alignment") }.fixedSize()
+                    heightPill(minHeight) { model.updateHeadingPart(at: index, to: .title(alignment: alignment, minHeight: $0)) }
+                case .numberBeside(let prefix, let style, let side, let gap):
+                    styleMenu(style) { model.updateHeadingPart(at: index, to: .numberBeside(prefix: prefix, style: $0, side: side, gap: gap)) }
+                    Menu {
+                        ForEach(HeadingAlignment.sides, id: \.self) { value in
+                            Button(value.title) { model.updateHeadingPart(at: index, to: .numberBeside(prefix: prefix, style: style, side: value, gap: gap)) }
+                        }
+                    } label: { ComposerPill(title: side.title) }.fixedSize()
+                    Text("gap").foregroundStyle(.secondary)
+                    FormulaNumberPill(value: (gap / mm * 100).rounded() / 100) { if $0 >= 0 { model.updateHeadingPart(at: index, to: .numberBeside(prefix: prefix, style: style, side: side, gap: $0 * mm)) } }
+                        .fixedSize()
+                    Text("mm").foregroundStyle(.secondary)
                 case .rule(let thickness, let length, let alignment):
                     Menu {
                         Button("Full measure") { model.updateHeadingPart(at: index, to: .rule(thickness: thickness, length: nil, alignment: alignment)) }
@@ -936,8 +960,21 @@ struct HeadingPreview: View {
                     line(text, character(style), value, minHeight)
                 case .number(let prefix, let style, let value, let minHeight):
                     line(prefix + "1", character(style), value, minHeight)
-                case .title:
-                    line(model.sample, titleCharacter, .left, nil)
+                case .numberBeside:
+                    EmptyView()
+                case .title(let value, let minHeight):
+                    // Il numero accanto al titolo, dal suo lato, sulla prima riga.
+                    if let beside = heading.numberBeside {
+                        let number = text(beside.prefix + "1", character(beside.style)).fixedSize()
+                        let right = beside.side.resolved(onLeftPage: false) == .right
+                        HStack(alignment: .firstTextBaseline, spacing: min(CGFloat(beside.gap), 40)) {
+                            if !right { number }
+                            line(model.sample, titleCharacter, value ?? .left, minHeight)
+                            if right { number }
+                        }
+                    } else {
+                        line(model.sample, titleCharacter, value ?? .left, minHeight)
+                    }
                 case .rule(let thickness, let length, let value):
                     Rectangle().fill(Color(nsColor: Theme.text))
                         .frame(width: length.map { CGFloat($0) }, height: max(CGFloat(thickness), 0.5))
@@ -949,8 +986,12 @@ struct HeadingPreview: View {
         }
     }
 
-    private func line(_ string: String, _ character: CharacterStyle, _ value: HeadingAlignment, _ minHeight: Double?) -> some View {
+    private func text(_ string: String, _ character: CharacterStyle) -> Text {
         Text(AttributedString(NSAttributedString(string: string, attributes: TextStyling.characterAttributes(for: character).attributes)))
+    }
+
+    private func line(_ string: String, _ character: CharacterStyle, _ value: HeadingAlignment, _ minHeight: Double?) -> some View {
+        text(string, character)
             .lineLimit(3)
             .frame(maxWidth: .infinity, minHeight: minHeight.map { min(CGFloat($0), 80) }, alignment: Alignment(horizontal: alignment(value).horizontal, vertical: .bottom))
     }

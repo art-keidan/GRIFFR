@@ -109,7 +109,7 @@ struct ActionComposerTests {
         board.addHeadingPart(.label(text: "Capitolo", style: nil, alignment: .center, minHeight: nil))
         let parts = try #require(board.currentHeading?.parts)
         let label = try #require(parts.firstIndex { if case .label = $0 { true } else { false } })
-        #expect(label < (parts.firstIndex(of: .title) ?? 0), "l'etichetta va prima del titolo")
+        #expect(label < (parts.firstIndex(of: .plainTitle) ?? 0), "l'etichetta va prima del titolo")
         board.moveHeadingPart(at: label, by: -1)
         // Trascinando la prima parte in fondo e di nuovo in cima, l'ordine torna quello di prima.
         let before = try #require(board.currentHeading?.parts)
@@ -118,7 +118,7 @@ struct ActionComposerTests {
         board.moveHeadingPart(from: before.count - 1, to: 0)
         #expect(board.currentHeading?.parts == before)
         board.removeHeadingPart(at: parts.count - 1)
-        #expect(board.currentHeading?.parts.last == .title, "tolto lo spazio dopo il titolo")
+        #expect(board.currentHeading?.parts.last == .plainTitle, "tolto lo spazio dopo il titolo")
         #expect(board.validationIssue == nil, "\(board.validationIssue ?? "")")
         board.apply(); h.step()
         let applied = try #require(h.editor.settings.styles.style(named: "Heading 1")?.heading)
@@ -130,8 +130,27 @@ struct ActionComposerTests {
         h.redo()
         #expect(h.editor.settings.styles.style(named: "Heading 1")?.heading == applied)
         // Una seconda parte «titolo» è una diagnosi.
-        board.updateHeadingPart(at: 0, to: .title)
+        board.updateHeadingPart(at: 0, to: .plainTitle)
         #expect(board.validationIssue?.contains("title") == true)
+    }
+
+    @Test("Numero accanto al titolo e lato del titolo dal compositore: una volta sola, prima del titolo; il file passa al formato 15")
+    func numberBesideThroughTheComposer() throws {
+        let h = EditorHarness(paragraphs: ["Prova."])
+        defer { h.close() }
+        h.editor.openStyleComposer(nil)
+        let board = try #require(h.editor.composerModel)
+        board.selectStyle("Heading 1")
+        let beside = HeadingPart.numberBeside(prefix: "", style: nil, side: .outside, gap: 4 * 72 / 25.4)
+        board.addHeadingPart(beside)
+        board.addHeadingPart(.numberBeside(prefix: "§", style: nil, side: .left, gap: 0))
+        #expect(board.currentHeading?.parts == [beside, .plainTitle], "un solo numero accanto, prima del titolo")
+        board.updateHeadingPart(at: 1, to: .title(alignment: .center, minHeight: 20 * 72 / 25.4))
+        #expect(board.validationIssue == nil, "\(board.validationIssue ?? "")")
+        board.apply(); h.step()
+        #expect(h.editor.settings.styles.style(named: "Heading 1")?.heading == board.currentHeading)
+        let xml = try #require(String(data: try h.document.data(ofType: TextDocument.typeName), encoding: .utf8))
+        #expect(xml.contains("version=\"15\""))
     }
 
     @Test("La finestra del compositore si disegna anche stretta, con le tre aree e le azioni aperte")

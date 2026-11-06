@@ -54,7 +54,13 @@ Uno stile di paragrafo può avere una testata (`HeadingComposition`, formato 14)
 
 Il caso guida è provato (`HeadingCompositionTests`): 12 + 3 + 0,5 + 2,5 mm sopra e 8 mm sotto spostano il corpo di 26 mm; un titolo di tre righe lo abbassa quanto le due righe in più; il numero sta a destra sulle dispari e a sinistra sulle pari; con 30 mm di apertura il filetto cade a 45 mm. Nel compositore: la «Testata pronta», le singole parti, il blocco con le parti in ordine e l'anteprima della sequenza.
 
-Resta da fare: la parte «titolo» con altezza o allineamento propri rispetto alla testata, parti affiancate (numero accanto al titolo), una parte «numero» che scompare quando la sezione non ha numero (oggi la sua fascia resta), l'aggiornamento del campo «titolo corrente» quando il titolo cambia (già garantito dai campi formula), e una prova a schermo con un documento vero.
+Completato il 6 novembre (formato 15):
+
+- **Numero accanto al titolo** (`numberBeside`): sulla prima riga del titolo, a sinistra, a destra, all'esterno o all'interno, a una distanza scelta; le righe del titolo si scostano della larghezza del numero più la distanza (al massimo metà della misura).
+- **Sezioni senza numero**: le parti «numero» e «numero accanto» spariscono con la loro fascia, e il titolo torna a tutta la misura. L'etichetta («Chapter») resta: farla sparire insieme al numero sarebbe una scelta in più.
+- **La parte «titolo»** può avere un allineamento proprio (anche esterno o interno) e un'altezza minima, in cui il titolo poggia sul fondo.
+
+Nel compositore ci sono la voce «Number beside title» e, nella riga del titolo, l'allineamento e l'altezza. Una testata che non usa le novità si scrive ancora in formato 14. Le prove sono in `HeadingCompositionTests` (che ora gira una prova alla volta, come le altre suite che creano font) e in `ActionComposerTests`. Un PDF di prova con le quattro varianti è stato guardato; il compositore nell'app non ancora.
 
 ### 4. Flottanti derivati e relazioni fra oggetti
 
@@ -88,7 +94,7 @@ Dopo il nucleo delle formule restano anche miglioramenti del motore, da affronta
 
 1. Completato il primo vocabolario di formule nominate, parametri, tipi e diagnosi nel compositore; estendere le operazioni insieme ai casi successivi.
 2. ~~Implementare `Posizione` e `Scrivi risultato` come campi persistenti.~~ Fatto (formato 13).
-3. Testata di capitolo: primo nucleo fatto (formato 14); restano parti affiancate e varianti.
+3. ~~Testata di capitolo.~~ Fatto (formati 14 e 15).
 4. Realizzare il flottante derivato della quinta parola e generalizzare le relazioni fra oggetti.
 5. Migrare tabelle e flottanti nella stessa grammatica e chiudere la compatibilità dei documenti.
 6. Fare la verifica d'uso completa nell'app e solo dopo riprendere le estensioni tipografiche indipendenti.

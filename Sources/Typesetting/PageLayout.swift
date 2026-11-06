@@ -631,8 +631,9 @@ public enum PageLayout {
             return parts.compactMap { part in
                 switch part {
                 case .label(let string, let style, let alignment, let minHeight): text(string, style, alignment, minHeight)
-                case .number(let prefix, let style, let alignment, let minHeight): text(prefix + number, style, alignment, minHeight)
-                case .title: nil
+                // Una sezione senza numero: la parte sparisce con la sua fascia.
+                case .number(let prefix, let style, let alignment, let minHeight): number.isEmpty ? nil : text(prefix + number, style, alignment, minHeight)
+                case .title, .numberBeside: nil
                 case .rule(let thickness, let length, let alignment):
                     HeadingPiece(kind: .rule(length: length.map { CGFloat($0) }), height: CGFloat(thickness), alignment: alignment)
                 case .space(let length): HeadingPiece(kind: .space, height: CGFloat(length), alignment: .left)
@@ -1784,8 +1785,6 @@ public enum PageLayout {
                 y += style.paragraphSpacingBefore
             }
 
-            var paragraphLines = composedLines(bodyText, style: style, width: column.width, options: options, lineRules: lineRules)
-            var composedWidth = column.width
             // La testata dello stile del titolo: le parti prima delle sue righe e quelle dopo. Il numero lo scrive la
             // testata; il segno dell'elenco del titolo allora non si disegna, e il numero compare una volta sola.
             let heading = options.styles.heading(ofParagraphStyle: paragraphStyleName)
@@ -1793,7 +1792,43 @@ public enum PageLayout {
             let headingNumber = listMarks[paragraphRange.location] ?? ""
             let headingBefore = heading.map { headingPieces($0.split.before, number: headingNumber, titleStyle: paragraphStyleName) } ?? []
             let headingAfter = heading.map { headingPieces($0.split.after, number: headingNumber, titleStyle: paragraphStyleName) } ?? []
-            let headingBeforeHeight = headingBefore.reduce(CGFloat(0)) { $0 + $1.height }
+            // Il numero accanto al titolo, sulla sua prima riga: le righe del titolo si scostano della sua larghezza più
+            // la distanza (al massimo metà della misura). Senza numero, il titolo occupa tutta la misura.
+            let beside = heading?.numberBeside
+            let besidePiece = beside.flatMap { beside in
+                headingNumber.isEmpty ? nil : headingPieces([.number(prefix: beside.prefix, style: beside.style, alignment: beside.side, minHeight: nil)],
+                                                            number: headingNumber, titleStyle: paragraphStyleName).first
+            }
+            var titleReserve: CGFloat = 0
+            if let besidePiece, let beside, case .text(_, _, _, let width) = besidePiece.kind {
+                titleReserve = min(width + CGFloat(beside.gap), column.width / 2)
+            }
+            // Un allineamento proprio del titolo: le righe si compongono a bandiera e si posano al loro lato.
+            let titleAlignment = heading?.titleOptions.alignment
+            if titleAlignment != nil, let flush = style.mutableCopy() as? NSMutableParagraphStyle {
+                flush.alignment = .left
+                style = flush
+            }
+            var paragraphLines = composedLines(bodyText, style: style, width: column.width - titleReserve, options: options, lineRules: lineRules)
+            var composedWidth = column.width
+            // L'altezza minima del titolo: una fascia in cui le sue righe poggiano sul fondo; lo spazio in più va sopra.
+            let titleLinesHeight = paragraphLines.reduce(CGFloat(0)) { $0 + $1.height + $1.spacingAfter } - (paragraphLines.last?.spacingAfter ?? 0)
+            let titleExtra = max(0, CGFloat(heading?.titleOptions.minHeight ?? 0) - titleLinesHeight)
+            let headingBeforeHeight = headingBefore.reduce(CGFloat(0)) { $0 + $1.height } + titleExtra
+            /// Dove comincia una riga del titolo, se la testata la sposta: accanto al numero, o al lato scelto.
+            func titleLeft(_ line: ComposedLine) -> CGFloat? {
+                guard titleReserve > 0 || titleAlignment != nil else { return nil }
+                let index = pages.count - 1
+                let leftPage = pages[index].setup.facing && index % 2 == 1
+                var minX = column.minX
+                if titleReserve > 0, let side = beside?.side, side.resolved(onLeftPage: leftPage) != .right { minX += titleReserve }
+                let width = column.width - titleReserve
+                switch titleAlignment?.resolved(onLeftPage: leftPage) {
+                case .right: return minX + width - line.width - line.x
+                case .center: return minX + (width - line.width) / 2 - line.x
+                default: return minX
+                }
+            }
             // Le note richiamate in una riga devono stare nella stessa pagina della riga.
             // (Le note di chiusura no: vanno dopo l'ultimo paragrafo.)
             // Le righe di ogni nota, composte una volta per larghezza: la tenuta le conta prima di posarle.
@@ -1885,7 +1920,7 @@ public enum PageLayout {
                 if !pageIsEmpty, movesToNextPage() {
                     startNewPage()
                     if abs(column.width - composedWidth) > 0.01 {
-                        paragraphLines = composedLines(bodyText, style: style, width: column.width, options: options, lineRules: lineRules)
+                        paragraphLines = composedLines(bodyText, style: style, width: column.width - titleReserve, options: options, lineRules: lineRules)
                         composedWidth = column.width
                     }
                     applyPageStart()
@@ -1928,7 +1963,7 @@ public enum PageLayout {
                     // La pagina nuova ha uno specchio di un'altra larghezza: il seguito del paragrafo si ricompone.
                     if abs(column.width - composedWidth) > 0.01 {
                         paragraphLines = Array(paragraphLines[..<lineNumber])
-                            + continuationLines(bodyText, from: line.composedRange.location, style: style, width: column.width, options: options)
+                            + continuationLines(bodyText, from: line.composedRange.location, style: style, width: column.width - titleReserve, options: options)
                         composedWidth = column.width
                         guard lineNumber < paragraphLines.count else { break }
                         line = paragraphLines[lineNumber]
@@ -1939,9 +1974,18 @@ public enum PageLayout {
                     if !keeping.isNone { plannedBreak = widowBreak(from: lineNumber, fitting: linesFitting(from: lineNumber)) }
                 }
                 for note in lineNotes { notePages[note.info.range.location] = pages.count }
-                if lineNumber == 0 { placeHeading(headingBefore, paragraphLocation: paragraphRange.location) }
-                let placedLine = placed(line, top: y, map: body.map, paragraphLocation: paragraphRange.location, noteRange: nil)
+                if lineNumber == 0 {
+                    placeHeading(headingBefore, paragraphLocation: paragraphRange.location)
+                    y += titleExtra
+                }
+                let placedLine = placed(line, top: y, map: body.map, paragraphLocation: paragraphRange.location, noteRange: nil, left: titleLeft(line))
                 pages[pages.count - 1].lines.append(placedLine)
+                if lineNumber == 0, let besidePiece, case .text(let numberLine, _, _, let width) = besidePiece.kind {
+                    let index = pages.count - 1
+                    let leftPage = pages[index].setup.facing && index % 2 == 1
+                    let x = besidePiece.alignment.resolved(onLeftPage: leftPage) == .right ? column.maxX - width : column.minX
+                    pages[index].markers.append(PlacedMarker(line: numberLine, origin: CGPoint(x: x, y: placedLine.origin.y), paragraphLocation: paragraphRange.location))
+                }
                 if lineNumber == 0, let marker {
                     pages[pages.count - 1].markers.append(PlacedMarker(
                         line: marker.line, origin: CGPoint(x: column.minX + marker.x, y: placedLine.origin.y), paragraphLocation: paragraphRange.location))

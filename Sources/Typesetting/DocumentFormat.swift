@@ -117,6 +117,8 @@ import Foundation
 ///   superiore, del paragrafo che apre una sequenza di pagine. `opens-section` su `style` di paragrafo: il ruolo della
 ///   sezione che lo stile apre quando lo si dà a un paragrafo (vuoto: nessuno).
 ///
+/// - La versione 15 aggiunge alle testate il numero accanto al titolo (`numberBeside`) e l'allineamento e l'altezza minima
+///   propri della parte «titolo». Una testata scritta in versione 14 si legge uguale.
 /// - La versione 14 introduce `<heading encoding="json-v1" data="…"/>` dentro `style` di paragrafo: la testata dello stile
 ///   (`HeadingComposition`), con le sue parti in ordine.
 /// - La versione 13 aggiunge i campi formula `document.page-count.write-here`, `position.section-containing.title.write-here` e
@@ -128,7 +130,7 @@ import Foundation
 /// La lettura è severa: elementi o attributi sconosciuti sono un errore con il numero di riga, non vengono
 /// ignorati, così un refuso in un file corretto a mano non fa perdere contenuto in silenzio.
 public enum DocumentFormat {
-    public static let version = 14
+    public static let version = 15
 
     public static func writingVersion(for document: Document) -> Int {
         let contextual = document.styles.styles.flatMap(\.formulas).contains {
@@ -165,6 +167,7 @@ public enum DocumentFormat {
             (11, styles.contains { $0.formulas.contains { $0.binding != nil } }),
             (12, styles.contains { !$0.variables.isEmpty }),
             (14, styles.contains { $0.heading != nil }),
+            (15, styles.contains { $0.heading?.needsVersion15 == true }),
         ]
         return needs.filter(\.used).map(\.version).reduce(max(1, document.sourceVersion), max)
     }
