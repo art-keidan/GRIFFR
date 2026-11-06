@@ -819,7 +819,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         modeButton.setAccessibilityLabel(modeButton.toolTip)
         composeBands()
 
-        pathBand.isHidden = !advanced
+        // Il percorso degli oggetti sta in testa all'ispettore: la vecchia fascia sopra la pagina non si mostra più.
+        pathBand.isHidden = true
         inspectorPanel.isHidden = !advanced
         objectTreeView.isHidden = !advanced || !Self.showsObjectTree
         let detailedOnly = ["stileCarattere", "barrato", "apice", "pedice", "maiuscoletto", "lingua", "nascosti",
@@ -885,7 +886,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     }
 
     /// Vero se si vedono gli strumenti dettagliati (ispettore e percorso).
-    var showsAdvancedTools: Bool { !inspectorPanel.isHidden && !pathBand.isHidden }
+    var showsAdvancedTools: Bool { !inspectorPanel.isHidden }
     var statusTextForTests: String { countsLabel.stringValue }
 
     /// Vista › Interfaccia dettagliata.

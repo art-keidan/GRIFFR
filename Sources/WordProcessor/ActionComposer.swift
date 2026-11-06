@@ -105,7 +105,7 @@ private struct ComposerLibrary: View {
                         Button(name) { if let id = selectedAction { model.applyCondition(.firstAfter(name), to: id) } }
                     }
                 } label: { Label("After Style…", systemImage: "arrow.turn.down.right") }
-                    .menuStyle(.borderlessButton).menuIndicator(.hidden).disabled(selectedAction == nil).padding(.vertical, 3)
+                    .menuStyle(.borderlessButton).hoverable().menuIndicator(.hidden).disabled(selectedAction == nil).padding(.vertical, 3)
             }
             if matches("Always") { conditionItem("Always", .any) }
         }
@@ -161,7 +161,7 @@ private struct ComposerLibrary: View {
             item(definition.name, symbol: "function") { _ = model.addVariable(calling: definition) }
         }
         Button { model.section = .reusable } label: { Label("Manage Formulas…", systemImage: "slider.horizontal.3") }
-            .buttonStyle(.borderless).padding(.vertical, 4)
+            .buttonStyle(.hover(.borderless)).padding(.vertical, 4)
     }
 
     private func group(_ title: String) -> some View {
@@ -179,7 +179,7 @@ private struct ComposerLibrary: View {
                 Image(systemName: "plus").font(.system(size: 10, weight: .semibold)).foregroundStyle(Color(nsColor: Theme.secondary))
             }.contentShape(Rectangle()).padding(.vertical, 3)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hover(.plain))
         .accessibilityLabel("Add " + title)
     }
 
@@ -191,7 +191,7 @@ private struct ComposerLibrary: View {
                 Spacer(minLength: 4)
             }.contentShape(Rectangle()).padding(.vertical, 3)
         }
-        .buttonStyle(.plain).disabled(selectedAction == nil)
+        .buttonStyle(.hover(.plain)).disabled(selectedAction == nil)
         .accessibilityLabel("Condition " + title + " for the chosen action")
     }
 }
@@ -386,14 +386,14 @@ private struct ActionBlock: View {
             HStack(spacing: 8) {
                 Text("\(number)").font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(minWidth: 14)
                 Button { expanded.toggle() } label: { Image(systemName: expanded ? "chevron.down" : "chevron.right") }
-                    .buttonStyle(.borderless).accessibilityLabel(expanded ? "Collapse action" : "Expand action")
+                    .buttonStyle(.hover(.borderless)).accessibilityLabel(expanded ? "Collapse action" : "Expand action")
                 Image(systemName: operation.property.symbol).foregroundStyle(Color(nsColor: Theme.glyph))
                 Text(operation.predicate.title + " " + operation.property.title.lowercased()).fontWeight(.medium).lineLimit(1)
                     .layoutPriority(1)
                 if !expanded { Text(summary).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail) }
                 Spacer(minLength: 6)
                 Button { model.removeStyleFormula(formula.id) } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless).accessibilityLabel("Remove action")
+                    .buttonStyle(.hover(.borderless)).accessibilityLabel("Remove action")
             }
             .contentShape(Rectangle())
             .onTapGesture { selected = true }
@@ -483,7 +483,7 @@ private struct ActionBlock: View {
                     if !compatible.isEmpty { Divider() }
                     Button("New Variable from This Value") { model.makeVariable(fromValueOf: formula.id) }
                 } label: { Image(systemName: "function") }
-                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("Use a variable").accessibilityLabel("Use a variable")
+                    .menuStyle(.borderlessButton).hoverable().menuIndicator(.hidden).fixedSize().help("Use a variable").accessibilityLabel("Use a variable")
             }
         }
     }
@@ -518,7 +518,7 @@ private struct VariableBlock: View {
         BlockSurface(selected: false, open: expanded) {
             HStack(spacing: 8) {
                 Button { expanded.toggle() } label: { Image(systemName: expanded ? "chevron.down" : "chevron.right") }
-                    .buttonStyle(.borderless).accessibilityLabel(expanded ? "Collapse variable" : "Expand variable")
+                    .buttonStyle(.hover(.borderless)).accessibilityLabel(expanded ? "Collapse variable" : "Expand variable")
                 Image(systemName: "function").foregroundStyle(Color(nsColor: Theme.glyph))
                 TextField("Name", text: Binding(get: { variable.name }, set: { model.renameVariable(variable.id, to: $0) }))
                     .textFieldStyle(.plain).fontWeight(.medium).frame(minWidth: 70, maxWidth: 150)
@@ -534,7 +534,7 @@ private struct VariableBlock: View {
                     Image(systemName: "exclamationmark.triangle").foregroundStyle(Color(nsColor: Theme.warn)).help(evaluated.problem ?? "")
                 }
                 Button { model.removeVariable(variable.id) } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless).accessibilityLabel("Remove variable")
+                    .buttonStyle(.hover(.borderless)).accessibilityLabel("Remove variable")
             }
         } content: {
             VStack(alignment: .leading, spacing: 8) {
@@ -574,7 +574,7 @@ private struct ExpressionLine: View {
                     OperandControl(model: model, expression: b, owner: owner, type: nil) { commit(.add(a, $0)) }
                 case .call(let id, _):
                     if model.sheet.reusableFormulas.contains(where: { $0.id == id }) {
-                        Button("Open Definition") { model.section = .reusable }.buttonStyle(.link).font(.caption)
+                        Button("Open Definition") { model.section = .reusable }.buttonStyle(.hover(.link)).font(.caption)
                     } else {
                         Text("Formula not found").foregroundStyle(Color(nsColor: Theme.warn))
                     }
@@ -657,7 +657,7 @@ private struct OperandControl: View {
                     Button("Typed Value") { commit(.constant((type ?? .length).zero)) }
                     ForEach(choices) { variable in Button(variable.name) { commit(.variable(variable.id)) } }
                 } label: { Image(systemName: "function") }
-                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("Use a variable").accessibilityLabel("Use a variable")
+                    .menuStyle(.borderlessButton).hoverable().menuIndicator(.hidden).fixedSize().help("Use a variable").accessibilityLabel("Use a variable")
             }
         }
     }
@@ -689,7 +689,9 @@ private struct ComposerPreview: View {
             HStack {
                 Button("Reload") { model.discard() }.help("Replaces the draft with the document's current definitions")
                 Spacer()
-                Button("Apply to Document") { model.apply() }.disabled(!model.dirty || !model.valid)
+                Button("Apply to Document") { model.apply() }
+                    .buttonStyle(ComposerButtonStyle(prominent: true))
+                    .disabled(!model.dirty || !model.valid)
                     .keyboardShortcut(.return, modifiers: .command)
             }
         }
@@ -817,7 +819,7 @@ struct HeadingBlock: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Button { expanded.toggle() } label: { Image(systemName: expanded ? "chevron.down" : "chevron.right") }
-                    .buttonStyle(.borderless).accessibilityLabel(expanded ? "Collapse heading" : "Expand heading")
+                    .buttonStyle(.hover(.borderless)).accessibilityLabel(expanded ? "Collapse heading" : "Expand heading")
                 Image(systemName: "rectangle.split.1x2").foregroundStyle(Color(nsColor: Theme.glyph))
                 Text("Heading").fontWeight(.medium)
                 if !expanded {
@@ -825,7 +827,7 @@ struct HeadingBlock: View {
                 }
                 Spacer(minLength: 6)
                 Button { model.removeHeading() } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless).accessibilityLabel("Remove heading")
+                    .buttonStyle(.hover(.borderless)).accessibilityLabel("Remove heading")
             }
             .padding(.horizontal, 10).padding(.vertical, 7)
             if expanded {
@@ -894,7 +896,7 @@ struct HeadingBlock: View {
                 }
                 Spacer(minLength: 4)
                 Button { model.removeHeadingPart(at: index) } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless).accessibilityLabel("Remove part")
+                    .buttonStyle(.hover(.borderless)).accessibilityLabel("Remove part")
             }
             // I controlli dell'aspetto su una seconda riga, sotto il valore.
             HStack(spacing: 6) {
@@ -1019,7 +1021,7 @@ struct WritesBlock: View {
                     .textFieldStyle(.roundedBorder).frame(width: 56)
                 Spacer(minLength: 4)
                 Button { model.removeWrite(at: index) } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless).accessibilityLabel("Remove action")
+                    .buttonStyle(.hover(.borderless)).accessibilityLabel("Remove action")
             }
             HStack(spacing: 6) {
                 Menu {

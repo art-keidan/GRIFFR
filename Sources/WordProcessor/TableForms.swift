@@ -193,7 +193,7 @@ struct TableValuesForm: View {
     @ViewBuilder private func reset(_ shown: Bool, _ action: @escaping () -> Void) -> some View {
         if shown {
             Button(action: action) { Image(systemName: "arrow.uturn.backward.circle") }
-                .buttonStyle(.borderless).help(resetHelp)
+                .buttonStyle(.hover(.borderless)).help(resetHelp)
         }
     }
 }

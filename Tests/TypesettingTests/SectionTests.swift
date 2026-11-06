@@ -285,7 +285,7 @@ extension TypesettingSuite {
                 items.flatMap { ["\(String(repeating: "  ", count: depth))\($0.label) \($0.title) [\($0.detail)]"] + names($0.children ?? [], depth: depth + 1) }
             }
             #expect(names(items) == ["¶ Premessa. []", "§ Parte prima [part]", "  § Capitolo primo [chapter]", "    ¶ Testo del capitolo. []",
-                                     "    § 1.1 [section]", "      ¶ Testo di 1.1. []", "    § (senza titolo) [section]", "      ¶ Testo di 1.2, senza titolo. []",
+                                     "    § 1.1 [section]", "      ¶ Testo di 1.1. []", "    § (untitled) [section]", "      ¶ Testo di 1.2, senza titolo. []",
                                      "  § Capitolo secondo [chapter]", "    ¶ Testo. []", "§ Appendice [appendix]", "  ¶ Tavole. []"])
         }
 

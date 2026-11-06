@@ -110,5 +110,57 @@ extension TypesettingSuite {
             #expect(guess("Uno") == .paragraph, "una parola sola che è tutto il paragrafo")
             #expect(Rules.guessTarget(for: NSRange(location: 0, length: 0), in: text) == nil)
         }
+
+        @Test("Le regole che toccano una proprietà: quella che conta, quelle scavalcate, il valore sospeso e quello che cede")
+        func influence() throws {
+            let document = document()
+            let text = NSMutableAttributedString(attributedString: document.attributedString().text)
+            let roma = NSRange(location: 0, length: 4)
+            let at = NSRange(location: 1, length: 0)
+            // Due regole sullo stesso corpo: conta la prima che lo cambia, l'altra è scavalcata.
+            var sheet = document.styles
+            sheet.styles.append(NamedStyle(name: "Big", target: .character, values: { var v = StyleValues(); v.size = 20; return v }()))
+            sheet.styles.append(NamedStyle(name: "Small", target: .character, values: { var v = StyleValues(); v.size = 8; return v }()))
+            let big = TextRule(target: .firstWords(1), paragraphStyle: "Body", styleName: "Big")
+            let small = TextRule(target: .firstWords(1), paragraphStyle: "Body", styleName: "Small")
+            let plain = TextStyling.inspect(.character, in: text, range: at, sheet: sheet)
+            let both = TextStyling.withRuleSources(plain, rules: [big, small], in: text, at: 1, sheet: sheet)
+            let size = try #require(both.first { $0.property == .size })
+            #expect(size.source == .rule(big.summary) && size.value.size == 20)
+            #expect(size.rules?.winner == big.summary && size.rules?.outranked == [small.summary])
+            #expect(size.rules?.suspended == nil && size.rules?.yielded == nil && size.rules?.owner == nil)
+            #expect(both.first { $0.property == .alignment }?.rules == nil, "l'allineamento nessuna regola lo tocca")
+            // Un valore dato a mano vince su una regola storica: la regola cede, e si dice che cosa darebbe.
+            TextStyling.setValue({ var v = StyleValues(); v.fontName = "HoeflerText-Black"; return v }(), of: .face, in: text, range: roma)
+            let own = TextStyling.inspect(.character, in: text, range: at, sheet: document.styles)
+            let held = try #require(TextStyling.withRuleSources(own, rules: [rule], in: text, at: 1, sheet: document.styles).first { $0.property == .face })
+            #expect(held.source == .own && held.value.fontName == "HoeflerText-Black")
+            #expect(held.rules?.winner == rule.summary && held.rules?.yielded?.fontName != nil && held.rules?.suspended == nil)
+            // Una regola che viene da una formula vince sul valore dato a mano, che resta sospeso.
+            var contextual = rule
+            contextual.formulaOwner = "Body"
+            let over = try #require(TextStyling.withRuleSources(own, rules: [contextual], in: text, at: 1, sheet: document.styles).first { $0.property == .face })
+            #expect(over.source == .rule(contextual.summary) && over.rules?.owner == "Body")
+            #expect(over.rules?.suspended?.fontName == "HoeflerText-Black", "il valore dato qui resta, sospeso")
+            // Con un'eccezione il valore dato qui vince anche sulla formula, come nell'impaginazione.
+            TextStyling.setRuleException(.face, true, in: text, range: roma)
+            let excepted = TextStyling.inspect(.character, in: text, range: at, sheet: document.styles)
+            let kept = try #require(TextStyling.withRuleSources(excepted, rules: [contextual], in: text, at: 1, sheet: document.styles).first { $0.property == .face })
+            #expect(kept.source == .own && kept.value.fontName == "HoeflerText-Black" && kept.rules?.yielded != nil)
+        }
+
+        @Test("Il valore di una proprietà in parole brevi")
+        func valueText() {
+            var values = StyleValues()
+            values.firstLineIndent = 72 / 25.4 * 5
+            values.alignment = .justified
+            values.keeping.withNext = true
+            values.lineHeightMultiple = 1.25
+            #expect(InspectorProperty.firstLineIndent.text(of: values) == "5 mm")
+            #expect(InspectorProperty.alignment.text(of: values) == "Justified")
+            #expect(InspectorProperty.keepWithNext.text(of: values) == "On")
+            #expect(InspectorProperty.lineHeightMultiple.text(of: values) == "1.25 ×" || InspectorProperty.lineHeightMultiple.text(of: values) == "1,25 ×")
+            #expect(InspectorProperty.spaceBefore.text(of: StyleValues()) == "—")
+        }
     }
 }

@@ -197,7 +197,8 @@ struct FeaturePanelView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Font Features").font(.title3.bold())
+            // Nell'ispettore il titolo lo dà già il gruppo che lo contiene.
+            if !embedded { Text("Font Features").font(.title3.bold()) }
             if model.fontName.isEmpty {
                 Text("No font in the selection.").foregroundStyle(.secondary)
             } else {
@@ -269,7 +270,7 @@ struct FeaturePanelView: View {
                 } label: {
                     Image(systemName: "arrow.uturn.backward")
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.hover(.borderless))
                 .disabled(!isFixed)
                 .help("Leave the axis at its natural value")
                 .accessibilityLabel("Reset \(axis.name) to its natural value")

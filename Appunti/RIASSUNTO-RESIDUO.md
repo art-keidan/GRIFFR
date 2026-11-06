@@ -8,6 +8,10 @@ Per la diffusione pubblica l'interfaccia è in inglese: menu, fasce e zone, ispe
 
 I documenti nuovi usano nomi predefiniti inglesi (Body, Heading 1…, Notes, Figures, Footnote, Default, ruolo «chapter») e Lorem è in inglese. I documenti di prima tengono i loro nomi; «Nota a piè di pagina» e «Predefinito» diventano Footnote e Default alla lettura (`LegacyNamesTests`). Nella bacheca ogni menu mostra una sola freccia, quella della pastiglia.
 
+## Nuovo ispettore · in corso dal 6 novembre
+
+Fa parte del revamp dell'interfaccia. Disegno scelto (variante A: definizioni nel pannello, dietro un segmento «Definitions»), prototipo e fasi sono in [Interfaccia-ispettore/ISPETTORE.md](Interfaccia-ispettore/ISPETTORE.md).
+
 ## Compositore ad azioni · realizzato
 
 Il compositore ispirato ad Automator è nell'app: libreria, flusso per fase con blocchi richiudibili, variabili nominate salvate nello stile (formato 12), anteprima con Applica. Il [resoconto](COMPOSITORE-AD-AZIONI.md) dice che cosa c'è, come è provato e che cosa non è stato verificato a schermo. Le tappe sotto riprendono da qui.

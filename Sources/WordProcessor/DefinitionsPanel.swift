@@ -25,8 +25,17 @@ final class DefinitionsPanel {
     }
 
     let view = NSView()
-    private let tabs = NSSegmentedControl(labels: ["Insp.", "Styles", "Lists", "Floats", "Rules", "Pages", "Tables"],
-                                          trackingMode: .selectOne, target: nil, action: nil)
+    /// Le due viste del pannello: l'ispettore della selezione e le definizioni del documento.
+    private let mode = BandSegments([
+        .init(label: "Selection", image: nil, help: "The inspector: the chosen object and where its values come from"),
+        .init(label: "Definitions", image: nil, help: "Styles, lists, floats, rules, pages and tables of the document"),
+    ], help: "Detailed tools section")
+    /// Le definizioni, una per tipo: si vedono solo nella vista Definitions.
+    private let kinds = BandSegments(Tab.allCases.dropFirst().map { .init(label: $0.title, image: nil, help: $0.title) },
+                                     help: "Kind of definition")
+    private var kindsBar: BandView!
+    /// L'ultima definizione aperta: tornando a Definitions si riapre quella.
+    private var lastDefinition = Tab.styles
     private let content = NSView()
     private var hosts: [Tab: NSView] = [:]
     private(set) var tab = Tab.inspector
@@ -61,34 +70,45 @@ final class DefinitionsPanel {
     static let pause: TimeInterval = 0.4
 
     init(inspector: NSView) {
-        tabs.controlSize = .small
-        tabs.segmentStyle = .texturedRounded
-        for tab in Tab.allCases { tabs.setToolTip(tab.title, forSegment: tab.rawValue) }
-        tabs.setAccessibilityLabel("Detailed tools section")
-        tabs.target = self
-        tabs.action = #selector(tabChanged(_:))
-        let bar = Bands.band([tabs, Bands.spacer()], height: 32)
+        mode.onSelect = { [weak self] index in
+            guard let self else { return }
+            show(index == 0 ? .inspector : lastDefinition)
+        }
+        kinds.onSelect = { [weak self] index in self?.show(Tab(rawValue: index + 1) ?? .styles) }
+        let bar = Bands.band([mode, Bands.spacer()], height: 32)
         bar.fill = Theme.side
-        for subview in [bar, content] {
+        kindsBar = Bands.band([kinds, Bands.spacer()], height: 30)
+        kindsBar.fill = Theme.side
+        // In pila: la fila delle definizioni, nascosta, non occupa posto.
+        let header = NSStackView(views: [bar, kindsBar])
+        header.orientation = .vertical
+        header.spacing = 0
+        header.alignment = .leading
+        header.detachesHiddenViews = true
+        for band in [bar, kindsBar!] { band.widthAnchor.constraint(equalTo: header.widthAnchor).isActive = true }
+        for subview in [header, content] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(subview)
         }
         NSLayoutConstraint.activate([
-            bar.topAnchor.constraint(equalTo: view.topAnchor),
-            bar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            content.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            header.topAnchor.constraint(equalTo: view.topAnchor),
+            header.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            header.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            content.topAnchor.constraint(equalTo: header.bottomAnchor),
             content.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             content.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
         hosts[.inspector] = inspector
         place(inspector)
-        tabs.selectedSegment = 0
+        markTab(.inspector)
     }
 
-    @objc private func tabChanged(_ sender: NSSegmentedControl) {
-        show(Tab(rawValue: sender.selectedSegment) ?? .inspector)
+    /// I due segmenti e la fila delle definizioni secondo la scheda mostrata.
+    private func markTab(_ tab: Tab) {
+        mode.selectedSegment = tab == .inspector ? 0 : 1
+        kinds.selectedSegment = tab == .inspector ? nil : tab.rawValue - 1
+        kindsBar.isHidden = tab == .inspector
     }
 
     private func place(_ child: NSView) {
@@ -108,7 +128,8 @@ final class DefinitionsPanel {
         // Prima di lasciare una scheda, ciò che vi si è appena scritto va al documento.
         flushPending()
         self.tab = tab
-        tabs.selectedSegment = tab.rawValue
+        if tab != .inspector { lastDefinition = tab }
+        markTab(tab)
         if tab != .inspector { reload(tab, force: hosts[tab] == nil) }
         if let host = hosts[tab] { place(host) }
     }
@@ -352,7 +373,7 @@ struct StylesTabView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .menuStyle(.borderlessButton)
+                .menuStyle(.borderlessButton).hoverable()
                 .fixedSize()
                 .help("A new style (based on the chosen one, if it is of the same kind)")
                 Button { model.selection.map { model.onDuplicate?($0) } } label: { Image(systemName: "plus.square.on.square") }

@@ -128,7 +128,7 @@ public enum DocumentOutline {
 
     /// Il ramo di una sezione: il suo numero (o «§»), le prime parole del titolo, il ruolo (e lo stile del titolo) a destra.
     private static func sectionItem(_ title: SectionEditing.Title, words: String, style: String?, number: String?) -> OutlineItem {
-        OutlineItem(kind: .heading(level: title.depth), title: words.isEmpty ? "(senza titolo)" : words, label: number ?? "§",
+        OutlineItem(kind: .heading(level: title.depth), title: words.isEmpty ? "(untitled)" : words, label: number ?? "§",
                     detail: style.map { "\(title.mark.role) · \($0)" } ?? title.mark.role, range: title.range, children: [])
     }
 

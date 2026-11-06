@@ -40,6 +40,26 @@ enum InspectorEditMode {
 @MainActor
 final class InspectorModel: ObservableObject {
     @Published var object: InspectedObject = .paragraph
+
+    /// Un passo del percorso in testa all'ispettore: un oggetto, o una delle sezioni che contengono il cursore.
+    struct PathStep: Equatable, Identifiable {
+        enum Target: Equatable, Hashable {
+            case object(InspectedObject)
+            /// La sezione di quel livello (1 la più esterna).
+            case section(Int)
+        }
+        let target: Target
+        let title: String
+        var id: Target { target }
+    }
+
+    /// Documento › sezioni › Pagina › (Tabella › Cella) › Paragrafo › Riga › Parola › Carattere, come la selezione li ha.
+    @Published var path: [PathStep] = []
+    /// Il passo scelto: l'oggetto che l'ispettore mostra.
+    @Published var pathChoice: PathStep.Target = .object(.paragraph)
+    var choosePath: ((PathStep.Target) -> Void)?
+    /// Tiene qui il valore dato a mano che una regola sospende: un'eccezione alla regola, in questo punto.
+    var keepHere: ((InspectorProperty, StyleValues) -> Void)?
     /// Le proprietà dell'oggetto scelto, nel punto della selezione.
     @Published var values: [InspectedValue] = []
     /// Per ogni proprietà, lo stile che riceverebbe il valore «nello stile».
@@ -356,8 +376,9 @@ final class InspectorHostingView: NSView {
 }
 
 extension View {
-    /// I controlli di SwiftUI (caselle, menu, pulsanti) nell'azzurro del disegno invece che nel colore d'accento del sistema.
-    func themed() -> some View { tint(Color(nsColor: Theme.accent)) }
+    /// I controlli di SwiftUI (caselle, menu, pulsanti) nell'azzurro del disegno invece che nel colore d'accento del sistema,
+    /// e i pulsanti con il passaggio del mouse.
+    func themed() -> some View { tint(Color(nsColor: Theme.accent)).buttonStyle(.hover()) }
 
     /// Un campo largo `width` in un foglio; nella scheda del pannello al più `width`, perché possa stringersi.
     @ViewBuilder func fieldWidth(_ width: CGFloat, embedded: Bool) -> some View {
@@ -397,53 +418,68 @@ struct InspectorView: View {
                 header
                 switch model.object {
                 case .document:
-                    documentRows
+                    collapsible("document", "Document") { documentRows }
                     factRows
                 case .page:
-                    Text(model.pageTypeName.map { "Type “\($0)”" } ?? "Default type")
-                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                        .help(model.pageTypeName == nil ? "Applies to pages without their own type." : "Changes apply to all pages of this type.")
-                    PageSetupForm(setup: model.pageSetup) { transform in
-                        var page = model.pageSetup
-                        transform(&page)
-                        if let page = PageSetupForm.checked(page) { model.setPageSetup?(page) }
+                    collapsible("page", "Page setup") {
+                        Text(model.pageTypeName.map { "Type “\($0)”" } ?? "Default type")
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                            .help(model.pageTypeName == nil ? "Applies to pages without their own type." : "Changes apply to all pages of this type.")
+                        PageSetupForm(setup: model.pageSetup) { transform in
+                            var page = model.pageSetup
+                            transform(&page)
+                            if let page = PageSetupForm.checked(page) { model.setPageSetup?(page) }
+                        }
                     }
                     factRows
                 case .section:
                     if let section = model.section {
-                        SectionForm(info: section, setRole: { model.setSectionRole?($0) }, setStart: { model.setSectionStart?($0) },
-                                    setPageTypes: { model.setSectionPageTypes?($0) }, setPageNumbering: { model.setSectionPageNumbering?($0) },
-                                    move: { model.moveSection?($0) }, remove: { model.removeSection?() })
+                        collapsible("section", "Section") {
+                            SectionForm(info: section, setRole: { model.setSectionRole?($0) }, setStart: { model.setSectionStart?($0) },
+                                        setPageTypes: { model.setSectionPageTypes?($0) }, setPageNumbering: { model.setSectionPageNumbering?($0) },
+                                        move: { model.moveSection?($0) }, remove: { model.removeSection?() })
+                        }
                     } else {
                         Text("The cursor is not in a section. Open a section from the Insert menu.").foregroundStyle(.secondary)
                     }
                     factRows
                 case .table:
                     if let table = model.table {
-                        TableForm(info: table, setHeaderRows: { model.setTableHeaderRows?($0) }, setStyle: { model.setTableStyle?($0) },
-                                  setFloat: { model.setTableFloat?($0) },
-                                  change: { model.changeTable?($0) }, command: { model.tableCommand?($0) })
+                        collapsible("table", "Table") {
+                            TableForm(info: table, setHeaderRows: { model.setTableHeaderRows?($0) }, setStyle: { model.setTableStyle?($0) },
+                                      setFloat: { model.setTableFloat?($0) },
+                                      change: { model.changeTable?($0) }, command: { model.tableCommand?($0) })
+                        }
                     } else {
                         Text("The cursor is not in a table. Insert a table from the Insert menu.").foregroundStyle(.secondary)
                     }
                     factRows
                 case .cell:
                     if let cell = model.cell {
-                        CellForm(info: cell, change: { model.changeCell?($0) }, split: { model.splitCell?() })
+                        collapsible("cell", "Cell") {
+                            CellForm(info: cell, change: { model.changeCell?($0) }, split: { model.splitCell?() })
+                        }
                     } else {
                         Text("The cursor is not in a table.").foregroundStyle(.secondary)
                     }
                 case .line:
                     factRows
                 case .character:
+                    filterBar
                     rows
                     detailRows
                     factRows
-                    Divider()
-                    FeaturePanelView(model: model.features, embedded: true)
+                    collapsible("features", "Font features") {
+                        FeaturePanelView(model: model.features, embedded: true)
+                    }
                 default:
+                    filterBar
                     rows
                     factRows
+                }
+                if model.object.level != nil && !model.values.isEmpty {
+                    Divider()
+                    legend
                 }
             }
             .padding(14)
@@ -452,8 +488,40 @@ struct InspectorView: View {
         .frame(minWidth: Self.minimumWidth)
     }
 
+    /// Il percorso degli oggetti: si sceglie qui che cosa guarda l'ispettore.
+    @ViewBuilder private var pathBar: some View {
+        if !model.path.isEmpty {
+            FlowLayout(spacing: 2, lineSpacing: 2) {
+                ForEach(Array(model.path.enumerated()), id: \.element.id) { index, step in
+                    HStack(spacing: 2) {
+                        if index > 0 { Text("›").foregroundStyle(.secondary).accessibilityHidden(true) }
+                        pathButton(step)
+                    }
+                }
+            }
+            .font(.system(size: 11))
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Object path")
+        }
+    }
+
+    private func pathButton(_ step: InspectorModel.PathStep) -> some View {
+        let chosen = step.target == model.pathChoice
+        return Button { model.choosePath?(step.target) } label: {
+            Text(step.title).lineLimit(1)
+                .fontWeight(chosen ? .semibold : .regular)
+                .foregroundStyle(chosen ? Color(nsColor: Theme.glyph) : Color(nsColor: Theme.secondary))
+                .padding(.horizontal, 5).padding(.vertical, 2)
+                .background(RoundedRectangle(cornerRadius: 3).fill(chosen ? Color(nsColor: Theme.controlBottom) : .clear))
+                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(chosen ? Color(nsColor: Theme.controlLine) : .clear))
+        }
+        .buttonStyle(.hover(.plain))
+        .accessibilityAddTraits(chosen ? .isSelected : [])
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
+            pathBar.padding(.bottom, 8)
             Text(model.object.title).font(.title3.bold())
             if model.object.level != nil {
                 Text(model.styleName.map { "Style “\($0)”" } ?? "No style").foregroundStyle(.secondary)
@@ -468,7 +536,7 @@ struct InspectorView: View {
                                 .accessibilityLabel("Create a Rule from Here")
                         }
                     }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.hover(.borderless))
                     .controlSize(.small)
                     .padding(.top, 4)
                 }
@@ -479,22 +547,57 @@ struct InspectorView: View {
     /// Funzioni, assi e corpo ottico: si scelgono nel pannello delle funzioni e con i cursori; qui si vede da dove
     /// vengono, e ciascuno si toglie o si porta nello stile da solo.
     @ViewBuilder private var detailRows: some View {
-        if !model.details.isEmpty {
-            Divider()
-            Text("Features and axes").font(.headline)
-                .help("Each one can be removed or moved into the style on its own, without touching the others.")
-            ForEach(model.details) { detail in
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(detail.title).frame(width: 118, alignment: .leading).lineLimit(2)
-                        Text(detail.value).frame(maxWidth: .infinity, alignment: .leading)
-                        detailMenu(detail)
-                    }
-                    Text(detailSourceText(detail)).font(.caption)
-                        .foregroundStyle(sourceColor(detail.source))
-                        .padding(.leading, 122)
+        let details = onlySet ? model.details.filter { $0.source != .document } : model.details
+        if !details.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Divider()
+                groupHeader(id: "details", title: "Features and axes", sources: details.map(\.source))
+                    .help("Each one can be removed or moved into the style on its own, without touching the others.")
+                if isOpen("details") {
+                    ForEach(details) { detail in detailRow(detail) }
                 }
             }
+        }
+    }
+
+    private func detailRow(_ detail: InspectedDetail) -> some View {
+        let showing = explainedDetail == detail.id
+        return VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .center, spacing: 6) {
+                Text(detail.title).lineLimit(1).frame(width: 118, alignment: .leading)
+                    .foregroundStyle(detail.source == .document ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+                Text(detail.value).frame(maxWidth: .infinity, alignment: .leading)
+                Button { explainedDetail = showing ? nil : detail.id } label: {
+                    SourceDot(source: detail.source, size: 9).frame(width: 16, height: 16).contentShape(Rectangle())
+                }
+                .buttonStyle(.hover(.plain))
+                .help(detailSourceText(detail))
+                .accessibilityLabel("\(detail.title): \(detailSourceText(detail))")
+                .accessibilityHint("Shows where the value comes from and what you can do with it")
+            }
+            if showing {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(detailSourceText(detail)).font(.caption.weight(.semibold)).foregroundStyle(sourceColor(detail.source))
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 6) {
+                        detailMenu(detail)
+                        Text("Move into the style or back to the inherited value").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 4).fill(Color(nsColor: Theme.control)))
+                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color(nsColor: Theme.line)))
+            }
+        }
+    }
+
+    /// Un modulo intero (pagina, sezione, tabella, cella) in un gruppo richiudibile come gli altri.
+    private func collapsible<Content: View>(_ id: String, _ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Divider()
+            groupHeader(id: id, title: title, sources: [])
+            if isOpen(id) { content() }
         }
     }
 
@@ -519,23 +622,112 @@ struct InspectorView: View {
         } label: {
             Image(systemName: "ellipsis.circle")
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.borderlessButton).hoverable()
         .menuIndicator(.hidden)
         .fixedSize()
         .help(model.detailsMovable || receiver == nil ? "The value set here"
               : "The text has a different font from the style: move the family into the style first")
     }
 
-    /// Le proprietà dinamiche: si leggono soltanto.
+    // MARK: Gruppi e righe
+
+    /// Un gruppo richiudibile di proprietà.
+    struct PropertyGroup: Identifiable {
+        let id: String
+        let title: String
+        let properties: [InspectorProperty]
+    }
+
+    static let groups: [PropertyGroup] = [
+        .init(id: "align", title: "Alignment and indents", properties: [.alignment, .leftIndent, .rightIndent, .firstLineIndent]),
+        .init(id: "space", title: "Spacing", properties: [.spaceBefore, .spaceAfter, .openingDistance]),
+        .init(id: "lines", title: "Lines", properties: [.lineHeightMultiple, .lineSpacing]),
+        .init(id: "keep", title: "Keeping", properties: [.keepWithNext, .keepTogether, .orphanLines, .widowLines]),
+        .init(id: "list", title: "List", properties: [.list]),
+        .init(id: "font", title: "Font", properties: [.family, .face, .size]),
+        .init(id: "form", title: "Form", properties: [.smallCaps, .verticalPosition, .decorations, .color, .shaping]),
+        .init(id: "language", title: "Language", properties: [.language, .hyphenates]),
+    ]
+
+    /// I gruppi chiusi o aperti a mano: all'inizio sono aperti tutti, tranne i fatti dell'impaginato.
+    @State private var toggledGroups: Set<String> = []
+    /// Vero con il filtro «Set»: si nascondono i valori che vengono dal documento.
+    @State private var onlySet = false
+    /// La proprietà di cui si vede la spiegazione (provenienza e azioni).
+    @State private var explained: InspectorProperty?
+    /// La funzione o l'asse del carattere di cui si vede la spiegazione.
+    @State private var explainedDetail: InspectedDetail.ID?
+
+    private func isOpen(_ group: String) -> Bool {
+        group == "facts" ? toggledGroups.contains(group) : !toggledGroups.contains(group)
+    }
+
+    private func toggle(_ group: String) {
+        if toggledGroups.contains(group) { toggledGroups.remove(group) } else { toggledGroups.insert(group) }
+    }
+
+    /// I valori raggruppati, nell'ordine dei gruppi; quelli che nessun gruppo nomina vanno in «Other».
+    private func groupedValues(_ values: [InspectedValue]) -> [(group: PropertyGroup, values: [InspectedValue])] {
+        var result: [(group: PropertyGroup, values: [InspectedValue])] = []
+        var placed = Set<InspectorProperty>()
+        for group in Self.groups {
+            let members = values.filter { group.properties.contains($0.property) }
+            placed.formUnion(members.map(\.property))
+            if !members.isEmpty { result.append((group, members)) }
+        }
+        let others = values.filter { !placed.contains($0.property) }
+        if !others.isEmpty { result.append((PropertyGroup(id: "other", title: "Other", properties: others.map(\.property)), others)) }
+        return result
+    }
+
+    /// Il filtro All / Set, con il conto di ciò che nasconde.
+    @ViewBuilder private var filterBar: some View {
+        if !model.values.isEmpty {
+            HStack(spacing: 8) {
+                Picker("Show", selection: $onlySet) {
+                    Text("All").tag(false)
+                    Text("Set").tag(true)
+                }
+                .pickerStyle(.segmented).labelsHidden().fixedSize().controlSize(.small)
+                .help("Set: hide the values that come from the document")
+                Spacer()
+                let hidden = model.values.filter { $0.source == .document }.count
+                if onlySet && hidden > 0 {
+                    Text("\(hidden) from the document hidden").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    /// Che cosa vogliono dire i pallini.
+    private var legend: some View {
+        HStack(spacing: 12) {
+            ForEach([ValueSource.document, .style(""), .own, .rule("")], id: \.legendTitle) { source in
+                HStack(spacing: 4) {
+                    SourceDot(source: source, size: 7)
+                    Text(source.legendTitle)
+                }
+            }
+        }
+        .font(.caption).foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Le proprietà dinamiche: si leggono soltanto, in un gruppo chiuso all'inizio.
     @ViewBuilder private var factRows: some View {
         if !model.facts.isEmpty {
-            Divider()
-            Text("From the layout").font(.headline)
-                .help("Values computed while laying out the pages: they change as you type and cannot be set.")
-            ForEach(model.facts, id: \.self) { fact in
-                HStack(alignment: .firstTextBaseline) {
-                    Text(fact.title).frame(width: 118, alignment: .leading)
-                    Text(fact.value).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Divider()
+                groupHeader(id: "facts", title: "From the layout", sources: [])
+                    .help("Values computed while laying out the pages: they change as you type and cannot be set.")
+                if isOpen("facts") {
+                    ForEach(model.facts, id: \.self) { fact in
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(fact.title).frame(width: 118, alignment: .leading)
+                            Text(fact.value).foregroundStyle(.secondary).textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
                 }
             }
         }
@@ -545,47 +737,191 @@ struct InspectorView: View {
         if model.values.isEmpty {
             Text("The document is empty.").foregroundStyle(.secondary)
         }
-        ForEach(model.values, id: \.property) { value in
-            row(value)
+        let shown = onlySet && !rowsOnly ? model.values.filter { $0.source != .document } : model.values
+        ForEach(groupedValues(shown), id: \.group.id) { entry in
+            VStack(alignment: .leading, spacing: 4) {
+                Divider()
+                groupHeader(id: entry.group.id, title: entry.group.title, sources: entry.values.map(\.source))
+                if isOpen(entry.group.id) {
+                    ForEach(entry.values, id: \.property) { value in row(value) }
+                }
+            }
         }
+    }
+
+    /// L'intestazione di un gruppo: si apre e si chiude; chiusa mostra i pallini di ciò che contiene.
+    private func groupHeader(id: String, title: String, sources: [ValueSource]) -> some View {
+        let open = isOpen(id)
+        var kinds: [ValueSource] = []
+        for source in sources where source != .document && !kinds.contains(where: { $0.legendTitle == source.legendTitle }) {
+            kinds.append(source)
+        }
+        return Button { toggle(id) } label: {
+            HStack(spacing: 6) {
+                Image(systemName: open ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary).frame(width: 10)
+                Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).kerning(0.8).foregroundStyle(.secondary)
+                Spacer()
+                if !open {
+                    HStack(spacing: 3) { ForEach(kinds, id: \.legendTitle) { SourceDot(source: $0, size: 7) } }
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.hover(.plain))
+        .accessibilityLabel(title)
+        .accessibilityValue(open ? "Expanded" : "Collapsed")
     }
 
     private func row(_ value: InspectedValue) -> some View {
         // I filetti hanno un riquadro per ciascuno, con più campi: stanno sotto il titolo, a tutta larghezza.
         let wide = value.property == .decorations
+        let property = value.property
+        let showing = explained == property
         return VStack(alignment: .leading, spacing: 3) {
             if wide {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(value.property.title)
+                HStack(alignment: .center) {
+                    rowTitle(value)
                     Spacer()
-                    menu(value)
+                    rowMarks(value)
                 }
-                control(value).disabled(model.formulaIsLocked(value.property))
+                control(value).disabled(model.formulaIsLocked(property))
             } else {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(value.property.title).frame(width: 118, alignment: .leading)
-                    control(value).disabled(model.formulaIsLocked(value.property)).frame(maxWidth: .infinity, alignment: .leading)
-                    menu(value)
+                HStack(alignment: .center, spacing: 6) {
+                    rowTitle(value).frame(width: 118, alignment: .leading)
+                    control(value).disabled(model.formulaIsLocked(property)).frame(maxWidth: .infinity, alignment: .leading)
+                    rowMarks(value)
                 }
             }
-            if let summary = model.formulaSummary(value.property), let definition = model.formulaDefinitions[value.property] {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(summary).font(.caption).foregroundStyle(Color(nsColor: Theme.accent))
-                    Button("Composer") { model.openFormula?(definition.owner) }.font(.caption)
-                }.padding(.leading, wide ? 0 : 122)
+            if !showing, let brief = ruleBrief(value) {
+                Text(brief.text).font(.caption).foregroundStyle(brief.color)
+                    .lineLimit(2).padding(.leading, wide ? 0 : 124)
             }
-            Text(model.sourceText(value)).font(.caption)
-                .foregroundStyle(sourceColor(value.source))
-                .padding(.leading, wide ? 0 : 122)
+            if !showing, value.isMixed {
+                Text("The selection has different values").font(.caption).foregroundStyle(.secondary)
+                    .padding(.leading, wide ? 0 : 124)
+            }
+            if showing { explanation(value) }
         }
     }
 
-    /// Il colore della provenienza: arancio per ciò che è dato qui, azzurro per ciò che dà una regola.
+    private func rowTitle(_ value: InspectedValue) -> some View {
+        Text(value.property.title).lineLimit(1)
+            .foregroundStyle(value.source == .document ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+    }
+
+    /// Accanto al valore: la formula, il pennello se le modifiche vanno nello stile, il pallino della provenienza.
+    @ViewBuilder private func rowMarks(_ value: InspectedValue) -> some View {
+        let property = value.property
+        if model.formulaDefinitions[property] != nil {
+            Text("ƒ").font(.system(size: 11, weight: .semibold, design: .serif)).italic()
+                .foregroundStyle(Color(nsColor: Theme.accent))
+                .help(model.formulaSummary(property) ?? "Calculated by a formula")
+                .accessibilityLabel("Formula")
+        }
+        if !model.editsStyle && model.mode(property) == .style {
+            Image(systemName: "paintbrush").font(.system(size: 10)).foregroundStyle(Color(nsColor: Theme.accent))
+                .help("Changes go into the style").accessibilityLabel("Changes go into the style")
+        }
+        Button { explained = explained == property ? nil : property } label: {
+            SourceDot(source: value.source, size: 9).frame(width: 16, height: 16).contentShape(Rectangle())
+        }
+        .buttonStyle(.hover(.plain))
+        .help(model.sourceText(value))
+        .accessibilityLabel("\(property.title): \(model.sourceText(value))")
+        .accessibilityHint("Shows where the value comes from and what you can do with it")
+    }
+
+    /// La spiegazione aperta dal pallino: da dove viene il valore, la formula, e le azioni del menu.
+    private func explanation(_ value: InspectedValue) -> some View {
+        let property = value.property
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(model.sourceText(value)).font(.caption.weight(.semibold)).foregroundStyle(sourceColor(value.source))
+                .fixedSize(horizontal: false, vertical: true)
+            if let summary = model.formulaSummary(property), let definition = model.formulaDefinitions[property] {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(summary).font(.caption).foregroundStyle(Color(nsColor: Theme.accent))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Composer") { model.openFormula?(definition.owner) }.font(.caption)
+                }
+            }
+            ruleDetails(value)
+            HStack(spacing: 6) {
+                menu(value)
+                Text(model.editsStyle ? "This style's value" : (model.mode(property) == .style ? "Changes go into the style" : "Changes apply only here"))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 4).fill(Color(nsColor: Theme.control)))
+        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color(nsColor: Theme.line)))
+    }
+
+    /// La riga breve sotto un valore che una regola tocca: chi lo decide, e che cosa resta sospeso o scavalcato.
+    private func ruleBrief(_ value: InspectedValue) -> (text: String, color: Color)? {
+        let property = value.property
+        switch value.source {
+        case .rule(let summary):
+            var text = "Rule: " + summary
+            if let suspended = value.rules?.suspended { text += " · yours (\(property.text(of: suspended))) suspended" }
+            if let others = value.rules?.outranked, !others.isEmpty {
+                text += " · overrides \(others.count) other \(others.count == 1 ? "rule" : "rules")"
+            }
+            return (text, Color(nsColor: Theme.ruleSource))
+        case .own:
+            guard let influence = value.rules, let winner = influence.winner else { return nil }
+            return ("Wins over the rule: " + winner, Color(nsColor: Theme.ownSource))
+        default:
+            return nil
+        }
+    }
+
+    /// Nella spiegazione: lo stile della regola, le regole scavalcate, il valore sospeso o quello che la regola darebbe.
+    @ViewBuilder private func ruleDetails(_ value: InspectedValue) -> some View {
+        let property = value.property
+        if let influence = value.rules {
+            VStack(alignment: .leading, spacing: 5) {
+                if let owner = influence.owner {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("A contextual formula of the style “\(owner)”.").font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        // Se la formula della riga è già di questo stile, il suo pulsante c'è sopra.
+                        if model.formulaDefinitions[property]?.owner != owner {
+                            Button("Composer") { model.openFormula?(owner) }.font(.caption)
+                        }
+                    }
+                }
+                if !influence.outranked.isEmpty {
+                    Text("Also set by " + influence.outranked.map { "“\($0)”" }.joined(separator: ", ")
+                         + ": where two rules meet, the first one that changes the value wins.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                if let suspended = influence.suspended, !model.editsStyle {
+                    Text("The value set here, \(property.text(of: suspended)), is kept but not applied while the rule holds.")
+                        .font(.caption).foregroundStyle(Color(nsColor: Theme.ownSource)).fixedSize(horizontal: false, vertical: true)
+                    Button("Keep \(property.text(of: suspended)) here") { model.keepHere?(property, suspended) }
+                        .font(.caption)
+                        .help("Makes an exception: the rule no longer changes this value here")
+                }
+                if let yielded = influence.yielded, let winner = influence.winner, !model.editsStyle {
+                    Text("The value set here wins over the rule “\(winner)”, which would give \(property.text(of: yielded)).")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Button("Let the Rule Apply") { model.reset?(property) }
+                        .font(.caption)
+                        .help("Removes the value set here: the rule decides again")
+                }
+            }
+        }
+    }
+
+    /// Il colore della provenienza: arancio per ciò che è dato qui, verde per una regola, azzurro per uno stile.
     private func sourceColor(_ source: ValueSource) -> AnyShapeStyle {
         switch source {
-        case .own: AnyShapeStyle(.orange)
-        case .rule: AnyShapeStyle(Color(nsColor: Theme.accent))
-        default: AnyShapeStyle(.secondary)
+        case .own: AnyShapeStyle(Color(nsColor: Theme.ownSource))
+        case .rule: AnyShapeStyle(Color(nsColor: Theme.ruleSource))
+        case .style: AnyShapeStyle(Color(nsColor: Theme.accent))
+        case .document: AnyShapeStyle(.secondary)
         }
     }
 
@@ -609,7 +945,7 @@ struct InspectorView: View {
         } label: {
             Image(systemName: "ellipsis.circle")
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.borderlessButton).hoverable()
         .menuIndicator(.hidden)
         .fixedSize()
         .help("This style's value")
@@ -638,7 +974,7 @@ struct InspectorView: View {
         } label: {
             Image(systemName: model.mode(property) == .style ? "paintbrush" : "ellipsis.circle")
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.borderlessButton).hoverable()
         .menuIndicator(.hidden)
         .fixedSize()
         .help(model.mode(property) == .style ? "Changes go into the style" : "Changes apply only here")
@@ -853,7 +1189,7 @@ struct InspectorView: View {
                 .labelsHidden()
                 .fixedSize()
                 Spacer(minLength: 0)
-                Button { remove() } label: { Image(systemName: "minus.circle") }.buttonStyle(.borderless).help("Remove Line")
+                Button { remove() } label: { Image(systemName: "minus.circle") }.buttonStyle(.hover(.borderless)).help("Remove Line")
             }
             HStack(spacing: 6) {
                 label("Distance")
@@ -1088,7 +1424,7 @@ struct SectionForm: View {
                     Menu {
                         ForEach(Typesetting.Section.Role.builtIn, id: \.self) { role in Button(role) { setRole(role) } }
                     } label: { Image(systemName: "chevron.down") }
-                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                        .menuStyle(.borderlessButton).hoverable().menuIndicator(.hidden).fixedSize()
                 }
             }
             .help("The role says what the section is, apart from its depth and the style of its title. Choose one or type it.")
@@ -1110,7 +1446,7 @@ struct SectionForm: View {
             .help("Types are defined in the Pages tab. Pages and even pages also apply to inner sections; the first page only to this one.")
             line("Page numbers") {
                 Picker("", selection: Binding(get: { info.pageNumbering }, set: { setPageNumbering($0) })) {
-                    Text("proseguono").tag(String?.none)
+                    Text("continue").tag(String?.none)
                     ForEach(info.listNames, id: \.self) { Text("restart with “\($0)”").tag(Optional($0)) }
                 }
                 .labelsHidden()
@@ -1254,10 +1590,73 @@ struct PageSetupSheetView: View {
             HStack {
                 Spacer()
                 Button("Cancel") { model.finish?(nil) }.keyboardShortcut(.cancelAction)
-                Button("OK") { model.finish?(model.setup) }.keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
+                Button("OK") { model.finish?(model.setup) }.keyboardShortcut(.defaultAction).buttonStyle(.hover(.prominent))
             }
         }
         .padding(18)
         .frame(width: 400)
+    }
+}
+
+// MARK: - Provenienza
+
+extension ValueSource {
+    /// Il nome breve della provenienza, per la legenda e per distinguere i pallini.
+    var legendTitle: String {
+        switch self {
+        case .document: "document"
+        case .style: "style"
+        case .own: "set here"
+        case .rule: "rule"
+        }
+    }
+}
+
+/// Il pallino della provenienza: vuoto per il documento, pieno nel colore dello stile, di ciò che è dato qui o della regola.
+struct SourceDot: View {
+    let source: ValueSource
+    var size: CGFloat = 9
+
+    var body: some View {
+        Group {
+            switch source {
+            case .document: Circle().strokeBorder(Color(nsColor: Theme.secondary), lineWidth: 1.5)
+            case .style: Circle().fill(Color(nsColor: Theme.accent))
+            case .own: Circle().fill(Color(nsColor: Theme.ownSource))
+            case .rule: Circle().fill(Color(nsColor: Theme.ruleSource))
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Una fila che va a capo: gli elementi uno dopo l'altro, e su una riga nuova quando non ci stanno più.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 4
+    var lineSpacing: CGFloat = 4
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, line: CGFloat = 0, widest: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0 && x + size.width > width { y += line + lineSpacing; x = 0; line = 0 }
+            x += size.width + spacing
+            line = max(line, size.height)
+            widest = max(widest, x - spacing)
+        }
+        return CGSize(width: min(widest, width), height: y + line)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, line: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX && x + size.width > bounds.maxX { y += line + lineSpacing; x = bounds.minX; line = 0 }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            line = max(line, size.height)
+        }
     }
 }

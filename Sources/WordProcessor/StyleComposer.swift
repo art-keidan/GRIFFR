@@ -336,13 +336,36 @@ struct ComposerPill: View {
     }
 }
 
+/// I pulsanti del compositore, con le stesse risposte di `BandButton`: passaggio, pressione e stato disattivato.
+/// `prominent` è l'azione principale della finestra (Apply to Document), nell'azzurro pieno dei pulsanti attivi.
 struct ComposerButtonStyle: ButtonStyle {
+    var prominent = false
+
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.padding(.horizontal, 10).padding(.vertical, 6)
-            .foregroundStyle(Color(nsColor: Theme.glyph))
-            .background(Color(nsColor: configuration.isPressed ? Theme.pressedBottom : Theme.controlBottom))
-            .clipShape(RoundedRectangle(cornerRadius: 3))
-            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color(nsColor: Theme.controlLine)))
+        Face(configuration: configuration, prominent: prominent)
+    }
+
+    private struct Face: View {
+        let configuration: ButtonStyleConfiguration
+        let prominent: Bool
+        @Environment(\.isEnabled) private var isEnabled
+        @State private var hovered = false
+
+        var body: some View {
+            let hover = hovered && isEnabled
+            let (fill, edge, ink): (NSColor, NSColor, NSColor) =
+                if configuration.isPressed { (Theme.pressedBottom, Theme.hoverLine, Theme.glyph) }
+                else if prominent && isEnabled { (hover ? Theme.activeHoverBottom : Theme.activeBottom, Theme.accent, Theme.accentInk) }
+                else if hover { (Theme.hoverBottom, Theme.hoverLine, Theme.glyph) }
+                else { (Theme.controlBottom, Theme.controlLine, isEnabled ? Theme.glyph : Theme.secondary) }
+            configuration.label.padding(.horizontal, 10).padding(.vertical, 6)
+                .foregroundStyle(Color(nsColor: ink).opacity(isEnabled ? 1 : 0.45))
+                .background(Color(nsColor: fill))
+                .clipShape(RoundedRectangle(cornerRadius: 3))
+                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color(nsColor: edge)))
+                .contentShape(RoundedRectangle(cornerRadius: 3))
+                .onHover { hovered = $0 }
+        }
     }
 }
 
@@ -414,7 +437,9 @@ struct ComposerBoard: View {
                     Button("Reload from Document") { model.discard() }
                         .help("Replaces the drafts with the document's current definitions")
                     Button("Apply to Document") { model.apply() }
+                        .buttonStyle(ComposerButtonStyle(prominent: true))
                         .disabled(!model.dirty || !model.valid)
+                        .keyboardShortcut(.return, modifiers: .command)
                 }
             }.padding(16).background(Color(nsColor: Theme.bar))
     }

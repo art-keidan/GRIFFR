@@ -103,14 +103,14 @@ struct ToolbarSheetView: View {
                             HStack {
                                 label(command.id)
                                 Spacer()
-                                Button { model.add(command.id) } label: { Image(systemName: "plus") }.buttonStyle(.borderless)
+                                Button { model.add(command.id) } label: { Image(systemName: "plus") }.buttonStyle(.hover(.borderless))
                                     .help("Add after the chosen command")
                             }
                         }
                         HStack {
                             label("|")
                             Spacer()
-                            Button { model.add("|") } label: { Image(systemName: "plus") }.buttonStyle(.borderless)
+                            Button { model.add("|") } label: { Image(systemName: "plus") }.buttonStyle(.hover(.borderless))
                         }
                     }
                     .frame(width: 300, height: 360)
@@ -119,7 +119,7 @@ struct ToolbarSheetView: View {
             HStack {
                 Spacer()
                 Button("Cancel") { model.finish?(nil) }.keyboardShortcut(.cancelAction)
-                Button("OK") { model.finish?(model.entries.map(\.command)) }.keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
+                Button("OK") { model.finish?(model.entries.map(\.command)) }.keyboardShortcut(.defaultAction).buttonStyle(.hover(.prominent))
             }
         }
         .padding(20)

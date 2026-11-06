@@ -137,7 +137,7 @@ struct FieldFormulaEditorView: View {
                             Button(stepTitle(step)) { model.addStep(step) }
                         }
                     } label: { Label("Add Step", systemImage: "plus") }
-                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().padding(.leading, 10)
+                        .menuStyle(.borderlessButton).hoverable().menuIndicator(.hidden).fixedSize().padding(.leading, 10)
                 }
                 block(number: model.formula.steps.count + 2, symbol: "text.viewfinder", verb: "Read") {
                     if model.lastSubject.readings.isEmpty {
@@ -227,7 +227,7 @@ struct FieldFormulaEditorView: View {
             Spacer(minLength: 6)
             if let removable {
                 Button { model.removeStep(at: removable) } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless).accessibilityLabel("Remove step")
+                    .buttonStyle(.hover(.borderless)).accessibilityLabel("Remove step")
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 7)

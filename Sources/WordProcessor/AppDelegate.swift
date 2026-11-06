@@ -23,7 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 650, height: 480),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "Fonts"
-        window.contentView = NSHostingView(rootView: FontsSettingsView(model: model))
+        window.contentView = NSHostingView(rootView: FontsSettingsView(model: model).buttonStyle(.hover()))
         window.isReleasedWhenClosed = false
         window.center()
         window.makeKeyAndOrderFront(sender)

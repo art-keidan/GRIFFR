@@ -65,14 +65,14 @@ struct WindowHousekeepingTests {
         window.contentView?.layoutSubtreeIfNeeded()
         #expect(abs(window.frame.width - compact.width) < 1, "larghezza minima effettiva: \(window.frame.width)")
         #expect(abs(window.frame.height - compact.height) < 1)
-        let scroll = try #require(h.editor.pathBar.enclosingScrollView)
-        #expect(h.editor.pathBar.frame.width > scroll.contentSize.width)
-        let last = try #require(h.editor.sectionPath.arrangedSubviews.last)
-        let rect = last.convert(last.bounds, to: h.editor.pathBar)
-        h.editor.pathBar.scrollToVisible(rect)
-        #expect(scroll.contentView.bounds.minX > 0, "i pulsanti fuori dalla fascia restano raggiungibili")
-        #expect(h.editor.pathBar.visibleRect.minX <= rect.minX + 1)
-        #expect(h.editor.pathBar.visibleRect.maxX >= rect.maxX - 1)
+        // Il percorso sta in testa all'ispettore e va a capo: ogni sezione vi ha il suo passo, raggiungibile.
+        let sections = h.editor.inspector.path.filter { if case .section = $0.target { true } else { false } }
+        #expect(sections.map(\.title) == h.editor.sectionPathTitles, "il percorso dell'ispettore contiene tutte le sezioni")
+        if let deepest = sections.last {
+            h.editor.inspector.choosePath?(deepest.target)
+            h.step()
+            #expect(h.editor.inspector.object == .section && h.editor.inspector.pathChoice == deepest.target)
+        }
     }
 
     @Test("Chiudendo la finestra si tolgono gli ascolti delle notifiche")

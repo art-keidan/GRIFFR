@@ -98,6 +98,19 @@ extension EditorWindowController {
         inspector.resetDetail = { [weak self] detail in self?.inspectorResetDetail(detail) }
         inspector.moveDetailToStyle = { [weak self] detail in self?.inspectorMoveDetailToStyle(detail) }
         inspector.createStyle = { [weak self] in self?.createStyleFromInspector() }
+        inspector.keepHere = { [weak self] property, values in
+            guard let self else { return }
+            self.editInspected(property, actionName: "Keep " + property.title) { text, range in
+                TextStyling.setValue(values, of: property, in: text, range: range, resolver: self.fontRoleResolver)
+                TextStyling.setRuleException(property, true, in: text, range: range)
+            }
+        }
+        inspector.choosePath = { [weak self] target in
+            switch target {
+            case .object(let object): self?.inspect(object)
+            case .section(let depth): self?.inspectSection(depth: depth)
+            }
+        }
         inspector.openFormula = { [weak self] name in self?.showStyleComposer(style: name) }
         inspector.replaceFormula = { [weak self] property in
             guard let self, let value = self.inspector.values.first(where: { $0.property == property }) else { return }
@@ -233,6 +246,22 @@ extension EditorWindowController {
             button.state = object == inspector.object ? .on : .off
         }
         inspector.styleName = names[inspector.object] ?? nil
+        // Lo stesso percorso, in testa all'ispettore.
+        var path: [InspectorModel.PathStep] = []
+        for object in InspectedObject.allCases {
+            if object == .section {
+                for (index, title) in sectionPathTitles.enumerated() {
+                    path.append(.init(target: .section(index + 1), title: title))
+                }
+                continue
+            }
+            if (object == .table || object == .cell) && cell == nil { continue }
+            path.append(.init(target: .object(object), title: object.title))
+        }
+        if inspector.path != path { inspector.path = path }
+        let choice: InspectorModel.PathStep.Target = inspector.object == .section
+            ? .section(inspectedSection()?.depth ?? 0) : .object(inspector.object)
+        if inspector.pathChoice != choice { inspector.pathChoice = choice }
         refreshFacts()
         guard let level = inspector.object.level else {
             inspector.values = []

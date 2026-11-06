@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototipo ispettore</title>
+<style>
+/* Colori presi da Theme in Sources/WordProcessor/WindowBands.swift (chiaro / scuro). */
+:root {
+  --window: #eaf3fb; --bar: #f1f7fd; --side: #eff7fe; --line: #c6dced;
+  --control: #f7fbff; --control-bottom: #e7f2fc; --control-line: #9ac4e9;
+  --text: #1d1d1f; --secondary: #5c5c62; --accent: #0a60d0; --glyph: #1e4fb4; --ink-on: #ffffff;
+  --active: #2463d1; --hover: #d9e6fb; --hover-line: #4f80d8; --desk: #dcebf7; --page: #ffffff;
+  --doc: #8e8e95; --style: #0a60d0; --here: #c25e00; --rule: #1f8a78; --problem: #b3261e;
+  --rule-mark: #c4ece4; --here-mark: #ffd9b8; --veil: rgba(10, 96, 208, .08);
+  --shell: #f5f7fa; --note: #ffffff;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --window: #202a36; --bar: #263341; --side: #24313e; --line: #465b6e;
+    --control: #354a5f; --control-bottom: #304357; --control-line: #68849e;
+    --text: #f2f2f7; --secondary: #b0b0b6; --accent: #4b93f7; --glyph: #8db3ff; --ink-on: #ffffff;
+    --active: #2457b8; --hover: #3a4a68; --hover-line: #6f9bea; --desk: #192532; --page: #3b3b3f;
+    --doc: #8e8e95; --style: #6aa6ff; --here: #ffa04d; --rule: #5fd3bd; --problem: #ff7b72;
+    --rule-mark: #23544c; --here-mark: #5a3a1c; --veil: rgba(75, 147, 247, .12);
+    --shell: #15191f; --note: #1d232b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --window: #202a36; --bar: #263341; --side: #24313e; --line: #465b6e;
+  --control: #354a5f; --control-bottom: #304357; --control-line: #68849e;
+  --text: #f2f2f7; --secondary: #b0b0b6; --accent: #4b93f7; --glyph: #8db3ff; --ink-on: #ffffff;
+  --active: #2457b8; --hover: #3a4a68; --hover-line: #6f9bea; --desk: #192532; --page: #3b3b3f;
+  --doc: #8e8e95; --style: #6aa6ff; --here: #ffa04d; --rule: #5fd3bd; --problem: #ff7b72;
+  --rule-mark: #23544c; --here-mark: #5a3a1c; --veil: rgba(75, 147, 247, .12);
+  --shell: #15191f; --note: #1d232b;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--shell); color: var(--text);
+  font: 12px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+button, select, input { font: inherit; color: inherit; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
+
+/* Barra del prototipo (fuori dall'app) */
+.proto-bar { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; margin-bottom: 14px; }
+.proto-bar h1 { font-size: 15px; margin: 0 auto 0 0; font-weight: 650; }
+.proto-bar label { color: var(--secondary); margin-right: 6px; }
+
+/* Controlli nello stile delle fasce */
+.seg { display: inline-flex; border: 1px solid var(--control-line); border-radius: 3px; overflow: hidden; background: var(--control-bottom); }
+.seg button { border: 0; background: transparent; padding: 3px 9px; color: var(--glyph); cursor: default; }
+.seg button + button { border-left: 1px solid var(--control-line); }
+.seg button:hover { background: var(--hover); }
+.seg button[aria-pressed="true"] { background: var(--active); color: var(--ink-on); }
+.btn { border: 1px solid var(--control-line); background: var(--control-bottom); color: var(--glyph); border-radius: 3px; padding: 3px 9px; cursor: default; }
+.btn:hover { background: var(--hover); border-color: var(--hover-line); }
+.btn.primary { background: var(--active); color: var(--ink-on); border-color: var(--accent); }
+.btn.quiet { border-color: transparent; background: transparent; padding: 2px 5px; }
+.btn.quiet:hover { background: var(--veil); border-color: transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
+
+/* Finestra finta */
+.window { display: grid; grid-template-columns: 1fr 340px; background: var(--window); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; height: 690px; box-shadow: 0 10px 30px rgba(0,0,0,.12); }
+.desk { background: var(--desk); padding: 26px 30px; overflow: auto; }
+.page { background: var(--page); max-width: 440px; margin: 0 auto; padding: 46px 48px 60px; min-height: 600px; box-shadow: 0 1px 4px rgba(0,0,0,.15);
+  font: 13px/1.5 "Hoefler Text", "Iowan Old Style", Georgia, serif; text-align: justify; hyphens: auto; }
+.page p { margin: 0; padding: 1px 3px; border-radius: 2px; cursor: text; }
+.page p:hover { background: var(--veil); }
+.page p.chosen { outline: 1.5px solid var(--accent); outline-offset: 1px; }
+.page .label { font: 10px/1 -apple-system, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--secondary); text-align: right; margin-top: 28px; }
+.page .heading { font-size: 21px; line-height: 1.2; text-align: right; margin: 6px 0 4px; }
+.page .rule-line { border-top: 1px solid currentColor; opacity: .6; margin: 6px 0 22px; }
+.page .after { text-indent: 0; }
+.page .body { text-indent: 1.4em; }
+.page .body.local { margin-left: 5mm; }
+.page mark.rule { background: var(--rule-mark); color: inherit; padding: 0 1px; }
+.hint { font: 11px/1.3 -apple-system, sans-serif; color: var(--secondary); text-align: center; margin-top: 14px; }
+
+/* Ispettore */
+.panel { background: var(--side); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.panel-top { padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--bar); display: flex; gap: 8px; align-items: center; }
+.panel-body { overflow: auto; flex: 1; padding: 10px 12px 18px; }
+.crumbs { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; margin-bottom: 10px; }
+.crumbs button { border: 1px solid transparent; background: transparent; border-radius: 3px; padding: 2px 5px; color: var(--secondary); cursor: default; }
+.crumbs button:hover { background: var(--veil); color: var(--glyph); }
+.crumbs button[aria-current="true"] { background: var(--control-bottom); border-color: var(--control-line); color: var(--glyph); font-weight: 600; }
+.crumbs span { color: var(--secondary); opacity: .6; }
+.head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+.head h2 { font-size: 16px; margin: 0; font-weight: 700; }
+.head .style-pill { margin-top: 4px; display: inline-flex; gap: 6px; align-items: center; }
+.head .tools { margin-left: auto; display: flex; gap: 2px; }
+.filter { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; color: var(--secondary); }
+.filter .count { margin-left: auto; font-size: 11px; }
+
+.group { border-top: 1px solid var(--line); }
+.group > button.gh { width: 100%; display: flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 8px 2px 6px; cursor: default; text-align: left; }
+.group > button.gh:hover { color: var(--glyph); }
+.gh .chev { width: 10px; transition: transform .12s; color: var(--secondary); }
+.group[data-open="false"] .chev { transform: rotate(-90deg); }
+.gh .gt { font: 600 10px/1 -apple-system, sans-serif; letter-spacing: .09em; text-transform: uppercase; color: var(--secondary); }
+.gh .marks { margin-left: auto; display: flex; gap: 3px; }
+.group[data-open="false"] .rows { display: none; }
+
+.row { display: grid; grid-template-columns: 118px 1fr 16px; gap: 6px; align-items: center; padding: 3px 2px; border-radius: 4px; }
+.row:hover { background: var(--veil); }
+.row .name { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row.doc .name { color: var(--secondary); }
+.row .val { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.row input[type=text], .row select { width: 100%; min-width: 0; border: 1px solid var(--control-line); background: var(--control); border-radius: 3px; padding: 2px 6px; height: 22px; }
+.row input[type=text] { text-align: right; }
+.row.doc input, .row.doc select { color: var(--secondary); }
+.row .fx { font: italic 600 11px/1 Georgia, serif; color: var(--style); border: 1px solid currentColor; border-radius: 3px; padding: 2px 4px; white-space: nowrap; }
+.dot { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; cursor: default; justify-self: center; }
+.dot.doc { background: transparent; box-shadow: inset 0 0 0 1.5px var(--doc); }
+.dot.style { background: var(--style); }
+.dot.here { background: var(--here); }
+.dot.rule { background: var(--rule); }
+.dot.problem { background: var(--problem); }
+.dot:hover { transform: scale(1.25); }
+.why { grid-column: 1 / -1; margin: 2px 0 6px 0; padding: 7px 9px; border-radius: 4px; background: var(--note); border: 1px solid var(--line); font-size: 11.5px; }
+.why .src { font-weight: 600; }
+.why .src.style { color: var(--style); } .why .src.here { color: var(--here); } .why .src.rule { color: var(--rule); } .why .src.doc { color: var(--secondary); } .why .src.problem { color: var(--problem); }
+.why .chain { color: var(--secondary); margin-top: 3px; }
+.why .suspended { margin-top: 5px; padding-top: 5px; border-top: 1px dashed var(--line); }
+.why .suspended s { color: var(--here); }
+.why .acts { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.row .brief { grid-column: 2 / -1; font-size: 11px; margin-top: -1px; }
+.brief.rule { color: var(--rule); } .brief.problem { color: var(--problem); } .brief.here { color: var(--here); }
+.facts .row { grid-template-columns: 118px 1fr; }
+.facts .row .val { color: var(--secondary); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--secondary); font-size: 11px; }
+.legend span { display: inline-flex; gap: 5px; align-items: center; }
+.legend .dot { width: 8px; height: 8px; }
+
+.defs-list { display: grid; gap: 6px; }
+.def { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--control); cursor: default; text-align: left; }
+.def:hover { border-color: var(--hover-line); background: var(--hover); }
+.def b { display: block; } .def small { color: var(--secondary); }
+.def .n { color: var(--secondary); font-variant-numeric: tabular-nums; }
+.composer-note { margin-top: 14px; padding: 10px; border: 1px dashed var(--control-line); border-radius: 5px; color: var(--secondary); }
+.composer-note .btn { margin-top: 7px; }
+
+/* Spiegazione della variante e compositore finto */
+.variant-banner { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; margin-bottom: 12px; padding: 10px 14px; border-radius: 8px; background: var(--note); border: 1px solid var(--line); }
+.variant-banner .tag { background: var(--active); color: var(--ink-on); border-radius: 4px; padding: 3px 8px; font-weight: 700; }
+.variant-banner p { margin: 0; line-height: 1.45; }
+.variant-banner b { color: var(--glyph); }
+.composer { margin-top: 16px; background: var(--window); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.composer-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 16px; background: var(--bar); border-bottom: 1px solid var(--line); }
+.composer-bar h3 { margin: 0; font-size: 14px; }
+.composer-bar .seg button { cursor: default; }
+.composer-bar .seg button.new { position: relative; font-weight: 600; padding-right: 15px; }
+.composer-bar .seg button.new::after { content: ""; position: absolute; top: 50%; right: 5px; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--here); }
+.composer-body { padding: 14px 16px; color: var(--secondary); line-height: 1.5; }
+.composer-body b { color: var(--text); }
+.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { 0% { box-shadow: 0 0 0 4px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.panel-top .title { font-weight: 700; }
+.panel-top .btn { margin-left: auto; }
+
+/* Note di progetto */
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 18px; }
+.notes article { background: var(--note); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.notes h3 { margin: 0 0 6px; font-size: 13px; }
+.notes p { margin: 0; color: var(--secondary); line-height: 1.45; }
+.notes .k { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--active); color: var(--ink-on); font-size: 11px; margin-right: 6px; }
+
+@media (max-width: 900px) {
+  .window { grid-template-columns: 1fr; height: auto; }
+  .desk { max-height: 360px; padding: 16px; }
+  .panel { border-left: 0; border-top: 1px solid var(--line); max-height: 640px; }
+  .page { padding: 28px 24px; min-height: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .gh .chev { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="proto-bar">
+    <h1>Ispettore · prototipo di disegno</h1>
+    <div><label>Definizioni</label><span class="seg" id="variant">
+      <button aria-pressed="true" data-v="A">A · nel pannello</button><button aria-pressed="false" data-v="B">B · nel compositore</button></span></div>
+    <div><label>Aspetto</label><span class="seg" id="theme">
+      <button aria-pressed="true" data-t="system">Sistema</button><button aria-pressed="false" data-t="light">Chiaro</button><button aria-pressed="false" data-t="dark">Scuro</button></span></div>
+  </div>
+
+  <div class="variant-banner" id="banner"></div>
+
+  <div class="window">
+    <div class="desk">
+      <div class="page" id="page">
+        <div class="label">Chapter 1</div>
+        <p class="heading" data-p="h">The Long Afternoon</p>
+        <div class="rule-line"></div>
+        <p class="after" data-p="a"><mark class="rule">Nobody</mark> in the village remembered who had planted the walnut tree, only that it had always been there, older than the church and patient as a stone.</p>
+        <p class="body" data-p="b">In summer the shade reached the well by noon. Children sat on its rim and argued about the moon, about the river, about anything that could not be settled before supper.</p>
+        <p class="body local" data-p="c">By evening the old men came, each with a chair, and the argument went on in a slower voice.</p>
+      </div>
+      <div class="hint">Clic su un paragrafo per sceglierlo. Il secondo ha una regola, il quarto un rientro messo a mano.</div>
+    </div>
+
+    <aside class="panel" aria-label="Inspector">
+      <div class="panel-top" id="panelTop"></div>
+      <div class="panel-body" id="panelBody"></div>
+    </aside>
+  </div>
+
+  <section class="composer" id="composer" aria-label="Style Composer">
+    <div class="composer-bar"><h3>Style Composer</h3><span class="seg" id="composerTabs"></span></div>
+    <div class="composer-body" id="composerBody"></div>
+  </section>
+
+  <section class="notes" aria-label="Note di progetto">
+    <article><h3><span class="k">1</span>Gruppi richiudibili</h3><p>Le proprietà sono divise in gruppi (Allineamento, Spazi, Righe, Tenuta, Elenco…). Un gruppo chiuso mostra comunque i segni di provenienza delle sue righe, così si vede subito se dentro c'è qualcosa di impostato.</p></article>
+    <article><h3><span class="k">2</span>Una riga, un segno</h3><p>Ogni proprietà sta su una riga: nome, valore, punto colorato. Vuoto = dal documento, azzurro = dallo stile, arancio = impostato qui, verde = imposto da una regola. La spiegazione per esteso si apre con un clic sul punto, non occupa spazio sempre.</p></article>
+    <article><h3><span class="k">3</span>Solo ciò che è impostato</h3><p>Il filtro «Set» nasconde i valori che vengono dal documento: resta l'elenco delle differenze, con il conto di quelli nascosti.</p></article>
+    <article><h3><span class="k">4</span>Chi decide il valore</h3><p>Una regola che impone un valore lo dice, con la catena (regola → stile → oggetto) e il valore locale sospeso. È la richiesta di ARCHITETTURA-PROPOSTA: «Rientro 0 mm, imposto da… Rientro locale 5 mm».</p></article>
+    <article><h3><span class="k">5</span>Il percorso in testa</h3><p>Documento › Sezione › Pagina › Paragrafo › Parola › Carattere diventa l'intestazione dell'ispettore: si sceglie l'oggetto dove lo si guarda.</p></article>
+    <article><h3><span class="k">6</span>Le due varianti</h3><p>A: le definizioni (Stili, Liste, Flottanti, Regole, Pagine, Tabelle) restano nel pannello, dietro un secondo segmento. B: il pannello è solo l'ispettore e le definizioni vivono nel compositore.</p></article>
+  </section>
+</div>
+
+<script>
+(() => {
+  const SRC = {
+    doc: "From the document",
+    style: (s) => `From the style “${s}”`,
+    here: "Set here",
+    rule: (r) => `Imposed by the rule “${r}”`,
+  };
+
+  // Un valore: [nome, valore, provenienza, extra]
+  const paragraphs = {
+    h: {
+      label: "Paragraph", style: "Heading 1", based: "Default",
+      groups: [
+        ["align", "Alignment and indents", [
+          { n: "Alignment", v: "Right", c: "select", o: ["Left", "Center", "Right", "Justified"], s: "style" },
+          { n: "Left indent", v: "0 pt", s: "doc" }, { n: "Right indent", v: "0 pt", s: "doc" }, { n: "First-line indent", v: "0 pt", s: "style" }]],
+        ["space", "Spacing", [
+          { n: "Space before", v: "0 pt", s: "doc" }, { n: "Space after", v: "8 mm", s: "style" },
+          { n: "Opening distance", v: "30 mm", s: "style", note: "Measured from the top of the whole heading block." }]],
+        ["lines", "Lines", [ { n: "Line height", v: "1,2 ×", s: "style" }, { n: "Line spacing", v: "0 pt", s: "doc" } ]],
+        ["keep", "Keeping", [
+          { n: "Keep with next", v: "On", c: "toggle", s: "style" }, { n: "Keep lines together", v: "On", c: "toggle", s: "style" },
+          { n: "Lines at the bottom", v: "2", s: "doc" }, { n: "Lines at the top", v: "2", s: "doc" }]],
+        ["heading", "Heading", [
+          { n: "Parts", v: "Label · Number · Title · Rule", c: "text-ro", s: "style", act: ["Open in the Composer"] }]],
+        ["list", "List", [ { n: "List", v: "Chapters", c: "select", o: ["None", "Chapters", "Bullets"], s: "style" } ]],
+      ],
+      facts: [["Lines", "1"], ["Page", "1"], ["Section", "Chapter 1"]],
+    },
+    a: {
+      label: "Paragraph", style: "Body", based: "Default",
+      groups: [
+        ["align", "Alignment and indents", [
+          { n: "Alignment", v: "Justified", c: "select", o: ["Left", "Center", "Right", "Justified"], s: "style" },
+          { n: "Left indent", v: "0 pt", s: "doc" }, { n: "Right indent", v: "0 pt", s: "doc" },
+          { n: "First-line indent", v: "0 mm", s: "rule", rule: "After Heading", suspended: "5 mm",
+            chain: "Rule “After Heading” → paragraph after a Heading 1 → this paragraph", brief: "After Heading · local 5 mm suspended" }]],
+        ["space", "Spacing", [
+          { n: "Space before", v: "0 pt", s: "doc" }, { n: "Space after", v: "0 pt", s: "doc" }]],
+        ["lines", "Lines", [ { n: "Line height", v: "1,25 ×", s: "style" }, { n: "Line spacing", v: "0 pt", s: "doc" } ]],
+        ["keep", "Keeping", [
+          { n: "Keep with next", v: "Off", c: "toggle", s: "doc" },
+          { n: "Keep lines together", v: "Off", c: "toggle", s: "problem",
+            conflict: "“Heading 1” asks to keep the first 2 lines with the heading; the page setting “No widows” asks to move them. The heading wins (declared on the target).", brief: "Two rules disagree · heading wins" },
+          { n: "Lines at the bottom", v: "2", s: "doc" }, { n: "Lines at the top", v: "2", s: "doc" }]],
+        ["list", "List", [ { n: "List", v: "None", c: "select", o: ["None", "Chapters", "Bullets"], s: "doc" } ]],
+      ],
+      facts: [["Lines", "4"], ["Last line", "62 % full"], ["Page", "1"], ["Read in phase", "context, after the heading"]],
+    },
+    b: {
+      label: "Paragraph", style: "Body", based: "Default",
+      groups: [
+        ["align", "Alignment and indents", [
+          { n: "Alignment", v: "Justified", c: "select", o: ["Left", "Center", "Right", "Justified"], s: "style" },
+          { n: "Left indent", v: "0 pt", s: "doc" }, { n: "Right indent", v: "0 pt", s: "doc" },
+          { n: "First-line indent", v: "5 mm", s: "style" }]],
+        ["space", "Spacing", [
+          { n: "Space before", v: "4 pt", s: "style", fx: "Margin rhythm(Base: 12 pt)", note: "Calculated by a reusable formula." },
+          { n: "Space after", v: "0 pt", s: "doc" }]],
+        ["lines", "Lines", [ { n: "Line height", v: "1,25 ×", s: "style" }, { n: "Line spacing", v: "0 pt", s: "doc" } ]],
+        ["keep", "Keeping", [
+          { n: "Keep with next", v: "Off", c: "toggle", s: "doc" }, { n: "Keep lines together", v: "Off", c: "toggle", s: "doc" },
+          { n: "Lines at the bottom", v: "2", s: "doc" }, { n: "Lines at the top", v: "2", s: "doc" }]],
+        ["list", "List", [ { n: "List", v: "None", c: "select", o: ["None", "Chapters", "Bullets"], s: "doc" } ]],
+      ],
+      facts: [["Lines", "4"], ["Last line", "88 % full"], ["Page", "1"]],
+    },
+    c: {
+      label: "Paragraph", style: "Body", based: "Default",
+      groups: [
+        ["align", "Alignment and indents", [
+          { n: "Alignment", v: "Justified", c: "select", o: ["Left", "Center", "Right", "Justified"], s: "style" },
+          { n: "Left indent", v: "5 mm", s: "here" }, { n: "Right indent", v: "0 pt", s: "doc" },
+          { n: "First-line indent", v: "5 mm", s: "style" }]],
+        ["space", "Spacing", [
+          { n: "Space before", v: "4 pt", s: "style", fx: "Margin rhythm(Base: 12 pt)", note: "Calculated by a reusable formula." },
+          { n: "Space after", v: "0 pt", s: "doc" }]],
+        ["lines", "Lines", [ { n: "Line height", v: "1,25 ×", s: "style" }, { n: "Line spacing", v: "0 pt", s: "doc" } ]],
+        ["keep", "Keeping", [
+          { n: "Keep with next", v: "Off", c: "toggle", s: "doc" }, { n: "Keep lines together", v: "Off", c: "toggle", s: "doc" },
+          { n: "Lines at the bottom", v: "2", s: "doc" }, { n: "Lines at the top", v: "2", s: "doc" }]],
+        ["list", "List", [ { n: "List", v: "None", c: "select", o: ["None", "Chapters", "Bullets"], s: "doc" } ]],
+      ],
+      facts: [["Lines", "2"], ["Last line", "40 % full"], ["Page", "1"]],
+    },
+  };
+
+  const characterGroups = () => [
+    ["font", "Font", [
+      { n: "Family", v: "Hoefler Text", c: "select", o: ["Hoefler Text", "Iowan Old Style", "Georgia"], s: "style" },
+      { n: "Face", v: "Regular", c: "select", o: ["Regular", "Italic", "Black"], s: "doc" },
+      { n: "Size", v: "12 pt", s: "style" }]],
+    ["form", "Form", [
+      { n: "Small caps", v: "Off", c: "select", o: ["Off", "From lowercase", "All"], s: "doc" },
+      { n: "Vertical position", v: "Normal", c: "select", o: ["Normal", "Superscript", "Subscript"], s: "doc" },
+      { n: "Lines", v: "None", s: "doc" }, { n: "Color", v: "Automatic", s: "doc" }]],
+    ["lang", "Language", [
+      { n: "Language", v: "English", c: "select", o: ["English", "Italian"], s: "doc" },
+      { n: "Hyphenation", v: "On", c: "toggle", s: "doc" }]],
+    ["feat", "Features and axes", [
+      { n: "Ligatures", v: "Common", s: "style" }, { n: "Optical size", v: "Automatic", s: "doc" }]],
+  ];
+
+  const objects = {
+    document: { label: "Document", groups: [
+      ["base", "Defaults", [ { n: "Language", v: "English", c: "select", o: ["English", "Italian"], s: "here" }, { n: "Hyphenation", v: "On", c: "toggle", s: "here" } ]]],
+      facts: [["Pages", "1"], ["Paragraphs", "4"], ["Words", "86"], ["Notes", "0"]] },
+    section: { label: "Section", sub: "Chapter 1", groups: [
+      ["sec", "Section", [ { n: "Role", v: "Chapter", c: "select", o: ["Chapter", "Part", "Appendix"], s: "here" },
+        { n: "Starts on", v: "Right page", c: "select", o: ["Next page", "Right page", "Left page"], s: "here" },
+        { n: "Page numbers", v: "Continue", c: "select", o: ["Continue", "Restart at 1"], s: "doc" } ]]],
+      facts: [["Pages", "1"], ["Title", "The Long Afternoon"]] },
+    page: { label: "Page", sub: "Default type", groups: [
+      ["size", "Size and margins", [ { n: "Size", v: "A5", c: "select", o: ["A4", "A5", "Letter"], s: "here" },
+        { n: "Inner margin", v: "18 mm", s: "here" }, { n: "Outer margin", v: "22 mm", s: "here" }, { n: "Top margin", v: "20 mm", s: "doc" }, { n: "Bottom margin", v: "26 mm", s: "doc" } ]]],
+      facts: [["Number", "1 (right)"], ["Lines on page", "11"]] },
+    word: { label: "Word", style: "No style", groups: () => characterGroups().filter(g => g[0] === "lang"), facts: [["Text", "“Nobody”"], ["Found by", "Rule “After Heading” (first word)"]] },
+    character: { label: "Character", style: "No style", groups: characterGroups, facts: [["Glyph", "N · U+004E"], ["Font used", "Hoefler Text Regular"]] },
+  };
+
+  const definitions = [
+    ["Styles", "Paragraph, word and character styles", 7, "¶"],
+    ["Lists", "Numbering and bullets", 2, "≡"],
+    ["Floats", "Figures, tables and notes that move", 3, "▣"],
+    ["Rules", "Selections and what they change", 2, "✦"],
+    ["Pages", "Page types and margins", 1, "▭"],
+    ["Tables", "Table and cell styles", 1, "▦"],
+  ];
+
+  const crumbsOrder = ["document", "section", "page", "paragraph", "word", "character"];
+  const crumbTitle = { document: "Document", section: "Section", page: "Page", paragraph: "Paragraph", word: "Word", character: "Character" };
+
+  const state = { para: "a", object: "paragraph", setOnly: false, open: {}, why: null, variant: "A", side: "inspector", composerTab: "Styles" };
+  const body = document.getElementById("panelBody");
+  const top = document.getElementById("panelTop");
+
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function current() {
+    if (state.object === "paragraph") return paragraphs[state.para];
+    const o = objects[state.object];
+    return { ...o, groups: typeof o.groups === "function" ? o.groups() : o.groups };
+  }
+
+  function sourceText(r, data) {
+    switch (r.s) {
+      case "doc": return SRC.doc;
+      case "style": return SRC.style(data.style);
+      case "here": return SRC.here;
+      case "rule": return SRC.rule(r.rule);
+      case "problem": return "Two definitions disagree";
+    }
+  }
+
+  function control(r, id) {
+    if (r.c === "select") return `<select id="${id}" aria-label="${esc(r.n)}">${r.o.map(o => `<option${o === r.v ? " selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+    if (r.c === "toggle") return `<select id="${id}" aria-label="${esc(r.n)}"><option${r.v === "On" ? " selected" : ""}>On</option><option${r.v === "Off" ? " selected" : ""}>Off</option></select>`;
+    if (r.c === "text-ro") return `<span style="color:var(--secondary)">${esc(r.v)}</span>`;
+    return `<input type="text" id="${id}" value="${esc(r.v)}" aria-label="${esc(r.n)}">`;
+  }
+
+  function whyBox(r, data, key) {
+    const acts = [];
+    if (r.s === "here") acts.push(["Move into “" + data.style + "”", "move"], ["Back to the style", "reset"]);
+    if (r.s === "style") acts.push(["Set here instead", "own"], ["Open “" + data.style + "”", "noop"]);
+    if (r.s === "doc") acts.push(["Set here", "own"], ["Set in “" + (data.style || "the style") + "”", "toStyle"]);
+    if (r.s === "rule") acts.push(["Open the rule", "noop"], ["Make an exception here", "exception"]);
+    if (r.s === "problem") acts.push(["Show both in the Composer", "noop"]);
+    if (r.fx) acts.unshift(["Open the formula", "noop"], ["Use the result as a fixed value", "fix"]);
+    (r.act || []).forEach(a => acts.unshift([a, "noop"]));
+    let extra = "";
+    if (r.chain) extra += `<div class="chain">${esc(r.chain)}</div>`;
+    if (r.suspended) extra += `<div class="suspended">Local value <s>${esc(r.suspended)}</s> is kept but suspended while the rule applies. Remove the rule or make an exception to bring it back.</div>`;
+    if (r.conflict) extra += `<div class="chain">${esc(r.conflict)}</div>`;
+    if (r.fx) extra += `<div class="chain">= ${esc(r.fx)}</div>`;
+    if (r.note) extra += `<div class="chain">${esc(r.note)}</div>`;
+    if (r.s === "style" && data.based) extra += `<div class="chain">“${esc(data.style)}” is based on “${esc(data.based)}”.</div>`;
+    return `<div class="why" role="region" aria-label="Where ${esc(r.n)} comes from">
+      <span class="src ${r.s}">${esc(sourceText(r, data))}</span>${extra}
+      <div class="acts">${acts.map(([t, a]) => `<button class="btn" data-act="${a}" data-key="${key}">${esc(t)}</button>`).join("")}</div></div>`;
+  }
+
+  function renderInspector() {
+    const data = current();
+    const showStyle = ["paragraph", "word", "character"].includes(state.object);
+    let hidden = 0;
+    let html = `<nav class="crumbs" aria-label="Object path">` + crumbsOrder.map((o, i) =>
+      `${i ? "<span>›</span>" : ""}<button data-obj="${o}" aria-current="${o === state.object}">${crumbTitle[o]}</button>`).join("") + `</nav>`;
+    html += `<div class="head"><div><h2>${esc(data.label)}</h2>`;
+    if (showStyle) html += `<div class="style-pill"><button class="btn">${esc(data.style)} ⌄</button></div>`;
+    else if (data.sub) html += `<div style="color:var(--secondary);margin-top:2px">${esc(data.sub)}</div>`;
+    html += `</div>`;
+    if (showStyle) html += `<div class="tools"><button class="btn quiet" title="Create a style from here" aria-label="Create a style from here">🖌</button>${state.object !== "paragraph" ? `<button class="btn quiet" title="Create a rule from here" aria-label="Create a rule from here">✦</button>` : ""}</div>`;
+    html += `</div>`;
+    html += `<div class="filter"><span class="seg" id="filterSeg"><button aria-pressed="${!state.setOnly}" data-f="all">All</button><button aria-pressed="${state.setOnly}" data-f="set">Set</button></span><span class="count" id="hiddenCount"></span></div>`;
+
+    data.groups.forEach(([gid, gtitle, rows]) => {
+      const visible = rows.filter(r => !(state.setOnly && r.s === "doc"));
+      hidden += rows.length - visible.length;
+      if (!visible.length) return;
+      const openKey = state.object + ":" + gid;
+      const open = state.open[openKey] !== false;
+      const marks = [...new Set(rows.filter(r => r.s !== "doc").map(r => r.s))];
+      html += `<section class="group" data-open="${open}"><button class="gh" data-group="${openKey}" aria-expanded="${open}">
+        <svg class="chev" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span class="gt">${esc(gtitle)}</span><span class="marks" aria-hidden="true">${open ? "" : marks.map(m => `<i class="dot ${m}" style="width:7px;height:7px"></i>`).join("")}</span></button><div class="rows">`;
+      visible.forEach((r, i) => {
+        const key = `${state.object}:${state.para}:${gid}:${rows.indexOf(r)}`;
+        const id = "c_" + key.replace(/[^a-z0-9]/gi, "_");
+        html += `<div class="row ${r.s}"><label class="name" for="${id}" title="${esc(r.n)}">${esc(r.n)}</label>
+          <div class="val">${control(r, id)}${r.fx ? `<span class="fx" title="${esc(r.fx)}">ƒ</span>` : ""}</div>
+          <button class="dot ${r.s}" data-why="${key}" aria-expanded="${state.why === key}" aria-label="${esc(r.n)}: ${esc(sourceText(r, data))}" title="${esc(sourceText(r, data))}"></button>`;
+        if (r.brief && state.why !== key) html += `<div class="brief ${r.s}">${esc(r.brief)}</div>`;
+        if (state.why === key) html += whyBox(r, data, key);
+        html += `</div>`;
+      });
+      html += `</div></section>`;
+    });
+
+    if (data.facts) {
+      const openKey = state.object + ":facts";
+      const open = state.open[openKey] === true;
+      html += `<section class="group facts" data-open="${open}"><button class="gh" data-group="${openKey}" aria-expanded="${open}">
+        <svg class="chev" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span class="gt">From the layout</span></button><div class="rows">` +
+        data.facts.map(([n, v]) => `<div class="row"><span class="name">${esc(n)}</span><span class="val">${esc(v)}</span></div>`).join("") + `</div></section>`;
+    }
+
+    html += `<div class="legend" aria-label="Legend"><span><i class="dot doc"></i>document</span><span><i class="dot style"></i>style</span><span><i class="dot here"></i>set here</span><span><i class="dot rule"></i>rule</span><span><i class="dot problem"></i>conflict</span></div>`;
+    body.innerHTML = html;
+    const count = document.getElementById("hiddenCount");
+    count.textContent = state.setOnly && hidden ? `${hidden} from the document hidden` : "";
+  }
+
+  function renderDefinitions() {
+    body.innerHTML = `<div class="defs-list">` + definitions.map(([t, d, n, g]) =>
+      `<button class="def"><span style="font-size:15px;color:var(--glyph)">${g}</span><span><b>${t}</b><small>${d}</small></span><span class="n">${n}</span></button>`).join("") +
+      `</div><p style="color:var(--secondary);margin-top:12px">Each entry opens today's sheet for that kind of definition, unchanged. The Composer stays the place for formulas and actions.</p>`;
+  }
+
+  function renderTop() {
+    if (state.variant === "A") {
+      top.innerHTML = `<span class="seg" id="sideSeg"><button aria-pressed="${state.side === "inspector"}" data-s="inspector">Selection</button><button aria-pressed="${state.side === "defs"}" data-s="defs">Definitions</button></span>`;
+    } else {
+      state.side = "inspector";
+      top.innerHTML = `<span class="title">Inspector</span><button class="btn" data-s="composer" title="Open the Style Composer">Definitions ↗ Composer</button>`;
+    }
+  }
+
+  // Le schede del compositore: oggi quattro; nella variante B arrivano le altre quattro definizioni.
+  const composerToday = ["Styles", "Selections", "Rules", "Formulas"];
+  const composerNew = ["Lists", "Floats", "Pages", "Tables"];
+  const composerText = {
+    Styles: "The action composer for paragraph, word and character styles (as built on 5 November).",
+    Selections: "Named selections used by rules and formulas.",
+    Rules: "The historical rules of the document.",
+    Formulas: "Reusable formulas with their parameters.",
+    Lists: "Numbering and bullets: today the <b>Lists</b> tab in the side panel.",
+    Floats: "Figures, tables and notes that move: today the <b>Floats</b> tab.",
+    Pages: "Page types and margins: today the <b>Pages</b> tab.",
+    Tables: "Table and cell styles: today the <b>Tables</b> tab.",
+  };
+
+  function renderComposer() {
+    const tabs = state.variant === "B" ? [...composerToday, ...composerNew] : composerToday;
+    if (!tabs.includes(state.composerTab)) state.composerTab = "Styles";
+    document.getElementById("composerTabs").innerHTML = tabs.map(t =>
+      `<button data-ct="${t}" aria-pressed="${t === state.composerTab}" class="${composerNew.includes(t) ? "new" : ""}">${t}</button>`).join("");
+    const where = state.variant === "B"
+      ? "In variant B every kind of definition lives here: the side panel no longer has tabs."
+      : "In variant A the Composer stays as it is today, with four tabs. Lists, floats, pages and tables stay in the side panel, under <b>Definitions</b>.";
+    document.getElementById("composerBody").innerHTML = `<p style="margin:0 0 6px"><b>${state.composerTab}</b> · ${composerText[state.composerTab]}</p><p style="margin:0">${where}</p>`;
+  }
+
+  function renderBanner() {
+    document.getElementById("banner").innerHTML = state.variant === "A"
+      ? `<span class="tag">A</span><p>Il pannello a destra ha <b>due viste</b>: <b>Selection</b> (l'ispettore) e <b>Definitions</b>, che raccoglie le sei schede di oggi (Styles, Lists, Floats, Rules, Pages, Tables). Il <b>compositore</b>, sotto la finestra, resta com'è: quattro schede.<br>Prova: clic su «Definitions» in cima al pannello.</p>`
+      : `<span class="tag">B</span><p>Il pannello a destra è <b>solo l'ispettore</b>, senza schede. Liste, flottanti, pagine e tabelle passano nel <b>compositore</b> sotto la finestra, che va da quattro a <b>otto schede</b> (le quattro nuove hanno un pallino arancio).<br>Prova: clic su «Definitions ↗ Composer» in cima al pannello.</p>`;
+  }
+
+  function render() {
+    renderBanner();
+    renderTop();
+    renderComposer();
+    if (state.side === "defs") renderDefinitions(); else renderInspector();
+    document.querySelectorAll("#page p").forEach(p => p.classList.toggle("chosen", state.object === "paragraph" && p.dataset.p === state.para));
+  }
+
+  function findRow(key) {
+    const [obj, para, gid, idx] = key.split(":");
+    const data = obj === "paragraph" ? paragraphs[para] : null;
+    if (!data) return null;
+    const g = data.groups.find(g => g[0] === gid);
+    return g ? g[2][+idx] : null;
+  }
+
+  // Le azioni cambiano davvero la provenienza nel prototipo, per vedere come reagisce la riga.
+  function act(a, key) {
+    const r = findRow(key);
+    if (!r) return;
+    if (a === "move") { r.s = "style"; }
+    if (a === "reset") { r.s = "style"; r.v = r.n === "Left indent" ? "0 pt" : r.v; document.querySelector('[data-p="c"]').classList.remove("local"); }
+    if (a === "own" || a === "toStyle") { r.s = a === "own" ? "here" : "style"; }
+    if (a === "exception") { r.s = "here"; r.v = r.suspended; delete r.suspended; delete r.brief; r.note = "Exception to the rule “" + r.rule + "” for this paragraph only."; delete r.chain; document.querySelector('[data-p="a"]').style.textIndent = "5mm"; }
+    if (a === "fix") { delete r.fx; r.note = "Fixed value; the formula is no longer linked."; }
+    render();
+  }
+
+  body.addEventListener("click", (e) => {
+    const t = e.target.closest("button");
+    if (!t) return;
+    if (t.dataset.obj) { state.object = t.dataset.obj; state.why = null; render(); }
+    else if (t.dataset.group) { state.open[t.dataset.group] = t.getAttribute("aria-expanded") !== "true"; render(); }
+    else if (t.dataset.why) { state.why = state.why === t.dataset.why ? null : t.dataset.why; render(); const d = body.querySelector(`[data-why="${CSS.escape(t.dataset.why)}"]`); d && d.focus(); }
+    else if (t.dataset.f) { state.setOnly = t.dataset.f === "set"; render(); }
+    else if (t.dataset.act) act(t.dataset.act, t.dataset.key);
+  });
+  top.addEventListener("click", (e) => {
+    const t = e.target.closest("button[data-s]"); if (!t) return;
+    if (t.dataset.s === "composer") {
+      const c = document.getElementById("composer");
+      state.composerTab = "Lists"; renderComposer();
+      c.scrollIntoView({ behavior: "smooth", block: "center" });
+      c.classList.remove("flash"); void c.offsetWidth; c.classList.add("flash");
+      return;
+    }
+    state.side = t.dataset.s; render();
+  });
+  document.getElementById("composerTabs").addEventListener("click", (e) => {
+    const t = e.target.closest("button[data-ct]"); if (t) { state.composerTab = t.dataset.ct; renderComposer(); }
+  });
+  document.getElementById("page").addEventListener("click", (e) => {
+    const p = e.target.closest("p[data-p]"); if (!p) return;
+    state.para = p.dataset.p; state.object = "paragraph"; state.why = null; state.side = "inspector"; render();
+  });
+  document.getElementById("variant").addEventListener("click", (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    state.variant = t.dataset.v;
+    document.querySelectorAll("#variant button").forEach(b => b.setAttribute("aria-pressed", b === t));
+    render();
+  });
+  document.getElementById("theme").addEventListener("click", (e) => {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.t === "system") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", t.dataset.t);
+    document.querySelectorAll("#theme button").forEach(b => b.setAttribute("aria-pressed", b === t));
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

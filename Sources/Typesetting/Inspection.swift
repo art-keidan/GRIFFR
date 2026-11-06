@@ -168,6 +168,43 @@ public struct InspectedValue: Equatable, Sendable {
     public var source: ValueSource
     /// Vero se nella selezione la proprietà non ha un valore solo.
     public var isMixed: Bool
+    /// Che cosa fanno le regole a questa proprietà nel punto, se la toccano: per spiegarlo nell'ispettore.
+    public var rules: RuleInfluence? = nil
+
+    public init(property: InspectorProperty, value: StyleValues, inherited: StyleValues, source: ValueSource, isMixed: Bool,
+                rules: RuleInfluence? = nil) {
+        self.property = property
+        self.value = value
+        self.inherited = inherited
+        self.source = source
+        self.isMixed = isMixed
+        self.rules = rules
+    }
+}
+
+/// Le regole che toccano una proprietà in un punto, nell'ordine in cui si applicano: l'ultima è quella che conta.
+public struct RuleInfluence: Equatable, Sendable {
+    /// Le descrizioni delle regole che danno un valore alla proprietà: prima quelle scavalcate, ultima quella che
+    /// conta (la prima, nell'ordine delle regole, che la cambia). Più di una è un conflitto.
+    public var rules: [String]
+    /// Lo stile di cui l'ultima regola è una formula contestuale, se lo è.
+    public var owner: String?
+    /// Il valore dato a mano che una regola attiva scavalca: resta nel testo, ma non si applica.
+    public var suspended: StyleValues?
+    /// Il valore che l'ultima regola darebbe, quando a vincere è il valore dato qui (un'eccezione o una regola storica).
+    public var yielded: StyleValues?
+
+    public init(rules: [String], owner: String? = nil, suspended: StyleValues? = nil, yielded: StyleValues? = nil) {
+        self.rules = rules
+        self.owner = owner
+        self.suspended = suspended
+        self.yielded = yielded
+    }
+
+    /// La regola che conta.
+    public var winner: String? { rules.last }
+    /// Le regole scavalcate dall'ultima.
+    public var outranked: [String] { Array(rules.dropLast()) }
 }
 
 extension TextStyling {
@@ -534,27 +571,73 @@ extension TextStyling {
         let sheet = originalSheet.compilingStyleRules([]).sheet
         guard !rules.isEmpty, text.length > 0 else { return values }
         let index = min(index, text.length - 1)
-        let piece = NSMutableAttributedString(attributedString: text.attributedSubstring(from: NSRange(location: index, length: 1)))
+        let original = text.attributedSubstring(from: NSRange(location: index, length: 1))
         let all = NSRange(location: 0, length: 1)
-        guard var previous = actualAndInherited(in: piece, at: 0, sheet: sheet, resolver: resolver)?.actual else { return values }
-        var given: [InspectorProperty: (value: StyleValues, rule: String, active: Bool)] = [:]
-        for rule in rules {
-            if rule.target == .paragraph {
-                Rules.applyParagraphStyle(rule.styleName, in: piece, sheet: sheet, resolver: resolver)
-            } else {
-                Rules.applyStyle(rule.styleName, to: all, in: piece, sheet: sheet, resolver: resolver)
+        typealias Given = [InspectorProperty: [(value: StyleValues, rule: String, owner: String?)]]
+        // Le regole una dopo l'altra su una copia del punto: per ogni proprietà, chi la cambia e in che valore.
+        func simulate(_ piece: NSMutableAttributedString) -> Given? {
+            guard var previous = actualAndInherited(in: piece, at: 0, sheet: sheet, resolver: resolver)?.actual else { return nil }
+            var given: Given = [:]
+            for rule in rules {
+                if rule.target == .paragraph {
+                    Rules.applyParagraphStyle(rule.styleName, in: piece, sheet: sheet, resolver: resolver)
+                } else {
+                    Rules.applyStyle(rule.styleName, to: all, in: piece, sheet: sheet, resolver: resolver)
+                }
+                guard let now = actualAndInherited(in: piece, at: 0, sheet: sheet, resolver: resolver)?.actual else { continue }
+                for property in InspectorProperty.allCases where differs(property, between: now, and: previous) {
+                    given[property, default: []].append((property.only(now), rule.summary, rule.formulaOwner))
+                }
+                previous = now
             }
-            guard let now = actualAndInherited(in: piece, at: 0, sheet: sheet, resolver: resolver)?.actual else { continue }
-            for property in InspectorProperty.allCases where differs(property, between: now, and: previous) {
-                given[property] = (property.only(now), rule.summary, rule.formulaOwner != nil)
-            }
-            previous = now
+            return given
         }
+        // Ogni regola da sola: quali proprietà cambierebbe. Fra due regole sullo stesso punto conta la prima che
+        // cambia la proprietà; le altre che la cambierebbero sono scavalcate.
+        func alone(_ base: NSAttributedString) -> [InspectorProperty: [String]] {
+            guard let before = actualAndInherited(in: base, at: 0, sheet: sheet, resolver: resolver)?.actual else { return [:] }
+            var result: [InspectorProperty: [String]] = [:]
+            for rule in rules {
+                let piece = NSMutableAttributedString(attributedString: base)
+                if rule.target == .paragraph {
+                    Rules.applyParagraphStyle(rule.styleName, in: piece, sheet: sheet, resolver: resolver)
+                } else {
+                    Rules.applyStyle(rule.styleName, to: all, in: piece, sheet: sheet, resolver: resolver)
+                }
+                guard let now = actualAndInherited(in: piece, at: 0, sheet: sheet, resolver: resolver)?.actual else { continue }
+                for property in InspectorProperty.allCases where differs(property, between: now, and: before) {
+                    result[property, default: []].append(rule.summary)
+                }
+            }
+            return result
+        }
+        guard var given = simulate(NSMutableAttributedString(attributedString: original)) else { return values }
+        var candidates = alone(original)
+        // Applicando una regola i valori dati a mano restano: per sapere che cosa le regole darebbero a uno di
+        // questi, si rifà la prova senza di lui.
+        for value in values where value.source == .own && !value.isMixed {
+            let piece = NSMutableAttributedString(attributedString: original)
+            resetValue(of: value.property, in: piece, range: all, sheet: sheet, resolver: resolver)
+            if let list = simulate(piece)?[value.property] { given[value.property] = list }
+            candidates[value.property] = alone(piece)[value.property]
+        }
+        // Un'eccezione segnata nel testo vince su ogni regola, come nell'impaginazione.
+        let exceptions = ruleExceptions(in: text, at: index)
         return values.map { value in
-            guard !value.isMixed, let rule = given[value.property], value.source != .own || rule.active else { return value }
+            guard !value.isMixed, let list = given[value.property], let last = list.last else { return value }
             var copy = value
-            copy.value = rule.value
-            copy.source = .rule(rule.rule)
+            // Le scavalcate prima, poi quella che conta.
+            let names = (candidates[value.property] ?? []).filter { $0 != last.rule } + [last.rule]
+            // Una regola storica non tocca un valore dato a mano; quella che viene da una formula sì, tranne dove
+            // un'eccezione lo protegge.
+            let active = last.owner != nil
+            if value.source == .own && (!active || exceptions.contains(value.property)) {
+                copy.rules = RuleInfluence(rules: names, owner: last.owner, yielded: last.value)
+                return copy
+            }
+            copy.rules = RuleInfluence(rules: names, owner: last.owner, suspended: value.source == .own ? value.value : nil)
+            copy.value = last.value
+            copy.source = .rule(last.rule)
             return copy
         }
     }
@@ -663,5 +746,43 @@ extension TextStyling {
             location = max(NSMaxRange(paragraph), location + 1)
         }
         for (paragraph, keeping) in pieces where paragraph.length > 0 { setLineKeeping(keeping, in: text, paragraphs: paragraph) }
+    }
+}
+
+extension InspectorProperty {
+    /// Il valore della proprietà in parole brevi, per le spiegazioni dell'ispettore («5 mm», «Justified», «On»).
+    public func text(of values: StyleValues) -> String {
+        func points(_ value: Double?) -> String {
+            guard let value else { return "—" }
+            let millimetres = value / 72 * 25.4
+            return value == 0 ? "0 pt" : millimetres.formatted(.number.precision(.fractionLength(0...1))) + " mm"
+        }
+        func onOff(_ value: Bool?) -> String { value.map { $0 ? "On" : "Off" } ?? "—" }
+        switch self {
+        case .family: return values.family ?? values.fontName ?? "—"
+        case .face: return values.fontName ?? "—"
+        case .size: return values.size.map { $0.formatted(.number.precision(.fractionLength(0...1))) + " pt" } ?? "—"
+        case .smallCaps: return values.smallCaps?.rawValue ?? "—"
+        case .color: return (values.color ?? "").isEmpty ? "Automatic" : values.color!
+        case .verticalPosition: return values.verticalPosition ?? "—"
+        case .decorations: return (values.decorations ?? "").isEmpty ? "None" : values.decorations!
+        case .shaping: return values.graphite == nil ? "Core Text" : "Graphite"
+        case .language: return (values.language ?? "").isEmpty ? "Document language" : values.language!
+        case .hyphenates: return onOff(values.hyphenates)
+        case .alignment: return values.alignment.map { $0.rawValue.prefix(1).uppercased() + $0.rawValue.dropFirst() } ?? "—"
+        case .leftIndent: return points(values.leftIndent)
+        case .rightIndent: return points(values.rightIndent)
+        case .firstLineIndent: return points(values.firstLineIndent)
+        case .spaceBefore: return points(values.spaceBefore)
+        case .spaceAfter: return points(values.spaceAfter)
+        case .lineSpacing: return points(values.lineSpacing)
+        case .openingDistance: return points(values.openingDistance)
+        case .lineHeightMultiple: return values.lineHeightMultiple.map { $0.formatted(.number.precision(.fractionLength(0...2))) + " ×" } ?? "—"
+        case .list: return (values.listName ?? "").isEmpty ? "None" : values.listName!
+        case .keepWithNext: return onOff(values.keeping.withNext)
+        case .keepTogether: return onOff(values.keeping.together)
+        case .orphanLines: return values.keeping.linesAtEnd.map(String.init) ?? "—"
+        case .widowLines: return values.keeping.linesAtStart.map(String.init) ?? "—"
+        }
     }
 }

@@ -41,11 +41,9 @@ enum Theme {
     static let accentInk = color(0xffffff, 0xffffff)
     static let activeTop = color(0x4c8bf0, 0x3f7de6)
     static let activeBottom = color(0x2463d1, 0x2457b8)
-    static let activeHoverTop = color(0x67a0f7, 0x5590f0)
     static let activeHoverBottom = color(0x3474e0, 0x2f69cc)
     static let pressed = color(0xdce7f8, 0x24406a)
     static let pressedBottom = color(0xb7c9e8, 0x24324d)
-    static let hoverTop = color(0xf1f6ff, 0x435372)
     static let hoverBottom = color(0xd9e6fb, 0x3a4a68)
     static let hoverLine = color(0x4f80d8, 0x6f9bea)
     static let highlight = color(0xebebee, 0x46464a)
@@ -54,6 +52,10 @@ enum Theme {
     static let rulerPage = color(0xffffff, 0x3b3b3f)
     static let tick = color(0x9a9aa0, 0x7a7a80)
     static let warn = color(0xa34a00, 0xffb35c)
+    /// Le provenienze nell'ispettore: un valore dato qui (arancio) e uno imposto da una regola (verde). Lo stile usa
+    /// `accent`, il documento `secondary`.
+    static let ownSource = color(0xc25e00, 0xffa04d)
+    static let ruleSource = color(0x1f8a78, 0x5fd3bd)
     /// Sulla pagina, che è bianca anche con l'aspetto scuro: il cursore e la selezione nell'azzurro del disegno, non nel
     /// colore d'accento del sistema (che può essere rosso, o rosa per la selezione).
     static let pageCaret = NSColor(srgbRed: 0x0a / 255, green: 0x60 / 255, blue: 0xd0 / 255, alpha: 1)
@@ -98,13 +100,13 @@ enum Theme {
     static func drawBox(_ rect: NSRect, on: Bool = false, dashed: Bool = false, highlighted: Bool = false,
                         hovered: Bool = false, border: NSColor? = nil) {
         let path = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: 3, yRadius: 3)
-        let (_, bottom, edge): (NSColor, NSColor, NSColor) =
-            if highlighted { (pressed, pressedBottom, hoverLine) }
-            else if on { (hovered ? activeHoverTop : activeTop, hovered ? activeHoverBottom : activeBottom, accent) }
-            else if hovered { (hoverTop, hoverBottom, hoverLine) }
-            else { (control, controlBottom, controlLine) }
         // Piatta: un colore solo, senza rilievo.
-        bottom.setFill()
+        let (fill, edge): (NSColor, NSColor) =
+            if highlighted { (pressedBottom, hoverLine) }
+            else if on { (hovered ? activeHoverBottom : activeBottom, accent) }
+            else if hovered { (hoverBottom, hoverLine) }
+            else { (controlBottom, controlLine) }
+        fill.setFill()
         path.fill()
         (border ?? edge).setStroke()
         path.lineWidth = 1
@@ -693,10 +695,28 @@ final class BandLabel: NSTextField {
 /// Un'etichetta che risponde al clic: i conteggi della barra di stato, che aprono l'elenco completo.
 final class ClickableLabel: NSTextField {
     var onClick: (() -> Void)?
+    /// Il colore a riposo; al passaggio del mouse il testo prende l'azzurro dei glifi, come i pulsanti delle barre.
+    private var restingColor: NSColor?
     override var alignmentRectInsets: NSEdgeInsets { NSEdgeInsetsZero }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func mouseDown(with event: NSEvent) { onClick?() }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) {
+        guard onClick != nil, restingColor == nil else { return }
+        restingColor = textColor
+        textColor = Theme.glyph
+    }
+    override func mouseExited(with event: NSEvent) {
+        guard let restingColor else { return }
+        textColor = restingColor
+        self.restingColor = nil
+    }
 }
 
 /// Lo spazio elastico di una fascia.
