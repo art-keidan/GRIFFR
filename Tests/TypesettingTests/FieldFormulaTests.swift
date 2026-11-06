@@ -134,4 +134,32 @@ struct FieldFormulaTests {
         #expect(end.pageCount == String(layout.pages.count) && end.pageNumber == layout.pages.last?.number)
         #expect(end.sections == [FieldContext.Section(role: "chapter", title: "Il mare", number: "1")])
     }
+
+    @Test("Il segnaposto di un campo non è una sostituzione del font; il testo calcolato ha la sua cornice e non è un richiamo")
+    func placeholderAndFrame() throws {
+        func text(_ string: String) -> Inline { .text(TextRun(string, style: body)) }
+        let document = Document(blocks: [.paragraph(Paragraph(inlines: [text("Pagina "), .text(TextRun(Field.placeholder, style: body, field: .page)),
+                                                                        text(" di tutto.")]))])
+        let attributed = document.attributedString().text
+        let field = (attributed.string as NSString).range(of: Field.placeholder).location
+        #expect(field == 7)
+        // Il menu del font guarda il testo del documento: il segnaposto c'è, ma non conta.
+        #expect(FontFallback.fallbackFamilies(in: attributed, range: NSRange(location: 0, length: attributed.length)).isEmpty)
+        #expect(FontFallback.fallbackFamilies(in: attributed, range: NSRange(location: field, length: 1)).isEmpty)
+        let bare = NSMutableAttributedString(attributedString: attributed)
+        bare.removeAttribute(.field, range: NSRange(location: 0, length: bare.length))
+        #expect(!FontFallback.fallbackFamilies(in: bare, range: NSRange(location: field, length: 1)).isEmpty,
+                "senza il segno di campo, lo stesso carattere chiede un ripiego: è il caso segnalato prima")
+        // Sulla pagina il campo scrive «1»: la sua cornice sta dove sta quel testo, fra «Pagina » e « di».
+        let layout = PageLayout.layout(attributed, setup: document.pageSetup, options: document.layoutOptions)
+        let frames = layout.pages[0].fieldRects
+        #expect(frames.count == 1 && frames.first?.location == field)
+        let frame = try #require(frames.first?.rect)
+        let line = try #require(layout.pages[0].lines.first)
+        #expect(frame.width > 1 && frame.minX > line.origin.x + 10 && frame.maxX < line.origin.x + line.width)
+        #expect(!layout.invisibleMarks(onPage: 0).contains { $0.kind == .noteReference }, "il campo non si segna come un richiamo")
+        // Nel PDF nessuna traccia: il testo è quello di sempre.
+        let pdf = try #require(PDFDocument(data: PDFRenderer.pdfData(for: layout)))
+        #expect(pdf.page(at: 0)?.string?.contains("Pagina 1 di tutto.") == true)
+    }
 }

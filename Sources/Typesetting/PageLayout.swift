@@ -2583,6 +2583,7 @@ public enum PageLayout {
                 flush(upTo: index)
                 var attributes = source.attributes(at: index, effectiveRange: nil)
                 attributes[.field] = nil
+                attributes[.composedField] = documentStart + index
                 result.append(NSAttributedString(string: field(found), attributes: attributes))
                 cursor = index + 1
             }

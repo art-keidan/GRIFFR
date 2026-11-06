@@ -40,7 +40,12 @@ public enum FontFallback {
         var result: [String] = []
         for run in CTLineGetGlyphRuns(line) as! [CTRun] {
             let span = CTRunGetStringRange(run)
-            let string = (piece.string as NSString).substring(with: NSRange(location: span.location, length: span.length))
+            // Il carattere che tiene il posto di un campo non si disegna: sulla pagina c'è il testo calcolato, con il font
+            // del tratto. Che il font non lo abbia non è una sostituzione.
+            var string = ""
+            piece.enumerateAttribute(.field, in: NSRange(location: span.location, length: span.length)) { value, range, _ in
+                if value == nil { string += (piece.string as NSString).substring(with: range) }
+            }
             guard !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   let family = fallbackFamily(of: run), !result.contains(family) else { continue }
             result.append(family)
@@ -50,6 +55,28 @@ public enum FontFallback {
 }
 
 extension LaidOutPage {
+    /// Il testo calcolato di ogni campo sulla pagina: la posizione del campo nel documento e il rettangolo che occupa
+    /// nella riga, nelle coordinate della pagina (origine in basso a sinistra). Per la cornice che si vede solo a schermo.
+    public var fieldRects: [(location: Int, rect: CGRect)] {
+        var result: [(location: Int, rect: CGRect)] = []
+        for placed in lines {
+            var byField: [Int: CGRect] = [:]
+            var order: [Int] = []
+            for run in CTLineGetGlyphRuns(placed.line) as! [CTRun] {
+                let attributes = CTRunGetAttributes(run) as NSDictionary
+                guard let location = (attributes[NSAttributedString.Key.composedField] as? NSNumber)?.intValue,
+                      CTRunGetGlyphCount(run) > 0 else { continue }
+                var position = CGPoint.zero
+                CTRunGetPositions(run, CFRange(location: 0, length: 1), &position)
+                let width = CGFloat(CTRunGetTypographicBounds(run, CFRange(location: 0, length: 0), nil, nil, nil))
+                let rect = CGRect(x: placed.origin.x + position.x, y: placed.origin.y - placed.descent, width: width, height: placed.ascent + placed.descent)
+                if let known = byField[location] { byField[location] = known.union(rect) } else { byField[location] = rect; order.append(location) }
+            }
+            for location in order { result.append((location, byField[location]!)) }
+        }
+        return result
+    }
+
     /// I rettangoli dei caratteri disegnati con un font di ripiego, nelle coordinate della pagina (origine in basso a
     /// sinistra): per segnalarli a schermo.
     public var fallbackRects: [CGRect] {
@@ -71,4 +98,6 @@ extension LaidOutPage {
 extension NSAttributedString.Key {
     /// La famiglia del font scelto per il tratto, aggiunta solo durante l'impaginazione (vedi `FontFallback`).
     public static let chosenFontFamily = NSAttributedString.Key("WordProcessorChosenFontFamily")
+    /// Nel testo composto, sul testo calcolato di un campo: la posizione del campo nel documento.
+    public static let composedField = NSAttributedString.Key("WordProcessorComposedField")
 }

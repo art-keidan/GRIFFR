@@ -491,6 +491,7 @@ final class PagesView: NSView {
             }
             PDFRenderer.draw(page, in: context)
             if showsInvisibles { drawInvisibles(layout.invisibleMarks(onPage: index), in: context) }
+            drawFieldFrames(page.fieldRects, in: context)
             // Le note a margine che si sovrappongono o escono dallo specchio: un riquadro rosso, solo a schermo.
             let conflicts = layout.marginConflictRects(onPage: index)
             if !conflicts.isEmpty {
@@ -523,6 +524,23 @@ final class PagesView: NSView {
 extension PagesView {
     /// Il colore dei segni dei caratteri nascosti: un grigio azzurro, che si distingue dal testo.
     private static let invisibleColor = NSColor(calibratedRed: 0.33, green: 0.52, blue: 0.82, alpha: 0.85).cgColor
+
+    /// La cornice dei campi, solo a schermo: di tutti con i caratteri nascosti in vista, altrimenti di quelli scelti.
+    /// Nel PDF e nella stampa non va. Con l'origine della pagina in basso a sinistra, come il motore.
+    func drawFieldFrames(_ fields: [(location: Int, rect: CGRect)], in context: CGContext) {
+        let chosen = fields.filter { showsInvisibles || NSLocationInRange($0.location, selection) }
+        guard !chosen.isEmpty else { return }
+        context.saveGState()
+        defer { context.restoreGState() }
+        context.setLineWidth(0.6)
+        for field in chosen {
+            let selected = NSLocationInRange(field.location, selection)
+            context.setStrokeColor(selected ? Theme.accent.cgColor : Self.invisibleColor)
+            let rect = field.rect.insetBy(dx: -1, dy: 0.5)
+            context.addPath(CGPath(roundedRect: rect, cornerWidth: 1.5, cornerHeight: 1.5, transform: nil))
+            context.strokePath()
+        }
+    }
 
     /// Disegna i segni dei caratteri nascosti di una pagina, con l'origine della pagina in basso a sinistra (come il
     /// motore). Solo a schermo: nel PDF non vanno.

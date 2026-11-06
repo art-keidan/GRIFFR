@@ -282,6 +282,9 @@ extension DocumentLayout {
             for (previous, next) in zip(line.map.segments, line.map.segments.dropFirst()) {
                 let start = previous.composed + previous.length
                 guard next.composed > start, start >= line.composedRange.location, next.composed <= composedEnd else { continue }
+                // Il testo calcolato di un campo ha la sua cornice (`LaidOutPage.fieldRects`), non è un richiamo.
+                let after = previous.document + previous.length
+                if after < string.length, text.attribute(.field, at: after, effectiveRange: nil) != nil { continue }
                 mark(.noteReference, from: start, to: next.composed)
             }
         }
