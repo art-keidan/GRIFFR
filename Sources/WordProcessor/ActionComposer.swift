@@ -68,7 +68,7 @@ private struct ComposerLibrary: View {
                     Button(style.name) { model.selectStyle(style.name) }
                 }
             } label: { ComposerPill(title: model.selectedStyle ?? "Choose a style") }
-                .menuStyle(.borderlessButton).accessibilityLabel("Style")
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).accessibilityLabel("Style")
             TextField("Search actions", text: $search).textFieldStyle(.roundedBorder)
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
@@ -104,7 +104,7 @@ private struct ComposerLibrary: View {
                         Button(name) { if let id = selectedAction { model.applyCondition(.firstAfter(name), to: id) } }
                     }
                 } label: { Label("After Style…", systemImage: "arrow.turn.down.right") }
-                    .menuStyle(.borderlessButton).disabled(selectedAction == nil).padding(.vertical, 3)
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).disabled(selectedAction == nil).padding(.vertical, 3)
             }
             if matches("Always") { conditionItem("Always", .any) }
         }
@@ -207,7 +207,7 @@ private struct ComposerFlow: View {
                     Button("None") { setParent(nil) }
                     ForEach(model.sheet.possibleParents(of: style.name), id: \.self) { name in Button(name) { setParent(name) } }
                 } label: { ComposerPill(title: style.basedOn ?? "Document") }
-                    .menuStyle(.borderlessButton).fixedSize()
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             }
             HStack {
                 Image(systemName: style.target == .paragraph ? "paragraphsign" : "textformat")
@@ -428,7 +428,7 @@ private struct ActionBlock: View {
                     }
                 }.font(.caption).foregroundStyle(.secondary)
             }
-            .menuStyle(.borderlessButton)
+            .menuStyle(.borderlessButton).menuIndicator(.hidden)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Action \(number): " + operation.predicate.title + " " + operation.property.title)
@@ -460,7 +460,7 @@ private struct ActionBlock: View {
                     if !compatible.isEmpty { Divider() }
                     Button("New Variable from This Value") { model.makeVariable(fromValueOf: formula.id) }
                 } label: { Image(systemName: "function") }
-                    .menuStyle(.borderlessButton).fixedSize().help("Use a variable").accessibilityLabel("Use a variable")
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("Use a variable").accessibilityLabel("Use a variable")
             }
         }
     }
@@ -584,7 +584,7 @@ private struct ExpressionLine: View {
                     commit(.call(definition.id, arguments: Dictionary(uniqueKeysWithValues: definition.parameters.map { ($0.id, FormulaExpression.constant($0.type.zero)) })))
                 }
             }
-        } label: { ComposerPill(title: kindTitle) }.menuStyle(.borderlessButton).fixedSize()
+        } label: { ComposerPill(title: kindTitle) }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
     }
 
     private var kindTitle: String {
@@ -634,7 +634,7 @@ private struct OperandControl: View {
                     Button("Typed Value") { commit(.constant((type ?? .length).zero)) }
                     ForEach(choices) { variable in Button(variable.name) { commit(.variable(variable.id)) } }
                 } label: { Image(systemName: "function") }
-                    .menuStyle(.borderlessButton).fixedSize().help("Use a variable").accessibilityLabel("Use a variable")
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("Use a variable").accessibilityLabel("Use a variable")
             }
         }
     }
@@ -704,7 +704,7 @@ private struct ComposerPreview: View {
                 }
             }
         }
-        .toggleStyle(.checkbox).menuStyle(.borderlessButton)
+        .toggleStyle(.checkbox).menuStyle(.borderlessButton).menuIndicator(.hidden)
     }
 
     @ViewBuilder private func sample(_ style: NamedStyle) -> some View {
@@ -820,7 +820,7 @@ struct HeadingBlock: View {
                     }
                 }
                 .padding(10)
-                .menuStyle(.borderlessButton)
+                .menuStyle(.borderlessButton).menuIndicator(.hidden)
             }
         }
         .background(Color(nsColor: Theme.control))

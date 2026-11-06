@@ -470,7 +470,7 @@ struct ComposerBoard: View {
                     arrow
                     Text("Word?").font(.caption).foregroundStyle(.secondary)
                 }
-            }.menuStyle(.borderlessButton).fixedSize(horizontal: true, vertical: false)
+            }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize(horizontal: true, vertical: false)
             if !model.incomplete.contains(item.id) {
                 Text(item.preview(in: model.sample).map { "Result on the sample   “\($0)”" } ?? "No word at this position · effects suspended")
                     .foregroundStyle(Color(nsColor: Theme.glyph))
@@ -509,7 +509,7 @@ struct ComposerBoard: View {
                 Button(model.rules[i].isEnabled ? "Suspend Treatment" : "Activate Treatment") { model.rules[i].isEnabled.toggle() }
                 Button("Remove Treatment") { model.rules.remove(at: i) }
             } label: { ComposerPill(title: model.rules[i].isEnabled ? "Active" : "Suspended") }
-        }.menuStyle(.borderlessButton).fixedSize(horizontal: true, vertical: false)
+        }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize(horizontal: true, vertical: false)
     }
 }
 
@@ -930,7 +930,7 @@ struct FormulaQualifiers: View {
                     }
                 }
             }
-        }.menuStyle(.borderlessButton)
+        }.menuStyle(.borderlessButton).menuIndicator(.hidden)
     }
     private func targetName(_ target: TextRule.Target) -> String {
         switch target {
@@ -977,7 +977,7 @@ extension ComposerBoard {
                 operation: StylePropertyOperation(.set, .applyStyle, .styleName(rule.styleName)),
                 styleNames: model.sheet.styles.filter { $0.target == .paragraph }.map(\.name), selections: model.sheet.selections)
             Text("Keeps the order and precedence of the original rule.").font(.caption).foregroundStyle(.secondary)
-        }.menuStyle(.borderlessButton).padding(20).frame(width: 850, alignment: .leading)
+        }.menuStyle(.borderlessButton).menuIndicator(.hidden).padding(20).frame(width: 850, alignment: .leading)
             .background(Color(nsColor: Theme.side)).clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
