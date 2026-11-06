@@ -112,12 +112,18 @@ private struct ComposerLibrary: View {
 
     @ViewBuilder private var headingItems: some View {
         let mm = 72 / 25.4
-        if model.currentStyle?.target == .paragraph, matches("Heading") || matches("Rule") || matches("Label") || matches("Number") || matches("Space") {
+        if model.currentStyle?.target == .paragraph, matches("Heading") || matches("Rule") || matches("Label") || matches("Number") || matches("Space")
+            || matches("Write result") {
             group("Heading")
             if matches("Heading") { item("Ready-made heading", symbol: "rectangle.split.1x2") { model.useStandardHeading() } }
             if matches("Label") { item("Label", symbol: "textformat") { model.addHeadingPart(.label(text: "Chapter", style: nil, alignment: .left, minHeight: nil)) } }
             if matches("Number") { item("Section number", symbol: "number") { model.addHeadingPart(.number(prefix: "", style: nil, alignment: .left, minHeight: nil)) } }
             if matches("Number") { item("Number beside title", symbol: "text.insert") { model.addHeadingPart(.numberBeside(prefix: "", style: nil, side: .left, gap: 4 * mm)) } }
+            if matches("Write result") {
+                item("Write result", symbol: "square.and.pencil") {
+                    model.addHeadingPart(.result(formula: .sectionContainingTitle(role: Typesetting.Section.Role.part), prefix: "", style: nil, alignment: .left, minHeight: nil))
+                }
+            }
             if matches("Rule") { item("Rule", symbol: "minus") { model.addHeadingPart(.rule(thickness: 0.5 * mm, length: nil, alignment: .left)) } }
             if matches("Space") { item("Space", symbol: "arrow.up.and.down") { model.addHeadingPart(.space(3 * mm)) } }
         }
@@ -785,6 +791,8 @@ struct HeadingBlock: View {
     let heading: HeadingComposition
     @Binding var expanded: Bool
     @State private var draggingPart: Int?
+    /// L'editor della formula di una parte «risultato», mentre è aperto.
+    @State private var resultEditor: FieldFormulaEditorModel?
     private let mm = 72 / 25.4
 
     private var paragraphStyles: [String] { model.sheet.styles.map(\.name) }
@@ -827,6 +835,14 @@ struct HeadingBlock: View {
         .background(Color(nsColor: Theme.control))
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: Theme.line)))
+        .sheet(isPresented: Binding(get: { resultEditor != nil }, set: { if !$0 { resultEditor = nil } })) {
+            if let resultEditor { FieldFormulaEditorView(model: resultEditor).themed() }
+        }
+    }
+
+    /// Apre la catena della parte `index` nell'editor dei campi.
+    func editResult(at index: Int) {
+        resultEditor = model.resultEditor(at: index) { resultEditor = nil }
     }
 
     @ViewBuilder private func partRow(_ index: Int, _ part: HeadingPart) -> some View {
@@ -845,6 +861,12 @@ struct HeadingBlock: View {
                 case .numberBeside(let prefix, let style, let side, let gap):
                     TextField("Before the number", text: Binding(get: { prefix }, set: { model.updateHeadingPart(at: index, to: .numberBeside(prefix: $0, style: style, side: side, gap: gap)) }))
                         .textFieldStyle(.roundedBorder).frame(maxWidth: 160)
+                case .result(let formula, let prefix, let style, let alignment, let minHeight):
+                    TextField("Before", text: Binding(get: { prefix }, set: { model.updateHeadingPart(at: index, to: .result(formula: formula, prefix: $0, style: style, alignment: alignment, minHeight: minHeight)) }))
+                        .textFieldStyle(.roundedBorder).frame(maxWidth: 80)
+                    Button { editResult(at: index) } label: { ComposerPill(title: formula.title) }
+                        .buttonStyle(.plain).fixedSize().help(formula.chain)
+                        .accessibilityLabel("Formula: " + formula.chain)
                 case .rule(let thickness, let length, let alignment):
                     FormulaNumberPill(value: (thickness / mm * 100).rounded() / 100) { if $0 > 0 { model.updateHeadingPart(at: index, to: .rule(thickness: $0 * mm, length: length, alignment: alignment)) } }
                         .fixedSize()
@@ -869,6 +891,10 @@ struct HeadingBlock: View {
                     styleMenu(style) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: $0, alignment: alignment, minHeight: minHeight)) }
                     alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: style, alignment: $0, minHeight: minHeight)) }
                     heightPill(minHeight) { model.updateHeadingPart(at: index, to: .number(prefix: prefix, style: style, alignment: alignment, minHeight: $0)) }
+                case .result(let formula, let prefix, let style, let alignment, let minHeight):
+                    styleMenu(style) { model.updateHeadingPart(at: index, to: .result(formula: formula, prefix: prefix, style: $0, alignment: alignment, minHeight: minHeight)) }
+                    alignmentMenu(alignment) { model.updateHeadingPart(at: index, to: .result(formula: formula, prefix: prefix, style: style, alignment: $0, minHeight: minHeight)) }
+                    heightPill(minHeight) { model.updateHeadingPart(at: index, to: .result(formula: formula, prefix: prefix, style: style, alignment: alignment, minHeight: $0)) }
                 case .title(let alignment, let minHeight):
                     Menu {
                         Button("Style's alignment") { model.updateHeadingPart(at: index, to: .title(alignment: nil, minHeight: minHeight)) }
@@ -960,6 +986,10 @@ struct HeadingPreview: View {
                     line(text, character(style), value, minHeight)
                 case .number(let prefix, let style, let value, let minHeight):
                     line(prefix + "1", character(style), value, minHeight)
+                case .result(let formula, let prefix, let style, let value, let minHeight):
+                    // Come nel documento: un risultato vuoto non occupa posto.
+                    let result = model.sampleResult(formula)
+                    if !result.isEmpty { line(prefix + result, character(style), value, minHeight) }
                 case .numberBeside:
                     EmptyView()
                 case .title(let value, let minHeight):

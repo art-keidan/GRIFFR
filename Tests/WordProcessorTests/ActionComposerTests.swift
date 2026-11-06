@@ -153,6 +153,41 @@ struct ActionComposerTests {
         #expect(xml.contains("version=\"15\""))
     }
 
+    @Test("Scrivi risultato dalla bacheca: la parte prima del titolo, la catena cambiata nell'editor dei campi, il formato 16")
+    func resultThroughTheComposer() throws {
+        let h = EditorHarness(paragraphs: ["Prova."])
+        defer { h.close() }
+        h.editor.openStyleComposer(nil)
+        let board = try #require(h.editor.composerModel)
+        board.selectStyle("Heading 1")
+        let part = HeadingPart.result(formula: .sectionContainingTitle(role: "part"), prefix: "", style: nil, alignment: .left, minHeight: nil)
+        board.addHeadingPart(part)
+        #expect(board.currentHeading?.parts == [part, .plainTitle], "prima del titolo")
+        #expect(board.sectionRoles.starts(with: ["part", "chapter", "section", "appendix"]))
+        #expect(board.sampleResult(.sectionContainingTitle(role: "part")) == board.sample)
+        // L'editor dei campi cambia la catena; Annulla la lascia com'era.
+        var closed = 0
+        let cancelled = try #require(board.resultEditor(at: 0) { closed += 1 })
+        cancelled.setOrigin(.document)
+        cancelled.finish?(nil)
+        #expect(board.currentHeading?.parts.first == part && closed == 1)
+        let editor = try #require(board.resultEditor(at: 0) { closed += 1 })
+        #expect(editor.result == board.sample)
+        editor.replaceStep(at: 0, with: .containingPage)
+        #expect(editor.formula == .pageContainingNumber && editor.result == "1")
+        editor.finish?(editor.formula)
+        #expect(closed == 2)
+        #expect(board.currentHeading?.parts.first == .result(formula: .pageContainingNumber, prefix: "", style: nil, alignment: .left, minHeight: nil))
+        #expect(board.resultEditor(at: 1) {} == nil, "il titolo non ha una catena")
+        #expect(board.validationIssue == nil, "\(board.validationIssue ?? "")")
+        board.apply(); h.step()
+        #expect(h.editor.settings.styles.style(named: "Heading 1")?.heading == board.currentHeading)
+        let xml = try #require(String(data: try h.document.data(ofType: TextDocument.typeName), encoding: .utf8))
+        #expect(xml.contains("version=\"16\""))
+        let read = try DocumentFormat.document(from: xml)
+        #expect(read.styles.style(named: "Heading 1")?.heading == board.currentHeading, "la catena torna dal file")
+    }
+
     @Test("La finestra del compositore si disegna anche stretta, con le tre aree e le azioni aperte")
     func layout() throws {
         let h = EditorHarness(paragraphs: ["Prova."])

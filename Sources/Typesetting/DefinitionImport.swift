@@ -247,6 +247,8 @@ public enum DefinitionImport {
                     case .label(let text, let name, let alignment, let height): .label(text: text, style: renamedStyle(name), alignment: alignment, minHeight: height)
                     case .number(let prefix, let name, let alignment, let height): .number(prefix: prefix, style: renamedStyle(name), alignment: alignment, minHeight: height)
                     case .numberBeside(let prefix, let name, let side, let gap): .numberBeside(prefix: prefix, style: renamedStyle(name), side: side, gap: gap)
+                    case .result(let formula, let prefix, let name, let alignment, let height):
+                        .result(formula: formula, prefix: prefix, style: renamedStyle(name), alignment: alignment, minHeight: height)
                     default: part
                     }
                 })

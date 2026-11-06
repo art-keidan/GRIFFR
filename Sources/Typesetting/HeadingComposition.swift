@@ -57,6 +57,16 @@ public struct HeadingComposition: Hashable, Sendable, Codable {
         }
     }
 
+    /// Vero se la testata scrive il risultato di una formula (formato 16).
+    public var needsVersion16: Bool {
+        parts.contains { if case .result = $0 { true } else { false } }
+    }
+
+    /// Vero se una parte «risultato» legge il numero delle pagine, che si sa solo a composizione finita.
+    var readsPageCount: Bool {
+        parts.contains { if case .result(let formula, _, _, _, _) = $0 { formula.reading == .pageCount } else { false } }
+    }
+
     /// Un problema della testata, se c'è: più di un titolo, misure non valide.
     public var problem: String? {
         if parts.filter(\.isTitle).count > 1 { return "The heading has more than one “title” part." }
@@ -72,6 +82,10 @@ public struct HeadingComposition: Hashable, Sendable, Codable {
                 return "A minimum height in the heading is not valid."
             case .title(_, let height?) where !height.isFinite || height < 0:
                 return "A minimum height in the heading is not valid."
+            case .result(_, _, _, _, let height?) where !height.isFinite || height < 0:
+                return "A minimum height in the heading is not valid."
+            case .result(let formula, _, _, _, _) where formula.problem != nil:
+                return formula.problem
             case .numberBeside(_, _, let side, let gap) where !gap.isFinite || gap < 0 || side == .center:
                 return "The number beside the title needs a side (left, right, outside or inside) and a valid distance."
             default: continue
@@ -94,6 +108,9 @@ public enum HeadingPart: Hashable, Sendable, Codable {
     /// Il numero della sezione sulla prima riga del titolo, da un lato: le righe del titolo si scostano della sua
     /// larghezza più `gap`. Se la sezione non ha numero, il titolo occupa tutta la misura.
     case numberBeside(prefix: String, style: String?, side: HeadingAlignment, gap: Double)
+    /// «Scrivi risultato»: il risultato di una formula, calcolata nel punto del titolo (la sezione che apre, quelle che lo
+    /// contengono, la sua pagina), con un testo davanti. Se il risultato è vuoto, la parte sparisce con la sua fascia.
+    case result(formula: FieldFormula, prefix: String, style: String?, alignment: HeadingAlignment, minHeight: Double?)
     /// Un filetto; senza lunghezza, largo quanto lo specchio.
     case rule(thickness: Double, length: Double?, alignment: HeadingAlignment)
     /// Uno spazio verticale.
@@ -105,6 +122,7 @@ public enum HeadingPart: Hashable, Sendable, Codable {
         case .number: "Number"
         case .title: "Title"
         case .numberBeside: "Number beside"
+        case .result: "Result"
         case .rule: "Rule"
         case .space: "Space"
         }

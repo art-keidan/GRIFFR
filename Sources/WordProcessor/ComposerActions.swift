@@ -173,7 +173,7 @@ extension ComposerBoardModel {
             // Un solo numero accanto al titolo.
             if case .numberBeside = part, parts.contains(where: { if case .numberBeside = $0 { true } else { false } }) { return }
             switch part {
-            case .label, .number, .numberBeside:
+            case .label, .number, .numberBeside, .result:
                 let title = parts.firstIndex(where: \.isTitle) ?? parts.count
                 parts.insert(part, at: title)
             default:
@@ -181,6 +181,34 @@ extension ComposerBoardModel {
             }
             heading = HeadingComposition(parts: parts)
         }
+    }
+
+    /// I ruoli delle sezioni che una formula «risultato» può nominare: quelli pronti e quelli aperti dagli stili.
+    var sectionRoles: [String] {
+        var roles = Typesetting.Section.Role.builtIn
+        for style in sheet.styles { if let role = style.values.opensSection, !role.isEmpty, !roles.contains(role) { roles.append(role) } }
+        return roles
+    }
+
+    /// Il risultato di una formula nel campione del compositore: pagina 1, e ogni sezione con il titolo del campione.
+    func sampleResult(_ formula: FieldFormula) -> String {
+        formula.value(in: FieldContext(pageNumber: "1", pageCount: "1",
+                                       sections: sectionRoles.map { FieldContext.Section(role: $0, title: sample, number: "1") }))
+    }
+
+    /// L'editor della catena di una parte «risultato»: lo stesso dei campi, con il risultato nel campione. OK scrive la
+    /// catena nella parte, Annulla la lascia com'era; `done` chiude.
+    func resultEditor(at index: Int, done: @escaping () -> Void) -> FieldFormulaEditorModel? {
+        guard let parts = currentHeading?.parts, parts.indices.contains(index),
+              case .result(let formula, let prefix, let style, let alignment, let minHeight) = parts[index] else { return nil }
+        let editor = FieldFormulaEditorModel(formula: formula, roles: sectionRoles, editing: true) { [weak self] in self?.sampleResult($0) ?? "" }
+        editor.finish = { [weak self] chosen in
+            if let chosen, chosen.problem == nil {
+                self?.updateHeadingPart(at: index, to: .result(formula: chosen, prefix: prefix, style: style, alignment: alignment, minHeight: minHeight))
+            }
+            done()
+        }
+        return editor
     }
 
     func updateHeadingPart(at index: Int, to part: HeadingPart) {

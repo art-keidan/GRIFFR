@@ -238,4 +238,51 @@ struct HeadingCompositionTests {
         #expect(HeadingComposition(parts: [.numberBeside(prefix: "", style: nil, side: .left, gap: 0),
                                            .numberBeside(prefix: "", style: nil, side: .right, gap: 0), .plainTitle]).problem != nil)
     }
+
+    @Test("Scrivi risultato nella testata: la pagina e il titolo della sezione, calcolati nel punto del titolo; vuoto, la parte sparisce")
+    func resultPart() throws {
+        let heading = HeadingComposition(parts: [
+            .result(formula: .pageContainingNumber, prefix: "p. ", style: nil, alignment: .left, minHeight: nil),
+            .result(formula: .sectionContainingTitle(role: "chapter"), prefix: "» ", style: "Body", alignment: .right, minHeight: nil),
+            .plainTitle,
+        ])
+        #expect(heading.problem == nil && heading.needsVersion16)
+        let composed = layout(book(title: "Il mare", heading: heading, chapters: 2))
+        let pdf = try #require(PDFDocument(data: PDFRenderer.pdfData(for: composed)))
+        let pages = (0..<pdf.pageCount).compactMap { pdf.page(at: $0)?.string }
+        let second = try titleLine(composed, chapter: 1)
+        #expect(second.page > 0)
+        #expect(pages[0].contains("p. 1\n» Il mare\n1 Il mare"), "sulla prima pagina, sopra il titolo con il segno della Lista")
+        #expect(pages[second.page].contains("p. \(second.page + 1)\n» Il mare"), "il capitolo dopo legge la sua pagina")
+        #expect(second.markers.count == 3, "due risultati e il segno della Lista: la testata non scrive il numero")
+
+        // Nessuna parte (role «part») contiene il capitolo: il risultato è vuoto e la parte non occupa posto.
+        let missing = HeadingComposition(parts: [.result(formula: .sectionContainingTitle(role: "part"), prefix: "Part ", style: nil, alignment: .left, minHeight: 20 * mm),
+                                                 .plainTitle])
+        let without = try bodyTop(layout(book(title: "Il mare", heading: HeadingComposition(parts: [.plainTitle]))))
+        let with = try bodyTop(layout(book(title: "Il mare", heading: missing)))
+        #expect(abs(with.top - without.top) < 0.01)
+
+        // Il numero delle pagine si sa a composizione finita: anche la testata lo legge giusto.
+        let count = layout(book(title: "Il mare", heading: HeadingComposition(parts: [
+            .result(formula: .documentPageCount, prefix: "of ", style: nil, alignment: .left, minHeight: nil), .plainTitle]), chapters: 2))
+        let countPDF = try #require(PDFDocument(data: PDFRenderer.pdfData(for: count)))
+        #expect(countPDF.page(at: 0)?.string?.contains("of \(count.pages.count)\n") == true)
+    }
+
+    @Test("La parte «risultato» si salva nel formato 16 con la sua catena, e rilegge uguale; una catena rotta è un errore")
+    func version16() throws {
+        let heading = HeadingComposition(parts: [.result(formula: .sectionContainingNumber(role: "part"), prefix: "Part ", style: "Body", alignment: .outside, minHeight: 10 * mm),
+                                                 .plainTitle])
+        let xml = DocumentFormat.string(for: book(title: "Il mare", heading: heading))
+        #expect(xml.contains("version=\"16\""))
+        let read = try DocumentFormat.document(from: xml)
+        #expect(read.styles.style(named: "Titolo capitolo")?.heading == heading)
+        #expect(DocumentFormat.string(for: read) == xml)
+        let json = String(decoding: try JSONEncoder().encode(heading), as: UTF8.self)
+        #expect(json.contains("position.section-containing.number.write-here") && json.contains("\"role\":\"part\""))
+        let broken = json.replacingOccurrences(of: "position.section-containing.number.write-here", with: "position.number.write-here")
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(HeadingComposition.self, from: Data(broken.utf8)) }
+        #expect(HeadingComposition(parts: [.result(formula: FieldFormula(origin: .position, reading: .number), prefix: "", style: nil, alignment: .left, minHeight: nil)]).problem != nil)
+    }
 }

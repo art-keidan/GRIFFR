@@ -529,7 +529,7 @@ public enum PageLayout {
             }
         }
         // Un campo con il numero delle pagine: lo si sa solo a composizione finita, e scriverlo può cambiarlo.
-        if usesPageCount(text) {
+        if usesPageCount(text) || options.styles.styles.contains(where: { $0.heading?.readsPageCount == true }) {
             var count: Int?
             for _ in 0..<3 where count != pass.layout.pages.count {
                 count = pass.layout.pages.count
@@ -633,6 +633,11 @@ public enum PageLayout {
                 case .label(let string, let style, let alignment, let minHeight): text(string, style, alignment, minHeight)
                 // Una sezione senza numero: la parte sparisce con la sua fascia.
                 case .number(let prefix, let style, let alignment, let minHeight): number.isEmpty ? nil : text(prefix + number, style, alignment, minHeight)
+                // «Scrivi risultato»: la formula nel punto del titolo, sulla pagina in corso. Vuoto: la parte sparisce.
+                case .result(let formula, let prefix, let style, let alignment, let minHeight):
+                    { value in value.isEmpty ? nil : text(prefix + value, style, alignment, minHeight) }(
+                        formula.value(in: FieldContext(pageNumber: pages[pages.count - 1].number, pageCount: pageCount.map(String.init) ?? "?",
+                                                       sections: openSections.map { FieldContext.Section(role: $0.mark.role, title: $0.title, number: $0.number) })))
                 case .title, .numberBeside: nil
                 case .rule(let thickness, let length, let alignment):
                     HeadingPiece(kind: .rule(length: length.map { CGFloat($0) }), height: CGFloat(thickness), alignment: alignment)
@@ -1971,7 +1976,9 @@ public enum PageLayout {
                 }
                 for note in lineNotes { notePages[note.info.range.location] = pages.count }
                 if lineNumber == 0 {
-                    placeHeading(headingBefore, paragraphLocation: paragraphRange.location)
+                    // Ricomposte qui: se il titolo è passato a una pagina nuova, i risultati leggono questa.
+                    placeHeading(heading.map { headingPieces($0.split.before, number: headingNumber, titleStyle: paragraphStyleName) } ?? [],
+                                 paragraphLocation: paragraphRange.location)
                     y += titleExtra
                 }
                 let placedLine = placed(line, top: y, map: body.map, paragraphLocation: paragraphRange.location, noteRange: nil, left: titleLeft(line))
@@ -2014,7 +2021,8 @@ public enum PageLayout {
                     }
                 }
             }
-            placeHeading(headingAfter, paragraphLocation: paragraphRange.location)
+            placeHeading(heading.map { headingPieces($0.split.after, number: headingNumber, titleStyle: paragraphStyleName) } ?? [],
+                         paragraphLocation: paragraphRange.location)
             // Tieni col seguente: se questo paragrafo è finito oltre la pagina del precedente della catena, si torna indietro.
             if keepChainBroken(by: paragraphRange.location, from: keepMark, pending: pendingKeep) { continue }
             keepChain?.lastPage = pages.count - 1

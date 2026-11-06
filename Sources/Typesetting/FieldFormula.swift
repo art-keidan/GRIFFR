@@ -234,6 +234,27 @@ public struct FieldFormula: Hashable, Sendable {
     }
 }
 
+extension FieldFormula: Codable {
+    private enum CodingKeys: String, CodingKey { case expression, role }
+
+    /// Come nel file: l'espressione a passi e, per le sezioni, il ruolo a parte.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let expression = try container.decode(String.self, forKey: .expression)
+        let role = try container.decodeIfPresent(String.self, forKey: .role)
+        guard let formula = FieldFormula(expression: expression, role: role) else {
+            throw DecodingError.dataCorruptedError(forKey: .expression, in: container, debugDescription: "Invalid field formula “\(expression)”")
+        }
+        self = formula
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(expression, forKey: .expression)
+        try container.encodeIfPresent(role, forKey: .role)
+    }
+}
+
 /// Ciò che una formula di campo può leggere nel punto in cui si compone: la pagina, il documento, le sezioni aperte.
 public struct FieldContext: Sendable {
     public struct Section: Sendable, Equatable {
