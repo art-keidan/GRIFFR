@@ -135,6 +135,9 @@ final class ComposerBoardModel: ObservableObject {
             guard style.formulas.allSatisfy({ (try? $0.validate(for: style.target)) != nil }) else {
                 return "Check the properties and arguments of the formulas of “" + style.name + "”."
             }
+            if let problem = style.writes.lazy.compactMap(\.problem).first {
+                return "“" + style.name + "” writes a result that cannot be computed: " + problem
+            }
             if dirty || (showingStyles && style.name == selectedStyle) {
                 if (try? preview(style)) == nil {
                     return "The style “" + style.name + "” produces no valid result on the sample. Check fonts and measures."

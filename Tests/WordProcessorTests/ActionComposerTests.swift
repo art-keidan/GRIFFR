@@ -188,6 +188,46 @@ struct ActionComposerTests {
         #expect(read.styles.style(named: "Heading 1")?.heading == board.currentHeading, "la catena torna dal file")
     }
 
+    @Test("Scrivi risultato nel paragrafo dalla bacheca: prima e dopo il testo, la catena nell'editor, il campione, Applica e file")
+    func writesThroughTheComposer() throws {
+        let h = EditorHarness(paragraphs: ["Prova."])
+        defer { h.close() }
+        h.editor.openStyleComposer(nil)
+        let board = try #require(h.editor.composerModel)
+        board.selectStyle("Body")
+        board.addWrite(.before)
+        board.addWrite(.after)
+        #expect(board.currentWrites.map(\.place) == [.before, .after])
+        #expect(board.writtenSample("Body") == "1 " + board.sample + " (p. 1)")
+        // La catena dell'azione prima del testo diventa il titolo del capitolo; Annulla la lascia com'era.
+        let cancelled = try #require(board.writeEditor(at: 0) {})
+        cancelled.setOrigin(.document)
+        cancelled.finish?(nil)
+        #expect(board.currentWrites[0].formula == .sectionContainingNumber(role: "chapter"))
+        let editor = try #require(board.writeEditor(at: 0) {})
+        editor.setReading(.title)
+        editor.finish?(editor.formula)
+        var written = board.currentWrites[0]
+        #expect(written.formula == .sectionContainingTitle(role: "chapter"))
+        written.suffix = ": "
+        board.updateWrite(at: 0, to: written)
+        #expect(board.writtenSample("Body") == board.sample + ": " + board.sample + " (p. 1)")
+        // Un testo fisso con un a capo è una diagnosi; tolto, si applica.
+        written.prefix = "a\nb"
+        board.updateWrite(at: 0, to: written)
+        #expect(board.validationIssue?.contains("Body") == true)
+        written.prefix = ""
+        board.updateWrite(at: 0, to: written)
+        board.removeWrite(at: 1)
+        #expect(board.validationIssue == nil, "\(board.validationIssue ?? "")")
+        board.apply(); h.step()
+        #expect(h.editor.settings.styles.style(named: "Body")?.writes == [written])
+        let xml = try #require(String(data: try h.document.data(ofType: TextDocument.typeName), encoding: .utf8))
+        #expect(xml.contains("version=\"16\"") && xml.contains("<writes "))
+        h.undo()
+        #expect(h.editor.settings.styles.style(named: "Body")?.writes.isEmpty == true)
+    }
+
     @Test("La finestra del compositore si disegna anche stretta, con le tre aree e le azioni aperte")
     func layout() throws {
         let h = EditorHarness(paragraphs: ["Prova."])

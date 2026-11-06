@@ -1662,7 +1662,7 @@ public enum PageLayout {
                 noteNumberer.passSection(role: sectionMark.role)
             }
             // Il corpo del paragrafo, con i numeri di richiamo al posto delle note, e le note da comporre a parte.
-            let body = composedBody(of: text.attributedSubstring(from: paragraphRange), location: paragraphRange.location, field: fieldText,
+            var body = composedBody(of: text.attributedSubstring(from: paragraphRange), location: paragraphRange.location, field: fieldText,
                                     floatStyles: options.floatStyles, noteMark: noteMark)
             notes.append(contentsOf: body.notes.map(\.range))
             endNotes += body.notes.filter { $0.style.placement == .documentEnd }.map { ($0, style) }
@@ -1716,6 +1716,14 @@ public enum PageLayout {
             if let sectionMark, sectionStart != .continuous { openingPages[pages.count - 1] = sectionMark.id }
             // Un titolo in cima alla pagina: per i campi della pagina, la sua sezione è già in corso.
             if sectionMark != nil, pageIsEmpty { snapshotPage() }
+            // «Scrivi risultato» dello stile: il testo calcolato prima o dopo il testo, sulle sue righe. Si calcola qui, dove
+            // la pagina e le sezioni del paragrafo sono già quelle giuste.
+            let writes = options.styles.writtenResults(ofParagraphStyle: paragraphStyleName)
+            if !writes.isEmpty {
+                body = writingResults(writes, into: body, value: { fieldText(.formula($0)) }, sheet: options.styles,
+                                      retracks: options.appliesFontTracking, resolver: FontRoleResolver(table: options.fontRoles))
+                bodyText = body.text
+            }
             // Le intestazioni e i piè di pagina ancorati qui: valgono da qui in poi (dalla pagina in corso, se è ancora vuota).
             let runningNotes = body.notes.filter { $0.style.placement.isRunning }
             if !runningNotes.isEmpty {
@@ -2672,6 +2680,58 @@ public enum PageLayout {
         appendResolvingFields(paragraph, range: NSRange(location: cursor, length: length - cursor), documentStart: location, into: body,
                               segments: &segments, field: field)
         return (body, TextMap(segments: segments), notes)
+    }
+
+    /// Il corpo di un paragrafo con il testo che il suo stile scrive prima e dopo (vedi `WrittenResult`). Il testo aggiunto
+    /// non ha posto nella mappa: per il cursore è materiale composto, come un numero di richiamo. Prende l'aspetto del
+    /// carattere vicino (il primo, o l'ultimo prima della fine del paragrafo) e, sopra, quello del suo stile.
+    private static func writingResults(_ writes: [WrittenResult], into body: (text: NSAttributedString, map: TextMap, notes: [ComposedNote]),
+                                       value: (FieldFormula) -> String, sheet: StyleSheet, retracks: Bool, resolver: FontRoleResolver)
+        -> (text: NSAttributedString, map: TextMap, notes: [ComposedNote]) {
+        let text = NSMutableAttributedString(attributedString: body.text)
+        let string = text.string as NSString
+        // La fine del testo: prima del separatore del paragrafo.
+        var end = string.length
+        while end > 0, let scalar = Unicode.Scalar(string.character(at: end - 1)), CharacterSet.newlines.contains(scalar) { end -= 1 }
+        func piece(_ written: WrittenResult, near index: Int) -> NSAttributedString? {
+            let string = written.text(for: value(written.formula))
+            guard !string.isEmpty else { return nil }
+            var attributes = text.length > 0 ? text.attributes(at: min(max(index, 0), text.length - 1), effectiveRange: nil) : [:]
+            for key in [NSAttributedString.Key.field, .composedField, .footnote, .link] { attributes[key] = nil }
+            let piece = NSMutableAttributedString(string: string, attributes: attributes)
+            if let style = written.style, sheet.style(named: style) != nil {
+                Rules.applyStyle(style, to: NSRange(location: 0, length: piece.length), in: piece, sheet: sheet, retracks: retracks, resolver: resolver)
+            }
+            return piece
+        }
+        let before = NSMutableAttributedString()
+        for written in writes where written.place == .before { if let piece = piece(written, near: 0) { before.append(piece) } }
+        let after = NSMutableAttributedString()
+        for written in writes where written.place == .after { if let piece = piece(written, near: end - 1) { after.append(piece) } }
+        guard before.length > 0 || after.length > 0 else { return body }
+        // Il testo dopo entra prima del separatore; quello prima sposta tutto il resto.
+        text.insert(after, at: end)
+        text.insert(before, at: 0)
+        let shift = before.length
+        var segments: [TextMap.Segment] = []
+        for segment in body.map.segments {
+            let start = segment.composed + shift
+            // Un tratto che attraversa il punto in cui entra il testo dopo si divide in due.
+            if after.length > 0, segment.composed < end, segment.composed + segment.length > end {
+                let head = end - segment.composed
+                segments.append(TextMap.Segment(composed: start, document: segment.document, length: head))
+                segments.append(TextMap.Segment(composed: start + head + after.length, document: segment.document + head, length: segment.length - head))
+            } else {
+                segments.append(TextMap.Segment(composed: start + (after.length > 0 && segment.composed >= end ? after.length : 0),
+                                                document: segment.document, length: segment.length))
+            }
+        }
+        let notes = body.notes.map { note in
+            var moved = note
+            moved.marker += shift + (note.marker >= end ? after.length : 0)
+            return moved
+        }
+        return (text, TextMap(segments: segments), notes)
     }
 
     /// Le cifre in apice di Unicode, da 0 a 9.

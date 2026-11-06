@@ -17,7 +17,7 @@ Il branch locale è `main`. Molto lavoro valido è modificato o non ancora tracc
 
 - `Sources/Typesetting`: modello, risoluzione degli stili, formule, formato XML, impaginazione, font e PDF.
 - `Sources/WordProcessor`: interfaccia ed editor nativi. Usa il tema esistente in `WindowBands.swift`.
-- Il formato corrente arriva alla versione 15 (12: variabili degli stili; 13: campi formula di pagine e sezioni; 14: testate degli stili; 15: numero accanto al titolo, lato e altezza del titolo); i file precedenti restano leggibili. Il revamp grafico dovrebbe riutilizzare il formato esistente; valuta esplicitamente eventuali nuovi costrutti prima di introdurli.
+- Il formato corrente arriva alla versione 16 (12: variabili degli stili; 13: campi formula di pagine e sezioni; 14: testate degli stili; 15: numero accanto al titolo, lato e altezza del titolo; 16: «Scrivi risultato» nelle testate e nei paragrafi); i file precedenti restano leggibili. Il revamp grafico dovrebbe riutilizzare il formato esistente; valuta esplicitamente eventuali nuovi costrutti prima di introdurli.
 - Le azioni rappresentano definizioni dichiarative. Il motore distingue resa di base, collocazione, contesto, composizione naturale e azioni dell'editor. L'aspetto di Automator non autorizza a trasformare tutto in uno script procedurale.
 - Annulla/Ripeti, bozze concorrenti, ereditarietà, importazione e provenienza fanno parte del comportamento da preservare.
 - Il prototipo HTML è un riferimento di progettazione. Non inserirlo nell'app come WebView.

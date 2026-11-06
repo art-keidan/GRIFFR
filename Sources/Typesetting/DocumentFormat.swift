@@ -119,6 +119,8 @@ import Foundation
 ///
 /// - La versione 16 aggiunge «Scrivi risultato» agli stili: alle testate la parte `result`, con una formula di campo
 ///   (`expression` e, per le sezioni, `role`) calcolata nel punto del titolo.
+///   Agli stili di paragrafo `<writes encoding="json-v1" data="…"/>`, dopo la testata: i risultati che lo stile scrive
+///   prima o dopo il testo del paragrafo (`WrittenResult`).
 /// - La versione 15 aggiunge alle testate il numero accanto al titolo (`numberBeside`) e l'allineamento e l'altezza minima
 ///   propri della parte «titolo». Una testata scritta in versione 14 si legge uguale.
 /// - La versione 14 introduce `<heading encoding="json-v1" data="…"/>` dentro `style` di paragrafo: la testata dello stile
@@ -170,7 +172,7 @@ public enum DocumentFormat {
             (12, styles.contains { !$0.variables.isEmpty }),
             (14, styles.contains { $0.heading != nil }),
             (15, styles.contains { $0.heading?.needsVersion15 == true }),
-            (16, styles.contains { $0.heading?.needsVersion16 == true }),
+            (16, styles.contains { $0.heading?.needsVersion16 == true || !$0.writes.isEmpty }),
         ]
         return needs.filter(\.used).map(\.version).reduce(max(1, document.sourceVersion), max)
     }
@@ -227,11 +229,14 @@ public enum DocumentFormat {
                 // La stringa vuota è «nessuna Lista»: toglie quella che darebbe lo stile su cui si basa.
                 if let list = values.listName, !list.isEmpty, !knownLists.contains(list) { values.listName = nil }
                 out += styleValueAttributes(values)
-                if style.formulas.isEmpty && style.variables.isEmpty && style.heading == nil { out += "/>\n" }
+                if style.formulas.isEmpty && style.variables.isEmpty && style.heading == nil && style.writes.isEmpty { out += "/>\n" }
                 else {
                     out += ">\n"
                     if let heading = style.heading {
                         out += "<heading encoding=\"json-v1\" data=\"\(FormulaCodec.encode(heading))\"/>\n"
+                    }
+                    if !style.writes.isEmpty {
+                        out += "<writes encoding=\"json-v1\" data=\"\(FormulaCodec.encode(style.writes))\"/>\n"
                     }
                     // Le variabili prima delle formule che le richiamano.
                     for variable in style.variables {
@@ -1338,6 +1343,16 @@ public enum DocumentFormat {
                         throw DocumentFormatError.malformed(line: line, detail: "Style heading invalid, repeated, or on a style that is not a paragraph style")
                     }
                     settings.styles.styles[index].heading = heading
+
+                case ("writes", "style") where settings.sourceVersion >= 16:
+                    guard check(attributes, allowed: ["encoding", "data"], element: name, parser) else { return }
+                    guard let index = settings.styles.styles.indices.last, settings.styles.styles[index].writes.isEmpty,
+                          settings.styles.styles[index].target == .paragraph, attributes["encoding"] == "json-v1",
+                          let encoded = attributes["data"], let writes = try? FormulaCodec.decode([WrittenResult].self, encoded),
+                          !writes.isEmpty, writes.allSatisfy({ $0.problem == nil }) else {
+                        throw DocumentFormatError.malformed(line: line, detail: "Style results invalid, repeated, or on a style that is not a paragraph style")
+                    }
+                    settings.styles.styles[index].writes = writes
 
                 case ("variable", "style") where settings.sourceVersion >= 12:
                     guard check(attributes, allowed: ["id", "name", "expression"], element: name, parser) else { return }

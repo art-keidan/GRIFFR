@@ -253,6 +253,11 @@ public enum DefinitionImport {
                     }
                 })
             }
+            style.writes = style.writes.map { written in
+                var changed = written
+                changed.style = renamedStyle(written.style)
+                return changed
+            }
             style.variables = style.variables.map { variable in
                 var changed = variable
                 changed.expression = variable.expression.remapping(formulaRenames)

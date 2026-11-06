@@ -267,3 +267,59 @@ extension ComposerBoardModel {
         sheet.styles[i].heading = heading
     }
 }
+
+/// «Scrivi risultato» dentro il paragrafo (vedi `WrittenResult`): le azioni dello stile scelto che scrivono un risultato
+/// prima o dopo il testo.
+extension ComposerBoardModel {
+    var currentWrites: [WrittenResult] { currentStyle?.writes ?? [] }
+
+    private func changeWrites(_ change: (inout [WrittenResult]) -> Void) {
+        guard let name = selectedStyle else { return }
+        selectStyle(name)
+        guard let i = currentStyleIndex, sheet.styles[i].target == .paragraph else { return }
+        change(&sheet.styles[i].writes)
+    }
+
+    /// Un'azione nuova: davanti, il numero del capitolo con uno spazio; dopo, la pagina fra parentesi.
+    func addWrite(_ place: WrittenResult.Place) {
+        changeWrites { writes in
+            writes.append(place == .before
+                ? WrittenResult(formula: .sectionContainingNumber(role: Typesetting.Section.Role.chapter), place: .before, suffix: " ")
+                : WrittenResult(formula: .pageContainingNumber, place: .after, prefix: " (p. ", suffix: ")"))
+        }
+    }
+
+    func updateWrite(at index: Int, to written: WrittenResult) {
+        changeWrites { writes in if writes.indices.contains(index) { writes[index] = written } }
+    }
+
+    func removeWrite(at index: Int) {
+        changeWrites { writes in if writes.indices.contains(index) { writes.remove(at: index) } }
+    }
+
+    /// Il campione con ciò che lo stile scrive prima e dopo il testo, come nel documento.
+    func writtenSample(_ style: String) -> String {
+        let writes = sheet.writtenResults(ofParagraphStyle: style)
+        func text(_ place: WrittenResult.Place) -> String {
+            writes.filter { $0.place == place }.map { $0.text(for: sampleResult($0.formula)) }.joined()
+        }
+        return text(.before) + sample + text(.after)
+    }
+
+    /// L'editor della catena di un'azione «Scrivi risultato», come per le parti della testata.
+    func writeEditor(at index: Int, done: @escaping () -> Void) -> FieldFormulaEditorModel? {
+        let writes = currentWrites
+        guard writes.indices.contains(index) else { return nil }
+        let written = writes[index]
+        let editor = FieldFormulaEditorModel(formula: written.formula, roles: sectionRoles, editing: true) { [weak self] in self?.sampleResult($0) ?? "" }
+        editor.finish = { [weak self] chosen in
+            if let chosen, chosen.problem == nil {
+                var changed = written
+                changed.formula = chosen
+                self?.updateWrite(at: index, to: changed)
+            }
+            done()
+        }
+        return editor
+    }
+}

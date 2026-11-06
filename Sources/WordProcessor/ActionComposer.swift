@@ -84,6 +84,7 @@ private struct ComposerLibrary: View {
                     }
                     conditions
                     headingItems
+                    writeItems
                     calculations
                 }
             }
@@ -120,12 +121,23 @@ private struct ComposerLibrary: View {
             if matches("Number") { item("Section number", symbol: "number") { model.addHeadingPart(.number(prefix: "", style: nil, alignment: .left, minHeight: nil)) } }
             if matches("Number") { item("Number beside title", symbol: "text.insert") { model.addHeadingPart(.numberBeside(prefix: "", style: nil, side: .left, gap: 4 * mm)) } }
             if matches("Write result") {
-                item("Write result", symbol: "square.and.pencil") {
+                item("Write result in heading", symbol: "square.and.pencil") {
                     model.addHeadingPart(.result(formula: .sectionContainingTitle(role: Typesetting.Section.Role.part), prefix: "", style: nil, alignment: .left, minHeight: nil))
                 }
             }
             if matches("Rule") { item("Rule", symbol: "minus") { model.addHeadingPart(.rule(thickness: 0.5 * mm, length: nil, alignment: .left)) } }
             if matches("Space") { item("Space", symbol: "arrow.up.and.down") { model.addHeadingPart(.space(3 * mm)) } }
+        }
+    }
+
+    @ViewBuilder private var writeItems: some View {
+        if model.currentStyle?.target == .paragraph, matches("Write result") || matches("Before the text") || matches("After the text") {
+            group("Write Result")
+            ForEach(WrittenResult.Place.allCases, id: \.self) { place in
+                if matches("Write result") || matches(place.title) {
+                    item(place.title, symbol: place == .before ? "text.insert" : "text.append") { model.addWrite(place) }
+                }
+            }
         }
     }
 
@@ -225,6 +237,10 @@ private struct ComposerFlow: View {
             if let heading = style.heading {
                 caption("Heading")
                 HeadingBlock(model: model, heading: heading, expanded: binding(for: headingID))
+            }
+            if !style.writes.isEmpty {
+                caption("Write Result")
+                WritesBlock(model: model, writes: style.writes)
             }
             if !style.variables.isEmpty {
                 caption("Variables")
@@ -721,7 +737,7 @@ private struct ComposerPreview: View {
                 if let heading = style.heading {
                     HeadingPreview(model: model, heading: heading, titleCharacter: result.character)
                 } else {
-                    Text(AttributedString(NSAttributedString(string: model.sample, attributes: TextStyling.characterAttributes(for: result.character).attributes)))
+                    Text(AttributedString(NSAttributedString(string: model.writtenSample(style.name), attributes: TextStyling.characterAttributes(for: result.character).attributes)))
                         .padding(.leading, min(CGFloat(max(paragraph.leftIndent, 0)), 120))
                         .padding(.top, min(CGFloat(max(paragraph.spaceBefore, 0)), 60))
                 }
@@ -954,6 +970,75 @@ struct HeadingBlock: View {
             ForEach([6, 8, 10, 12, 16, 20], id: \.self) { n in Button("\(n) mm") { commit(Double(n) * mm) } }
         } label: { ComposerPill(title: current.map { "\(Int(($0 / mm).rounded())) mm tall" } ?? "Natural") }.fixedSize()
             .help("Minimum band height")
+    }
+}
+
+/// Le azioni «Scrivi risultato» dello stile: una riga ciascuna, con il posto (prima o dopo il testo), il testo fisso, la
+/// catena (che si apre nell'editor dei campi) e lo stile del testo scritto.
+struct WritesBlock: View {
+    @ObservedObject var model: ComposerBoardModel
+    let writes: [WrittenResult]
+    @State private var editor: FieldFormulaEditorModel?
+
+    private var styles: [String] { model.sheet.styles.map(\.name) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(writes.enumerated()), id: \.offset) { index, written in
+                row(index, written)
+            }
+        }
+        .padding(10)
+        .menuStyle(.borderlessButton).menuIndicator(.hidden)
+        .background(Color(nsColor: Theme.control))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: Theme.line)))
+        .sheet(isPresented: Binding(get: { editor != nil }, set: { if !$0 { editor = nil } })) {
+            if let editor { FieldFormulaEditorView(model: editor).themed() }
+        }
+    }
+
+    private func update(_ index: Int, _ change: (inout WrittenResult) -> Void) {
+        guard writes.indices.contains(index) else { return }
+        var written = writes[index]
+        change(&written)
+        model.updateWrite(at: index, to: written)
+    }
+
+    @ViewBuilder private func row(_ index: Int, _ written: WrittenResult) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: "square.and.pencil").foregroundStyle(Color(nsColor: Theme.glyph))
+                Text("Write").fontWeight(.medium).fixedSize()
+                TextField("Before", text: Binding(get: { written.prefix }, set: { value in update(index) { $0.prefix = value } }))
+                    .textFieldStyle(.roundedBorder).frame(width: 56)
+                Button { editor = model.writeEditor(at: index) { editor = nil } } label: { ComposerPill(title: written.formula.title) }
+                    .buttonStyle(.plain).fixedSize().help(written.formula.chain)
+                    .accessibilityLabel("Formula: " + written.formula.chain)
+                TextField("After", text: Binding(get: { written.suffix }, set: { value in update(index) { $0.suffix = value } }))
+                    .textFieldStyle(.roundedBorder).frame(width: 56)
+                Spacer(minLength: 4)
+                Button { model.removeWrite(at: index) } label: { Image(systemName: "xmark") }
+                    .buttonStyle(.borderless).accessibilityLabel("Remove action")
+            }
+            HStack(spacing: 6) {
+                Menu {
+                    ForEach(WrittenResult.Place.allCases, id: \.self) { place in Button(place.title) { update(index) { $0.place = place } } }
+                } label: { ComposerPill(title: written.place.title) }.fixedSize()
+                Menu {
+                    Button("Text's look") { update(index) { $0.style = nil } }
+                    ForEach(styles, id: \.self) { name in Button(name) { update(index) { $0.style = name } } }
+                } label: { ComposerPill(title: written.style ?? "Text's look") }.fixedSize()
+                if let problem = written.problem {
+                    Text(problem).font(.caption).foregroundStyle(Color(nsColor: Theme.warn)).lineLimit(2)
+                } else {
+                    Text("sample: " + written.text(for: model.sampleResult(written.formula)).debugDescription)
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            .padding(.leading, 24)
+        }
+        .accessibilityElement(children: .contain).accessibilityLabel("Write result \(index + 1): " + written.formula.chain)
     }
 }
 

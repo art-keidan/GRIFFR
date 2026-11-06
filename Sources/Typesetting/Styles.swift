@@ -216,10 +216,13 @@ public struct NamedStyle: Hashable, Sendable {
     public var variables: [StyleVariable]
     /// La testata, per uno stile di titolo (formato 14).
     public var heading: HeadingComposition?
+    /// «Scrivi risultato» dentro il paragrafo, per uno stile di paragrafo (formato 16).
+    public var writes: [WrittenResult]
 
     public init(name: String, target: StyleTarget, basedOn: String? = nil, values: StyleValues = StyleValues(), formulas: [StyleFormula] = [],
-                variables: [StyleVariable] = [], heading: HeadingComposition? = nil) {
+                variables: [StyleVariable] = [], heading: HeadingComposition? = nil, writes: [WrittenResult] = []) {
         self.formulas = formulas
+        self.writes = writes
         self.variables = variables
         self.heading = heading
         self.name = name
