@@ -100,5 +100,6 @@ Dopo il nucleo delle formule restano anche miglioramenti del motore, da affronta
 4. Realizzare il flottante derivato della quinta parola e generalizzare le relazioni fra oggetti.
 5. Migrare tabelle e flottanti nella stessa grammatica e chiudere la compatibilità dei documenti.
 6. Fare la verifica d'uso completa nell'app e solo dopo riprendere le estensioni tipografiche indipendenti.
+7. **Ultima tappa, a fine lavoro** (richiesta del 6 novembre): togliere tutta la retrocompatibilità accumulata nello sviluppo, cioè la lettura dei formati precedenti, i campi storici, i nomi italiani dei documenti di prima, i passaggi e i comandi intermedi. Prima, aprire e risalvare nel formato nuovo i documenti già scritti.
 
 Il primo incremento concreto sui campi è implementato. Il passo successivo in quest'area è estendere la grammatica a risultati e operazioni ulteriori, mantenendo l'ancoraggio, la ricomposizione, il salvataggio e l'aggiornamento senza duplicare i campi.
