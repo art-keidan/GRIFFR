@@ -5,12 +5,13 @@ set -e
 root=${0:a:h:h}
 cd $root
 build_path=${GRIFFR_BUILD_PATH:-"$root/.build"}
+app_build_dir=${GRIFFR_APP_BUILD_DIR:-"$root/build"}
 build_flags=()
 if [[ ${GRIFFR_DISABLE_BUILD_SANDBOX:-0} == 1 ]]; then build_flags+=(--disable-sandbox); fi
 swift build "${build_flags[@]}" --scratch-path "$build_path" -c release --product WordProcessor
-mkdir -p "$root/build"
-destination="$root/build/GRIFFR Stili.app"
-staging=$(mktemp -d "$root/build/.griffr-stage.XXXXXX")
+mkdir -p "$app_build_dir"
+destination="$app_build_dir/GRIFFR Stili.app"
+staging=$(mktemp -d "$app_build_dir/.griffr-stage.XXXXXX")
 app="$staging/GRIFFR Stili.app"
 mkdir -p $app/Contents/MacOS
 cp "$build_path/release/WordProcessor" $app/Contents/MacOS/WordProcessor
@@ -68,7 +69,7 @@ PLIST
 # recuperabile, ma non è un'altra applicazione da aprire o associare ai file.
 previous=""
 if [[ -e "$destination" ]]; then
-    previous=$(mktemp -d "$root/build/.griffr-previous.XXXXXX")
+    previous=$(mktemp -d "$app_build_dir/.griffr-previous.XXXXXX")
     mv "$destination" "$previous/GRIFFR Stili.retired"
 fi
 if ! mv "$app" "$destination"; then
@@ -80,7 +81,7 @@ fi
 rmdir "$staging" 2>/dev/null || true
 # Anche le copie lasciate dalle versioni precedenti dello script cessano di
 # essere applicazioni apribili; non si elimina nessuna vecchia compilazione.
-for legacy in "$root"/build/.griffr-{previous,stage}.*/"GRIFFR Stili.app"(N); do
+for legacy in "$app_build_dir"/.griffr-{previous,stage}.*/"GRIFFR Stili.app"(N); do
     mv "$legacy" "${legacy%.app}.retired"
 done
 app="$destination"

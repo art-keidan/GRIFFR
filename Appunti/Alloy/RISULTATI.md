@@ -97,3 +97,21 @@ Nel modello, un segno spostato da un a capo cancellato ricorda di «venire da pr
 Controprove: `CasoParagrafoVuoto` (proprio il caso che prima falliva), `CasoRiscrivere`, `CasoUnire`, `Esempio`. Tutte le ricerche sono arrivate in fondo.
 
 Limite: con due note basta ricordare se un segno «viene da prima»; con tre o più note fuse una dopo l'altra servirà l'ordine completo dei segni su un carattere, da provare con un limite di tre note quando si scrive il codice.
+
+# Esperimento 3 · l'occhio dell'anteprima dal vivo
+
+7 novembre 2026. Modello: [occhio-dal-vivo.als](occhio-dal-vivo.als). Ricerche ripetute con Alloy e Glucose su al più tre capoversi, tre modifiche e sei passi.
+
+| Controllo | Codice prima della correzione, nel modello | Regola corretta, nel modello |
+|---|---|---|
+| Occhio barrato: la bozza interessa solo il capoverso evidenziato | Controesempio | Nessun controesempio |
+| Occhio pieno: la bozza interessa tutti i capoversi dello stile | Nessun controesempio | Nessun controesempio |
+| Le pagine mostrate seguono lo stato corrente | Controesempio | Nessun controesempio |
+
+Le due controprove per l'occhio barrato e il cambio di capoverso producono un esempio. Il modello è limitato e astratto: non dimostra da solo il comportamento del programma.
+
+## Correzione e verifiche nel programma
+
+Con l'occhio barrato l'impaginatore usa gli stili del documento. Le modifiche di resa vengono applicate a una copia del capoverso evidenziato; tenuta e distanza d'apertura vengono riportate sulla copia come valori locali, rispettando eventuali valori propri. Cambiando capoverso o portata si ricompone l'anteprima. Con l'occhio pieno la bozza dello stile vale per tutte le occorrenze; Salva continua a modificare lo stile.
+
+Le prove in `ParagraphDesignTests` verificano tenuta, distanza d'apertura, cursore, cambio di portata, riattivazione dell'occhio, Salva e Annulla. Una prova confronta la geometria delle pagine con una composizione indipendente che usa la tenuta locale, e controlla che una tenuta globale dia un risultato diverso.

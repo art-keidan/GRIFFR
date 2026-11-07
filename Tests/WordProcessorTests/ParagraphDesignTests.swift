@@ -258,6 +258,96 @@ struct ParagraphDesignTests {
         #expect(layoutX > 30, "le pagine mostrano il rientro sugli altri capoversi: \(layoutX)")
     }
 
+    @Test("Occhio barrato: la tenuta rimane sul solo capoverso evidenziato")
+    func livePreviewKeepingIsLocal() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        h.select(5)
+        h.editor.setParagraphDesign(true)
+        let bar = try #require(h.editor.paragraphDesignBarForTests)
+        bar.setLivePreviewAll?(false)
+        bar.change(.keepTogether) { $0.keeping.together = true }
+        let text = try #require(h.editor.paragraphDesignPreviewForTests)
+        let layout = try #require(h.editor.currentLayout())
+        #expect(TextStyling.lineKeeping(in: text, at: 0).together == true)
+        #expect(TextStyling.lineKeeping(in: text, at: third(h)).together != true)
+        #expect(TextStyling.lineKeeping(in: layout.text, at: third(h)).together != true)
+        #expect(h.editor.settings.styles.lineKeeping(styleName: "Body").together == false)
+        h.editor.saveParagraphDesign()
+        #expect(h.editor.settings.styles.lineKeeping(styleName: "Body").together)
+        h.undo()
+        #expect(!h.editor.settings.styles.lineKeeping(styleName: "Body").together)
+    }
+
+    @Test("Occhio barrato: l'impaginazione usa la tenuta solo sul paragrafo scelto")
+    func livePreviewKeepingLayout() throws {
+        let paragraph = Array(repeating: "Una frase per riempire la pagina.", count: 4).joined(separator: " ")
+        let h = EditorHarness(paragraphs: [paragraph, paragraph, paragraph])
+        defer { h.close() }
+        let setup = PageSetup(paperSize: CGSize(width: 240, height: 170), top: 20, bottom: 20, left: 20, right: 20)
+        h.editor.change(\.pageSetup, to: setup, actionName: "Page Setup")
+        h.select(5)
+        h.editor.setParagraphDesign(true)
+        let bar = try #require(h.editor.paragraphDesignBarForTests)
+        bar.setLivePreviewAll?(false)
+        bar.change(.keepTogether) { $0.keeping.together = true }
+
+        let expectedText = NSMutableAttributedString(attributedString: h.attributed)
+        var values = StyleValues()
+        values.keeping.together = true
+        TextStyling.setValue(values, of: .keepTogether, in: expectedText, range: NSRange(location: 0, length: 1))
+        let expected = PageLayout.layout(expectedText, setup: setup, options: h.editor.documentLayoutOptions)
+        let actual = try #require(h.editor.currentLayout())
+        func positions(_ layout: DocumentLayout) -> [String] {
+            layout.pages.enumerated().flatMap { page, item in
+                item.lines.map { "\(page):\($0.range.location):\($0.range.length):\($0.origin.x):\($0.origin.y)" }
+            }
+        }
+        #expect(positions(actual) == positions(expected))
+        var globalOptions = h.editor.documentLayoutOptions
+        globalOptions.styles = h.editor.draftSheet(try #require(h.editor.paragraphDesignDraftForTests))
+        let globallyKept = PageLayout.layout(expectedText, setup: setup, options: globalOptions)
+        #expect(positions(expected) != positions(globallyKept), "la prova distingue la tenuta locale da quella globale")
+    }
+
+    @Test("Occhio barrato: la distanza d'apertura vale solo sul capoverso scelto")
+    func livePreviewOpeningDistanceIsLocal() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        h.select(5)
+        h.editor.setParagraphDesign(true)
+        let bar = try #require(h.editor.paragraphDesignBarForTests)
+        bar.setLivePreviewAll?(false)
+        bar.change(.openingDistance) { $0.openingDistance = 72 }
+        let text = try #require(h.editor.paragraphDesignPreviewForTests)
+        #expect(TextStyling.openingDistance(in: text, at: 0) == 72)
+        #expect(TextStyling.openingDistance(in: text, at: third(h)) == nil)
+        #expect(h.editor.settings.styles.values(of: "Body").openingDistance != 72)
+    }
+
+    @Test("Occhio barrato: la bozza segue il cursore e il cambio di portata")
+    func livePreviewFollowsSelection() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        h.select(5)
+        h.editor.setParagraphDesign(true)
+        let bar = try #require(h.editor.paragraphDesignBarForTests)
+        bar.setLivePreviewAll?(false)
+        h.editor.dragDesignHandleForTests(.leftIndent, by: CGSize(width: 18, height: 0))
+        func indent(_ index: Int) -> CGFloat {
+            (h.editor.paragraphDesignPreviewForTests?.attribute(.paragraphStyle, at: index, effectiveRange: nil) as? NSParagraphStyle)?.headIndent ?? -1
+        }
+        #expect(indent(0) == 18 && indent(third(h)) == 0)
+        h.select(third(h) + 2)
+        #expect(indent(0) == 0 && indent(third(h)) == 18)
+        bar.setScope?(.paragraph)
+        #expect(indent(0) == 0 && indent(third(h)) == 18)
+        bar.setScope?(.style)
+        #expect(indent(0) == 0 && indent(third(h)) == 18)
+        bar.setLivePreviewAll?(true)
+        #expect(indent(0) == 18 && indent(third(h)) == 18)
+    }
+
     @Test("Trascinatori della tenuta: con quante righe del seguente e del precedente, nello stile o nel solo capoverso")
     func keepHandles() throws {
         let h = EditorHarness(paragraphs: Self.text)

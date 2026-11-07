@@ -148,15 +148,20 @@ extension EditorWindowController {
             selectionPanelModel.styleName = nil
             return
         }
-        let text = session.draftText ?? source
         let location = currentParagraphLocation()
-        let at = min(location, text.length - 1)
+        let at = min(location, source.length - 1)
+        let paragraphID = store.length > 0 ? store.paragraphID(at: at) : nil
+        if session.paragraphID != paragraphID, !session.livePreviewAll, !session.draft.isEmpty {
+            session.paragraphID = paragraphID
+            showDraft(session.draft)
+        }
+        let text = session.draftText ?? source
         let name = TextStyling.receivingStyle(for: .leftIndent, in: source, at: at)?.name
         let sheet = draftSheet(session.draft)
         let inspected = TextStyling.inspect(.paragraph, in: text, range: NSRange(location: at, length: 0), sheet: sheet, resolver: fontRoleResolver)
         let original = TextStyling.inspect(.paragraph, in: source, range: NSRange(location: at, length: 0), sheet: settings.styles, resolver: fontRoleResolver)
         session.paragraphLocation = location
-        session.paragraphID = store.length > 0 ? store.paragraphID(at: at) : nil
+        session.paragraphID = paragraphID
         session.styleName = name
         session.values = Dictionary(inspected.map { ($0.property, $0) }, uniquingKeysWith: { first, _ in first })
         session.documentSources = Dictionary(original.map { ($0.property, $0.source) }, uniquingKeysWith: { first, _ in first })
@@ -214,8 +219,10 @@ extension EditorWindowController {
         bar.set = { [weak self] property, values in self?.designEdit(property, values) }
         bar.setNextStyle = { [weak self] name in self?.designSetNextStyle(name) }
         bar.setScope = { [weak self] scope in
-            self?.paragraphDesign?.scope = scope
-            self?.refreshParagraphDesign()
+            guard let self, let session = self.paragraphDesign else { return }
+            session.scope = scope
+            self.showDraft(session.draft)
+            self.refreshParagraphDesign()
         }
         bar.setLivePreviewAll = { [weak self] on in
             guard let self, let session = self.paragraphDesign else { return }
@@ -266,17 +273,39 @@ extension EditorWindowController {
         let copy = NSMutableAttributedString(attributedString: documentText)
         var document = settings
         let sheet = draftSheet(draft)
+        var localPreviewRange: NSRange?
         if sheet != settings.styles {
             // Senza l'aggiornamento dal vivo di tutti, cambia solo il capoverso evidenziato; gli altri restano come sono.
             var range = NSRange(location: 0, length: copy.length)
-            if paragraphDesign?.livePreviewAll == false, let id = paragraphDesign?.paragraphID, let paragraph = store.range(of: id) {
-                range = paragraph
+            if paragraphDesign?.livePreviewAll == false {
+                if let id = paragraphDesign?.paragraphID, let paragraph = store.range(of: id) {
+                    range = paragraph
+                    localPreviewRange = paragraph
+                } else {
+                    range = NSRange(location: 0, length: 0)
+                }
             }
             TextStyling.restyle(copy, range: range, from: settings.styles, to: sheet,
                                 resolver: fontRoleResolver, base: settings.formulaBase ?? TextStyling.styleBase)
-            document.styles = sheet
+            if paragraphDesign?.livePreviewAll != false { document.styles = sheet }
         }
         applyParagraphChanges(draft, to: copy, store: store, sheet: sheet)
+        if let range = localPreviewRange, range.length > 0 {
+            // Tenuta e distanza d'apertura vengono lette dallo stile durante la
+            // composizione: fissiamo sulla copia il valore effettivo del solo
+            // paragrafo, preservando eventuali valori locali non rimossi.
+            var styleNames = Set<String>()
+            var current = copy.attribute(.paragraphStyleName, at: range.location, effectiveRange: nil) as? String
+            while let name = current, styleNames.insert(name).inserted {
+                current = sheet.style(named: name)?.basedOn
+            }
+            let properties = Set(draft.styleEdits.filter { styleNames.contains($0.key) }.values.flatMap { $0.keys })
+                .filter { $0.isLineKeeping || $0 == .openingDistance }
+            let inspected = TextStyling.inspect(.paragraph, in: copy, range: range, sheet: sheet, resolver: fontRoleResolver)
+            for value in inspected where properties.contains(value.property) {
+                TextStyling.setValue(value.value, of: value.property, in: copy, range: range, resolver: fontRoleResolver)
+            }
+        }
         if let setup = draft.pageSetups[""] { document.pageSetup = setup }
         for (name, setup) in draft.pageSetups where !name.isEmpty {
             if let index = document.pageTypes.firstIndex(where: { $0.name == name }) { document.pageTypes[index].setup = setup }
