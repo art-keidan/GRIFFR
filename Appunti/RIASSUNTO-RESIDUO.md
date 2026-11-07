@@ -84,6 +84,8 @@ Manca il caso completo «trova la quinta parola e crea una nota marginale a 1 cm
 
 Nello stesso gruppo rientrano le relazioni generali fra un paragrafo e i suoi vicini, oltre alle azioni già disponibili dopo Invio.
 
+Prima di scrivere il codice: l'[esperimento con Alloy](Alloy/RISULTATI.md) del 7 novembre ha trovato tre scelte da fare (due note unite in un paragrafo, la nota dopo una divisione, un a capo tolto e riscritto) e due fatti del codice: `ParagraphID` non si salva nel file, e il suo commento descrive una regola di divisione diversa da quella del codice.
+
 ### 5. Tabelle, flottanti esistenti e migrazione completa
 
 Gli stili di tabella, cella e flottante hanno ancora percorsi specifici. Vanno portati nella struttura comune delle formule mantenendo griglia, filetti, note, figure, numerazione, eccezioni locali e compatibilità con i documenti già scritti. La conversione deve coprire anche stili personalizzati e proprietà esplicitamente disattivate tramite `Sottrai`.
