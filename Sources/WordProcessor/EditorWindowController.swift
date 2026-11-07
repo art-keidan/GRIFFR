@@ -1339,6 +1339,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         case .keepTogether: return v.keeping.together == true ? "kept together" : "may split"
         case .orphanLines: return "lines at the bottom: \((v.keeping.linesAtEnd ?? 1) > 1 ? "\(v.keeping.linesAtEnd!)" : "no minimum")"
         case .widowLines: return "lines at the top: \((v.keeping.linesAtStart ?? 1) > 1 ? "\(v.keeping.linesAtStart!)" : "no minimum")"
+        case .nextLines: return "lines of the next kept: \(v.keeping.nextLines ?? 1)"
+        case .previousLines: return "kept with \(v.keeping.previousLines ?? 0) lines of the previous"
         }
     }
 

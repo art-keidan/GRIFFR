@@ -215,4 +215,79 @@ struct ParagraphDesignTests {
         #expect(MarginSide.right.field(onPage: 1, facing: false) == \PageSetup.right)
         #expect(MarginSide.bottom.value(from: 50, moved: CGSize(width: 0, height: 10)) == 40)
     }
+
+    @Test("Aggiornamento dal vivo spento: l'anteprima cambia solo il capoverso evidenziato, Save vale per lo stile")
+    func livePreviewOff() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        h.select(5)
+        h.editor.setParagraphDesign(true)
+        let bar = try #require(h.editor.paragraphDesignBarForTests)
+        bar.setLivePreviewAll?(false)
+        #expect(!bar.livePreviewAll)
+        h.editor.dragDesignHandleForTests(.leftIndent, by: CGSize(width: 18, height: 0))
+        let preview = try #require(h.editor.paragraphDesignPreviewForTests)
+        func indent(_ text: NSAttributedString, _ index: Int) -> CGFloat {
+            (text.attribute(.paragraphStyle, at: index, effectiveRange: nil) as? NSParagraphStyle)?.headIndent ?? -1
+        }
+        #expect(indent(preview, 0) == 18, "il capoverso evidenziato cambia dal vivo")
+        #expect(indent(preview, third(h)) == 0, "gli altri no, finché non si salva")
+        h.editor.saveParagraphDesign()
+        h.step()
+        #expect(indent(h.attributed, third(h)) == 18, "salvando, lo stile cambia per tutti")
+    }
+
+    @Test("Live riacceso: le altre occorrenze dello stile tornano ad aggiornarsi")
+    func liveBackOn() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        h.select(5)
+        h.editor.setParagraphDesign(true)
+        let bar = try #require(h.editor.paragraphDesignBarForTests)
+        func indent(_ index: Int) -> CGFloat {
+            (h.editor.paragraphDesignPreviewForTests?.attribute(.paragraphStyle, at: index, effectiveRange: nil) as? NSParagraphStyle)?.headIndent ?? -1
+        }
+        bar.setLivePreviewAll?(false)
+        h.editor.dragDesignHandleForTests(.leftIndent, by: CGSize(width: 18, height: 0))
+        #expect(indent(third(h)) == 0)
+        bar.setLivePreviewAll?(true)
+        #expect(indent(third(h)) == 18, "riacceso, l'anteprima vale per tutti")
+        h.editor.dragDesignHandleForTests(.leftIndent, by: CGSize(width: 10, height: 0))
+        #expect(indent(third(h)) == 28, "e i gesti dopo anche")
+        let layoutX = h.editor.currentLayout()?.pages[0].lines.last?.origin.x ?? 0
+        #expect(layoutX > 30, "le pagine mostrano il rientro sugli altri capoversi: \(layoutX)")
+    }
+
+    @Test("Trascinatori della tenuta: con quante righe del seguente e del precedente, nello stile o nel solo capoverso")
+    func keepHandles() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        let second = (h.text as NSString).range(of: "Secondo").location
+        h.select(second + 2)
+        h.editor.setParagraphDesign(true)
+        #expect(h.editor.paragraphDesignOverlayForTests?.keep == [.next: 0, .previous: 0])
+        h.editor.dragKeepForTests(.next, to: 2)
+        h.editor.dragKeepForTests(.previous, to: 3)
+        #expect(h.editor.paragraphDesignOverlayForTests?.keep == [.next: 2, .previous: 3], "le maniglie mostrano la bozza")
+        h.editor.saveParagraphDesign()
+        h.step()
+        let keeping = h.editor.settings.styles.lineKeeping(styleName: "Body")
+        #expect(keeping.withNext && keeping.nextLines == 2 && keeping.previousLines == 3)
+        #expect(h.undoActionName == "Paragraph Design")
+        // Tirata a zero, la tenuta col seguente si spegne.
+        h.editor.setParagraphDesign(true)
+        h.editor.dragKeepForTests(.next, to: 0)
+        h.editor.saveParagraphDesign()
+        #expect(!h.editor.settings.styles.lineKeeping(styleName: "Body").withNext)
+        h.undo(); h.undo()
+        #expect(!h.editor.settings.styles.lineKeeping(styleName: "Body").withNext && h.editor.settings.styles.lineKeeping(styleName: "Body").previousLines == 0)
+        // Solo questo capoverso: la tenuta va sul capoverso, lo stile non cambia.
+        h.select(second + 2)
+        h.editor.setParagraphDesign(true)
+        h.editor.paragraphDesignBarForTests?.setScope?(.paragraph)
+        h.editor.dragKeepForTests(.previous, to: 2)
+        h.editor.saveParagraphDesign()
+        #expect(TextStyling.lineKeeping(in: h.attributed, at: second).previousLines == 2)
+        #expect(h.editor.settings.styles.lineKeeping(styleName: "Body").previousLines == 0)
+    }
 }

@@ -85,6 +85,17 @@ enum MarginSide: CaseIterable, Hashable {
     }
 }
 
+/// Da che parte un capoverso tiene con sé le righe di un vicino.
+enum KeepSide: Hashable {
+    case next, previous
+
+    func title(_ count: Int) -> String {
+        if count == 0 { return self == .next ? "Not kept with the next" : "Not kept with the previous" }
+        let lines = count == 1 ? "1 line" : "\(count) lines"
+        return self == .next ? "Keep with \(lines) of the next" : "Keep with \(lines) of the previous"
+    }
+}
+
 /// Ciò che la pagina deve sapere per disegnare la progettazione: quale capoverso, le sue misure, quali sono bloccate.
 struct ParagraphDesignOverlay: Equatable {
     /// La posizione d'inizio del capoverso, come la portano le righe composte.
@@ -94,6 +105,10 @@ struct ParagraphDesignOverlay: Equatable {
     var locked: Set<DesignHandle> = []
     /// La maniglia trascinata ora.
     var active: DesignHandle?
+    /// Con quante righe del seguente e del precedente il capoverso resta nella stessa pagina (0 = nessuna).
+    var keep: [KeepSide: Int] = [:]
+    var keepLocked: Set<KeepSide> = []
+    var activeKeep: KeepSide?
 
     func value(_ handle: DesignHandle) -> CGFloat { values[handle] ?? 0 }
 }
@@ -189,6 +204,98 @@ extension PagesView {
         return nil
     }
 
+    // MARK: Tenere con le righe dei vicini
+
+    /// Le righe del capoverso che segue (o precede) quello progettato, dalla più vicina, in coordinate della vista.
+    func neighbourLines(_ side: KeepSide) -> [NSRect] {
+        guard let design, let layout else { return [] }
+        var all: [(page: Int, line: PlacedLine)] = []
+        for (index, page) in layout.pages.enumerated() { for line in page.lines where !line.isNote { all.append((index, line)) } }
+        guard let first = all.firstIndex(where: { $0.line.paragraphLocation == design.paragraphLocation }),
+              let last = all.lastIndex(where: { $0.line.paragraphLocation == design.paragraphLocation }) else { return [] }
+        var picked: [(page: Int, line: PlacedLine)] = []
+        switch side {
+        case .next:
+            guard last + 1 < all.count else { return [] }
+            let location = all[last + 1].line.paragraphLocation
+            for item in all[(last + 1)...] { guard item.line.paragraphLocation == location, picked.count < LineKeeping.lineRange.upperBound else { break }; picked.append(item) }
+        case .previous:
+            guard first > 0 else { return [] }
+            let location = all[first - 1].line.paragraphLocation
+            for item in all[..<first].reversed() { guard item.line.paragraphLocation == location, picked.count < LineKeeping.previousRange.upperBound else { break }; picked.append(item) }
+        }
+        return picked.map { item in
+            viewRect(for: CGRect(x: item.line.origin.x, y: item.line.origin.y - item.line.descent, width: max(item.line.width, 1),
+                                 height: item.line.ascent + item.line.descent), onPage: item.page)
+        }
+    }
+
+    /// La maniglia della tenuta: nel margine destro, al bordo dell'ultima riga tenuta (o del capoverso, se nessuna).
+    func keepHandleRect(_ side: KeepSide) -> NSRect? {
+        guard let design, let first = designFragments().first, let last = designFragments().last else { return nil }
+        let neighbours = neighbourLines(side)
+        guard !neighbours.isEmpty else { return nil }
+        let count = min(design.keep[side] ?? 0, neighbours.count)
+        let x = (side == .next ? last.columnMaxX : first.columnMaxX) + 14
+        let y: CGFloat = switch side {
+        case .next: count > 0 ? neighbours[count - 1].maxY : last.bottom
+        case .previous: count > 0 ? neighbours[count - 1].minY : first.top
+        }
+        return NSRect(x: x - 6, y: y - 6, width: 12, height: 12)
+    }
+
+    /// Quante righe del vicino sono comprese fino al punto: per il seguente quelle sopra, per il precedente quelle sotto.
+    func keepCount(_ side: KeepSide, at y: CGFloat, mids: [CGFloat]) -> Int {
+        switch side {
+        case .next: mids.filter { $0 < y }.count
+        case .previous: mids.filter { $0 > y }.count
+        }
+    }
+
+    private func drawKeep(onPage index: Int, pageFrame: NSRect, in context: CGContext) {
+        guard let design else { return }
+        for side in [KeepSide.next, .previous] {
+            guard let handle = keepHandleRect(side), pageFrame.insetBy(dx: -40, dy: -20).intersects(handle) else { continue }
+            let neighbours = neighbourLines(side)
+            let count = min(design.keep[side] ?? 0, neighbours.count)
+            let locked = design.keepLocked.contains(side)
+            let lit = design.activeKeep == side || hoveredKeep == side
+            let color = locked ? NSColor.systemGray : Theme.accent
+            // Le righe del vicino tenute: appena colorate sopra il velo, e una graffa nel margine.
+            if count > 0 {
+                context.setFillColor(color.withAlphaComponent(0.12).cgColor)
+                for rect in neighbours.prefix(count) where pageFrame.intersects(rect) { context.fill(rect.insetBy(dx: -2, dy: 0)) }
+            }
+            if let fragment = side == .next ? designFragments().last : designFragments().first {
+                let from = side == .next ? (fragment.lines.last?.midY ?? fragment.bottom) : (fragment.lines.first?.midY ?? fragment.top)
+                context.saveGState()
+                context.setStrokeColor(color.withAlphaComponent(lit ? 0.9 : 0.55).cgColor)
+                context.setLineWidth(1.5)
+                context.move(to: CGPoint(x: handle.midX, y: from))
+                context.addLine(to: CGPoint(x: handle.midX, y: handle.midY))
+                context.strokePath()
+                // Una tacca per ogni riga tenuta.
+                for rect in neighbours.prefix(count) where pageFrame.intersects(rect) {
+                    context.move(to: CGPoint(x: handle.midX - 3, y: rect.midY))
+                    context.addLine(to: CGPoint(x: handle.midX + 3, y: rect.midY))
+                }
+                context.strokePath()
+                context.restoreGState()
+            }
+            context.saveGState()
+            context.setShadow(offset: CGSize(width: 0, height: -0.5), blur: 1.5, color: NSColor.black.withAlphaComponent(0.25).cgColor)
+            context.setFillColor((lit ? Theme.activeTop : color).cgColor)
+            context.fillEllipse(in: handle)
+            context.restoreGState()
+            let number = NSAttributedString(string: "\(count)", attributes: [.font: NSFont.systemFont(ofSize: 8, weight: .bold), .foregroundColor: NSColor.white])
+            let size = number.size()
+            number.draw(at: NSPoint(x: handle.midX - size.width / 2, y: handle.midY - size.height / 2))
+            if lit {
+                drawLabel(locked ? "\(side.title(count)): formula — click to open" : side.title(count), color: color, near: handle, horizontal: true)
+            }
+        }
+    }
+
     // MARK: I margini
 
     /// Lo specchio di stampa di una pagina, in coordinate della vista.
@@ -247,6 +354,16 @@ extension PagesView {
             onDesignDrag?(.lineSpacing, .zero, .began, modifiers)
             return true
         }
+        for side in [KeepSide.next, .previous] {
+            guard let rect = keepHandleRect(side), rect.insetBy(dx: -4, dy: -4).contains(point) else { continue }
+            if design.keepLocked.contains(side) {
+                onKeepLocked?(side)
+                return true
+            }
+            keepDrag = (side, neighbourLines(side).map(\.midY))
+            onKeepDrag?(side, design.keep[side] ?? 0, .began)
+            return true
+        }
         if let margin = marginHandle(at: point) {
             marginDrag = (margin.page, margin.side, point)
             onMarginDrag?(margin.page, margin.side, .zero, .began, modifiers)
@@ -266,6 +383,10 @@ extension PagesView {
             onMarginDrag?(drag.page, drag.side, designDelta(from: drag.start, to: point), .changed, modifiers)
             return true
         }
+        if let drag = keepDrag {
+            onKeepDrag?(drag.side, keepCount(drag.side, at: point.y, mids: drag.mids), .changed)
+            return true
+        }
         return false
     }
 
@@ -282,13 +403,23 @@ extension PagesView {
             onMarginDrag?(drag.page, drag.side, designDelta(from: drag.start, to: point), .ended, modifiers)
             return true
         }
+        if let drag = keepDrag {
+            keepDrag = nil
+            onKeepDrag?(drag.side, keepCount(drag.side, at: point.y, mids: drag.mids), .ended)
+            return true
+        }
         return false
     }
 
     func designMouseMoved(at point: NSPoint) -> Bool {
         guard design != nil else { return false }
         hoveredDesignHandle = designHandle(at: point) ?? (designBaseline(at: point) != nil ? .lineSpacing : nil)
-        hoveredMargin = hoveredDesignHandle == nil ? marginHandle(at: point) : nil
+        hoveredKeep = hoveredDesignHandle == nil ? [KeepSide.next, .previous].first { keepHandleRect($0)?.insetBy(dx: -4, dy: -4).contains(point) == true } : nil
+        hoveredMargin = hoveredDesignHandle == nil && hoveredKeep == nil ? marginHandle(at: point) : nil
+        if hoveredKeep != nil {
+            NSCursor.resizeUpDown.set()
+            return true
+        }
         if let handle = hoveredDesignHandle {
             if design?.locked.contains(handle) == true { NSCursor.pointingHand.set() } else if handle.isHorizontal { NSCursor.resizeLeftRight.set() } else { NSCursor.resizeUpDown.set() }
             return true
@@ -322,6 +453,7 @@ extension PagesView {
         context.fillPath(using: .evenOdd)
         context.restoreGState()
         drawMargins(onPage: index, in: context)
+        drawKeep(onPage: index, pageFrame: pageFrame, in: context)
         guard !here.isEmpty else { return }
 
         let accent = Theme.accent
@@ -335,6 +467,14 @@ extension PagesView {
             if fragment.isLast, design.value(.spaceAfter) > 0 {
                 let height = design.value(.spaceAfter) * scale
                 fillBand(NSRect(x: fragment.columnMinX, y: fragment.bottom, width: fragment.columnMaxX - fragment.columnMinX, height: height), in: context)
+            }
+            // I rientri sinistro e destro: il tratteggio fra il bordo della colonna e la guida, come per gli spazi.
+            let indentLeft = design.value(.leftIndent) * scale, indentRight = design.value(.rightIndent) * scale
+            if indentLeft > 0 {
+                fillBand(NSRect(x: fragment.columnMinX, y: fragment.top, width: indentLeft, height: fragment.bottom - fragment.top), in: context)
+            }
+            if indentRight > 0 {
+                fillBand(NSRect(x: fragment.columnMaxX - indentRight, y: fragment.top, width: indentRight, height: fragment.bottom - fragment.top), in: context)
             }
             // Le linee di base sotto le lettere: si trascinano per cambiare la distanza fra le righe.
             let lit = design.active == .lineSpacing || hoveredDesignHandle == .lineSpacing
@@ -493,20 +633,13 @@ extension PagesView {
             actions.isHidden = design == nil
         }
         guard let bar = designBar else { return }
-        guard design != nil, let first = designFragments().first, let pageFrame = frameOfPage(first.page) else {
+        guard design != nil else {
             bar.isHidden = true
             return
         }
+        // Fissa in alto a sinistra della zona visibile, come Salva e Annulla a destra: non copre mai il testo.
         let size = bar.fittingSize
-        let spaceBefore = (design?.value(.spaceBefore) ?? 0) * scale
-        var y = first.top - spaceBefore - 16 - size.height
-        if y < pageFrame.minY + 2 {
-            let last = designFragments().last ?? first
-            y = last.bottom + (design?.value(.spaceAfter) ?? 0) * scale + 12
-        }
-        var x = first.columnMinX
-        x = min(max(x, visibleRect.minX + 4), max(visibleRect.maxX - size.width - 4, visibleRect.minX + 4))
-        bar.frame = NSRect(x: x, y: y, width: size.width, height: size.height)
+        bar.frame = NSRect(x: visibleRect.minX + 12, y: visibleRect.minY + 10, width: size.width, height: size.height)
         bar.isHidden = false
     }
 }

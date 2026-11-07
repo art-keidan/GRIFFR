@@ -19,27 +19,39 @@ public struct LineKeeping: Hashable, Sendable {
     public var linesAtEnd: Int?
     /// Righe minime del paragrafo in cima alla pagina seguente (le vedove); 1 = nessun controllo.
     public var linesAtStart: Int?
+    /// Con «tieni col seguente»: quante righe del seguente stanno nella stessa pagina della fine di questo (formato 17).
+    public var nextLines: Int?
+    /// Tieni col precedente: quante righe del precedente stanno nella pagina in cui comincia questo; 0 = nessuna (17).
+    public var previousLines: Int?
 
     public static let lineRange = 1...9
+    public static let previousRange = 0...9
 
-    public init(withNext: Bool? = nil, together: Bool? = nil, linesAtEnd: Int? = nil, linesAtStart: Int? = nil) {
+    public init(withNext: Bool? = nil, together: Bool? = nil, linesAtEnd: Int? = nil, linesAtStart: Int? = nil,
+                nextLines: Int? = nil, previousLines: Int? = nil) {
         self.withNext = withNext
         self.together = together
         self.linesAtEnd = linesAtEnd
         self.linesAtStart = linesAtStart
+        self.nextLines = nextLines
+        self.previousLines = previousLines
     }
 
-    public var isEmpty: Bool { withNext == nil && together == nil && linesAtEnd == nil && linesAtStart == nil }
+    public var isEmpty: Bool {
+        withNext == nil && together == nil && linesAtEnd == nil && linesAtStart == nil && nextLines == nil && previousLines == nil
+    }
 
     /// Questi valori sopra quelli di `parent`: vale il proprio dove è fissato.
     public func over(_ parent: LineKeeping) -> LineKeeping {
         LineKeeping(withNext: withNext ?? parent.withNext, together: together ?? parent.together,
-                    linesAtEnd: linesAtEnd ?? parent.linesAtEnd, linesAtStart: linesAtStart ?? parent.linesAtStart)
+                    linesAtEnd: linesAtEnd ?? parent.linesAtEnd, linesAtStart: linesAtStart ?? parent.linesAtStart,
+                    nextLines: nextLines ?? parent.nextLines, previousLines: previousLines ?? parent.previousLines)
     }
 
-    /// I valori che contano davvero, con i ripieghi: spento, spento, 1, 1.
+    /// I valori che contano davvero, con i ripieghi: spento, spento, 1, 1, 1, 0.
     public var resolved: Resolved {
-        Resolved(withNext: withNext ?? false, together: together ?? false, linesAtEnd: linesAtEnd ?? 1, linesAtStart: linesAtStart ?? 1)
+        Resolved(withNext: withNext ?? false, together: together ?? false, linesAtEnd: linesAtEnd ?? 1, linesAtStart: linesAtStart ?? 1,
+                 nextLines: nextLines ?? 1, previousLines: previousLines ?? 0)
     }
 
     public struct Resolved: Hashable, Sendable {
@@ -47,6 +59,20 @@ public struct LineKeeping: Hashable, Sendable {
         public var together: Bool
         public var linesAtEnd: Int
         public var linesAtStart: Int
+        /// Le righe del seguente che restano con questo (contano solo con `withNext`).
+        public var nextLines: Int = 1
+        /// Le righe del precedente che restano con questo; 0 = nessuna.
+        public var previousLines: Int = 0
+
+        public init(withNext: Bool, together: Bool, linesAtEnd: Int, linesAtStart: Int, nextLines: Int = 1, previousLines: Int = 0) {
+            self.withNext = withNext
+            self.together = together
+            self.linesAtEnd = linesAtEnd
+            self.linesAtStart = linesAtStart
+            self.nextLines = nextLines
+            self.previousLines = previousLines
+        }
+
         /// Nessuna tenuta: il paragrafo si impagina come sempre.
         public var isNone: Bool { !withNext && !together && linesAtEnd <= 1 && linesAtStart <= 1 }
     }
@@ -60,6 +86,8 @@ public struct LineKeeping: Hashable, Sendable {
         if let together { parts.append("together=\(together ? "on" : "off")") }
         if let linesAtEnd { parts.append("end=\(linesAtEnd)") }
         if let linesAtStart { parts.append("start=\(linesAtStart)") }
+        if let nextLines { parts.append("nextlines=\(nextLines)") }
+        if let previousLines { parts.append("previous=\(previousLines)") }
         return parts.joined(separator: " ")
     }
 
@@ -73,6 +101,8 @@ public struct LineKeeping: Hashable, Sendable {
             case "together": guard let value = Self.flag(pair[1]) else { return nil }; together = value
             case "end": guard let value = Self.lines(pair[1]) else { return nil }; linesAtEnd = value
             case "start": guard let value = Self.lines(pair[1]) else { return nil }; linesAtStart = value
+            case "nextlines": guard let value = Self.lines(pair[1]) else { return nil }; nextLines = value
+            case "previous": guard let value = Self.previous(pair[1]) else { return nil }; previousLines = value
             default: return nil
             }
         }
@@ -80,9 +110,10 @@ public struct LineKeeping: Hashable, Sendable {
 
     static func flag(_ text: String) -> Bool? { text == "on" ? true : text == "off" ? false : nil }
     static func lines(_ text: String) -> Int? { Int(text).flatMap { lineRange.contains($0) ? $0 : nil } }
+    static func previous(_ text: String) -> Int? { Int(text).flatMap { previousRange.contains($0) ? $0 : nil } }
 
     /// Gli attributi XML, uguali per `style` e per `p`.
-    static let attributeNames = ["keep-with-next", "keep-together", "orphan-lines", "widow-lines"]
+    static let attributeNames = ["keep-with-next", "keep-together", "orphan-lines", "widow-lines", "keep-next-lines", "keep-with-previous"]
 
     var xmlAttributes: String {
         var out = ""
@@ -90,6 +121,8 @@ public struct LineKeeping: Hashable, Sendable {
         if let together { out += " keep-together=\"\(together ? "on" : "off")\"" }
         if let linesAtEnd { out += " orphan-lines=\"\(linesAtEnd)\"" }
         if let linesAtStart { out += " widow-lines=\"\(linesAtStart)\"" }
+        if let nextLines { out += " keep-next-lines=\"\(nextLines)\"" }
+        if let previousLines { out += " keep-with-previous=\"\(previousLines)\"" }
         return out
     }
 
@@ -100,6 +133,8 @@ public struct LineKeeping: Hashable, Sendable {
         if let text = attributes["keep-together"] { guard let value = Self.flag(text) else { try invalid("keep-together", text) }; together = value }
         if let text = attributes["orphan-lines"] { guard let value = Self.lines(text) else { try invalid("orphan-lines", text) }; linesAtEnd = value }
         if let text = attributes["widow-lines"] { guard let value = Self.lines(text) else { try invalid("widow-lines", text) }; linesAtStart = value }
+        if let text = attributes["keep-next-lines"] { guard let value = Self.lines(text) else { try invalid("keep-next-lines", text) }; nextLines = value }
+        if let text = attributes["keep-with-previous"] { guard let value = Self.previous(text) else { try invalid("keep-with-previous", text) }; previousLines = value }
     }
 }
 

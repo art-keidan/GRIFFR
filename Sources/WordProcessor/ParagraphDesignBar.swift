@@ -8,6 +8,8 @@ final class ParagraphDesignBarModel: ObservableObject {
     @Published var styleName: String?
     @Published var scope = ParagraphDesignScope.style
     @Published var hasChanges = false
+    /// Aggiornamento dal vivo: spento, l'anteprima cambia solo il capoverso evidenziato (Save vale comunque per lo stile).
+    @Published var livePreviewAll = true
     @Published var alignment: ParagraphStyle.Alignment = .left
     @Published var lineHeightMultiple: Double = 0
     @Published var keepTogether = false
@@ -31,6 +33,7 @@ final class ParagraphDesignBarModel: ObservableObject {
     var set: ((InspectorProperty, StyleValues) -> Void)?
     var setNextStyle: ((String?) -> Void)?
     var setScope: ((ParagraphDesignScope) -> Void)?
+    var setLivePreviewAll: ((Bool) -> Void)?
     var openFormula: ((InspectorProperty) -> Void)?
     var save: (() -> Void)?
     var cancel: (() -> Void)?
@@ -61,7 +64,11 @@ struct ParagraphDesignBar: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            scopePicker
+            Text(model.styleName ?? "No style")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(nsColor: Theme.text))
+                .padding(.leading, 2)
+            modeGroup
             separator
             ForEach(Self.alignments, id: \.1) { alignment, symbol, title in
                 toggle(symbol, title, on: model.alignment == alignment, property: .alignment) { model.change(.alignment) { $0.alignment = alignment } }
@@ -137,19 +144,26 @@ struct ParagraphDesignBar: View {
         .fixedSize()
     }
 
-    /// Dove vanno le modifiche: in tutti i capoversi dello stile, o solo in questo.
-    private var scopePicker: some View {
-        HStack(spacing: 1) {
-            Button { model.setScope?(.style) } label: {
-                Label(model.styleName ?? "Style", systemImage: "square.stack.3d.up").font(.system(size: 11, weight: .semibold))
+    /// A chi vanno le modifiche e che cosa si aggiorna dal vivo: tre icone, una accesa.
+    private var modeGroup: some View {
+        let name = model.styleName.map { "“\($0)”" } ?? "the style"
+        return HStack(spacing: 1) {
+            // Un occhio solo: pieno, tutti i capoversi dello stile si aggiornano dal vivo; barrato, solo questo.
+            modeButton(model.livePreviewAll ? "eye" : "eye.slash",
+                       model.livePreviewAll ? "Live on every \(name) paragraph (click: only this one)" : "Live on this paragraph only (click: every \(name) paragraph); Save still changes the style",
+                       on: model.scope == .style) {
+                if model.scope == .style { model.setLivePreviewAll?(!model.livePreviewAll) } else { model.setScope?(.style) }
             }
-            .buttonStyle(.hover(model.scope == .style ? .prominent : .borderless))
             .disabled(model.styleName == nil)
-            .help(model.styleName.map { "Live on every “\($0)” paragraph: the changes go into the style" } ?? "This paragraph has no style")
-            Button { model.setScope?(.paragraph) } label: { Image(systemName: "paragraphsign").frame(width: 16) }
-                .buttonStyle(.hover(model.scope == .paragraph ? .prominent : .borderless))
-                .help("Only this paragraph: the changes stay on it, the style does not change")
+            modeButton("paragraphsign", "Only this paragraph: the changes stay on it, the style does not change",
+                       on: model.scope == .paragraph) { model.setScope?(.paragraph) }
         }
+    }
+
+    private func modeButton(_ symbol: String, _ help: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) { Image(systemName: symbol).frame(width: 16) }
+            .buttonStyle(.hover(on ? .prominent : .borderless))
+            .help(help)
     }
 
     private var separator: some View { Divider().frame(height: 16).padding(.horizontal, 2) }
@@ -192,11 +206,12 @@ struct ParagraphDesignActions: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Text(model.hasChanges ? "Unsaved changes" : "No changes yet")
-                .font(.system(size: 11))
-                .foregroundStyle(Color(nsColor: model.hasChanges ? Theme.text : Theme.secondary))
+            Circle()
+                .fill(Color(nsColor: model.hasChanges ? Theme.accent : Theme.line))
+                .frame(width: 7, height: 7)
+                .help(model.hasChanges ? "Unsaved changes" : "No changes yet")
             Button("Cancel") { model.cancel?() }
-                .buttonStyle(.hover(.bordered))
+                .buttonStyle(.hover(.borderless))
                 .help("Discard the changes (Esc)")
             Button("Save") { model.save?() }
                 .buttonStyle(.hover(model.hasChanges ? .prominent : .bordered))

@@ -1588,21 +1588,41 @@ public enum PageLayout {
             var lastPage = 0
             /// La catena comincia in una pagina vuota: spostarla non servirebbe.
             var startsOnEmptyPage = false
+            /// L'ultimo paragrafo della catena: quante righe del seguente vuole con sé, e quante delle sue il seguente
+            /// vuole con sé (tieni col precedente, formato 17).
+            var lastStart = 0
+            var nextLines = 1
+            var tailLines = 0
         }
         var styleValues: [String: StyleValues] = [:]
         var reducedStart: [Int: CGFloat] = [:]
         var keepChain: KeepChain?
         var keepBreakAt: Int?
         var keepMoved: Set<Int> = [], keepGivenUp: Set<Int> = []
+        /// Tieni col precedente: le ultime righe di un paragrafo che passano alla pagina del seguente, dopo un tentativo.
+        var keepTail: [Int: Int] = [:]
         /// Dopo un paragrafo (o una tabella) che segue un paragrafo della catena: vero se si è tornati indietro.
         func keepChainBroken(by start: Int, from mark: (page: Int, line: Int), pending: KeepChain?) -> Bool {
-            guard let pending, !pending.startsOnEmptyPage, !keepGivenUp.contains(pending.start) else { return false }
+            guard let pending, !keepGivenUp.contains(pending.start) else { return false }
             var firstPage: Int?
             for index in mark.page..<pages.count where firstPage == nil {
                 let lines = pages[index].lines[(index == mark.page ? mark.line : 0)...]
                 if lines.contains(where: { !$0.isNote && $0.paragraphLocation >= start }) { firstPage = index }
             }
-            guard let firstPage, firstPage > pending.lastPage else { return false }
+            guard let firstPage else { return false }
+            // Il seguente vuole con sé le ultime righe di questo: se nella pagina in cui comincia ne stanno meno, si
+            // spezza il paragrafo perché ci arrivino, invece di spostarlo tutto.
+            if pending.tailLines > 0, keepTail[pending.lastStart] == nil {
+                let recent = pages[max(0, firstPage - 4)...firstPage].flatMap(\.lines).filter { !$0.isNote && $0.paragraphLocation == pending.lastStart }
+                let here = pages[firstPage].lines.filter { !$0.isNote && $0.paragraphLocation == pending.lastStart }.count
+                if here < min(pending.tailLines, recent.count) {
+                    keepTail[pending.lastStart] = pending.tailLines
+                    pending.restore()
+                    keepChain = nil
+                    return true
+                }
+            }
+            guard firstPage > pending.lastPage, !pending.startsOnEmptyPage else { return false }
             pending.restore()
             if keepMoved.contains(pending.start) {
                 keepGivenUp.insert(pending.start)
@@ -1628,14 +1648,39 @@ public enum PageLayout {
                 styleValues[paragraphStyleName ?? ""] = found
                 return found
             }()
-            let keeping = TextStyling.lineKeeping(in: text, at: paragraphRange.location).over(values.keeping).resolved
+            var keeping = TextStyling.lineKeeping(in: text, at: paragraphRange.location).over(values.keeping).resolved
             // Il paragrafo precedente voleva restare con questo: lo si controlla dopo averlo posato. Un paragrafo che apre
             // comunque una pagina nuova chiude la catena senza controllo.
             let pendingKeep = sectionStart == .continuous ? keepChain : nil
-            let keepsWithNext = keeping.withNext && !isTable
+            // Il precedente vuole con sé n righe di questo: se in fondo alla pagina non ne stanno n, passa tutto alla
+            // pagina dopo (e la catena porta con sé il precedente).
+            if let pendingKeep, pendingKeep.nextLines > 1 { keeping.linesAtEnd = max(keeping.linesAtEnd, pendingKeep.nextLines) }
+            // Il seguente vuole con sé le ultime righe di questo (tieni col precedente): questo entra nella catena.
+            let followerWantsTail: Int = {
+                let next = NSMaxRange(paragraphRange)
+                guard next < text.length else { return 0 }
+                let nextRange = TextStyling.bodyParagraph(in: text, at: next).range
+                guard SectionEditing.start(in: text, atParagraph: nextRange.location) == .continuous,
+                      text.attribute(.tableCell, at: nextRange.location, effectiveRange: nil) == nil else { return 0 }
+                let name = text.attribute(.paragraphStyleName, at: nextRange.location, effectiveRange: nil) as? String
+                let nextValues = styleValues[name ?? ""] ?? {
+                    let found = options.styles.values(of: name)
+                    styleValues[name ?? ""] = found
+                    return found
+                }()
+                return TextStyling.lineKeeping(in: text, at: nextRange.location).over(nextValues.keeping).resolved.previousLines
+            }()
+            let keepsWithNext = (keeping.withNext || followerWantsTail > 0) && !isTable
             if !keepsWithNext { keepChain = nil } else if keepChain == nil || sectionStart != .continuous {
                 keepChain = KeepChain(restore: checkpoint(), start: paragraphRange.location)
             }
+            if keepsWithNext {
+                keepChain?.lastStart = paragraphRange.location
+                keepChain?.nextLines = keeping.withNext ? keeping.nextLines : 1
+                keepChain?.tailLines = followerWantsTail
+            }
+            // Dopo un tentativo andato male: le ultime righe di questo paragrafo passano alla pagina del seguente.
+            let tailCount = keepTail[paragraphRange.location] ?? 0
             let startsKeepChain = keepChain?.start == paragraphRange.location
             let keepMark = (page: pages.count - 1, line: pages[pages.count - 1].lines.count)
             if let target = returns[paragraphRange.location] {
@@ -1939,6 +1984,25 @@ public enum PageLayout {
                     plannedBreak = widowBreak(from: 0, fitting: linesFitting(from: 0))
                 }
             }
+            // Tieni col precedente del seguente: il punto in cui spezzare perché le ultime righe vadano con lui. Se ne
+            // resterebbero troppo poche qui (o il paragrafo non si spezza), passa tutto.
+            var tailBreak: Int?
+            if tailCount > 0, !paragraphLines.isEmpty {
+                let split = paragraphLines.count - tailCount
+                if split <= 0 || split < keeping.linesAtEnd || keeping.together {
+                    if !pageIsEmpty {
+                        startNewPage()
+                        if abs(column.width - composedWidth) > 0.01 {
+                            paragraphLines = composedLines(bodyText, style: style, width: column.width - titleReserve, options: options, lineRules: lineRules)
+                            composedWidth = column.width
+                        }
+                        applyPageStart()
+                    }
+                } else {
+                    tailBreak = split
+                    plannedBreak = min(plannedBreak ?? split, split)
+                }
+            }
             var lineNumber = 0
             while lineNumber < paragraphLines.count {
                 defer { lineNumber += 1 }
@@ -1981,6 +2045,7 @@ public enum PageLayout {
                     if lineNumber == 0 { applyPageStart() }
                     // Il seguito, in cima alla pagina nuova: se continua ancora, che nella pagina dopo restino le righe minime.
                     if !keeping.isNone { plannedBreak = widowBreak(from: lineNumber, fitting: linesFitting(from: lineNumber)) }
+                    if let tailBreak, tailBreak > lineNumber { plannedBreak = min(plannedBreak ?? tailBreak, tailBreak) }
                 }
                 for note in lineNotes { notePages[note.info.range.location] = pages.count }
                 if lineNumber == 0 {

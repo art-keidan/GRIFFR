@@ -54,8 +54,10 @@ public struct StyleFormula: Identifiable, Hashable, Sendable {
         case (.keepWithNext, .boolean), (.keepTogether, .boolean): break
         case (.outlineLevel, .integer(let level)):
             guard (0...99).contains(level) else { throw StylePredicateError.incompatibleArgument(property) }
-        case (.orphanLines, .integer(let count)), (.widowLines, .integer(let count)):
+        case (.orphanLines, .integer(let count)), (.widowLines, .integer(let count)), (.nextLines, .integer(let count)):
             guard (1...9).contains(count) else { throw StylePredicateError.incompatibleArgument(property) }
+        case (.previousLines, .integer(let count)):
+            guard LineKeeping.previousRange.contains(count) else { throw StylePredicateError.incompatibleArgument(property) }
         case (.font, .font), (.alignment, .alignment), (.language, .language), (.smallCaps, .smallCaps), (.hyphenates, .hyphenates): break
         case (.family, .family(let name)), (.face, .face(let name)):
             guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw StylePredicateError.incompatibleArgument(property) }
@@ -91,6 +93,8 @@ extension StyleProperty {
         case .keepTogether: .keepTogether
         case .orphanLines: .orphanLines
         case .widowLines: .widowLines
+        case .nextLines: .nextLines
+        case .previousLines: .previousLines
         case .family: .family
         case .face: .face
         case .color: .color

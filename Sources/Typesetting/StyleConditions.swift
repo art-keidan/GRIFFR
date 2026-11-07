@@ -47,7 +47,7 @@ extension StyleProperty {
     public var isDirective: Bool {
         switch self {
         case .pageStartSpacing, .openingDistance, .opensSection, .nextStyle, .outlineLevel,
-             .keepWithNext, .keepTogether, .orphanLines, .widowLines: true
+             .keepWithNext, .keepTogether, .orphanLines, .widowLines, .nextLines, .previousLines: true
         default: false
         }
     }
@@ -72,6 +72,8 @@ extension StyleFormula {
         case (.keepTogether, .boolean(let enabled)): values.keeping.together = enabled
         case (.orphanLines, .integer(let count)): values.keeping.linesAtEnd = count
         case (.widowLines, .integer(let count)): values.keeping.linesAtStart = count
+        case (.nextLines, .integer(let count)): values.keeping.nextLines = count
+        case (.previousLines, .integer(let count)): values.keeping.previousLines = count
         default: break
         }
     }
@@ -99,6 +101,8 @@ extension StyleValues {
         case .keepTogether: keeping.together = nil
         case .orphanLines: keeping.linesAtEnd = nil
         case .widowLines: keeping.linesAtStart = nil
+        case .nextLines: keeping.nextLines = nil
+        case .previousLines: keeping.previousLines = nil
         default: break
         }
     }
@@ -151,7 +155,7 @@ extension StyleFormula {
         switch operation.property {
         case .nextStyle: return .paragraphCreation
         case .opensSection, .outlineLevel: return .assignment
-        case .pageStartSpacing, .openingDistance, .keepWithNext, .keepTogether, .orphanLines, .widowLines: return .placement
+        case .pageStartSpacing, .openingDistance, .keepWithNext, .keepTogether, .orphanLines, .widowLines, .nextLines, .previousLines: return .placement
         default:
             if isRuntimeRule { return when.dependsOnLayout || target.isLineTarget ? .composition : .textContext }
             return .base

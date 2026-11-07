@@ -8,7 +8,7 @@ public enum InspectorProperty: String, CaseIterable, Sendable, Identifiable {
     case family, face, size, smallCaps, color, verticalPosition, decorations, shaping
     case language, hyphenates
     case alignment, leftIndent, rightIndent, firstLineIndent, spaceBefore, spaceAfter, lineHeightMultiple, lineSpacing, list, openingDistance
-    case keepWithNext, keepTogether, orphanLines, widowLines
+    case keepWithNext, keepTogether, orphanLines, widowLines, nextLines, previousLines
 
     public var id: String { rawValue }
 
@@ -47,6 +47,8 @@ public enum InspectorProperty: String, CaseIterable, Sendable, Identifiable {
         case .keepTogether: "Keep lines together"
         case .orphanLines: "Lines at the bottom"
         case .widowLines: "Lines at the top"
+        case .nextLines: "Lines of the next kept"
+        case .previousLines: "Keep with previous"
         }
     }
 
@@ -80,6 +82,8 @@ public enum InspectorProperty: String, CaseIterable, Sendable, Identifiable {
         case .keepTogether: result.keeping.together = values.keeping.together
         case .orphanLines: result.keeping.linesAtEnd = values.keeping.linesAtEnd
         case .widowLines: result.keeping.linesAtStart = values.keeping.linesAtStart
+        case .nextLines: result.keeping.nextLines = values.keeping.nextLines
+        case .previousLines: result.keeping.previousLines = values.keeping.previousLines
         }
         return result
     }
@@ -134,6 +138,8 @@ extension StyleValues {
         case .keepTogether: keeping.together = nil
         case .orphanLines: keeping.linesAtEnd = nil
         case .widowLines: keeping.linesAtStart = nil
+        case .nextLines: keeping.nextLines = nil
+        case .previousLines: keeping.previousLines = nil
         }
     }
 
@@ -707,7 +713,7 @@ extension TextStyling {
             case .spaceAfter: values.spaceAfter = difference.spaceAfter
             case .lineHeightMultiple: values.lineHeightMultiple = difference.lineHeightMultiple
             case .lineSpacing: values.lineSpacing = difference.lineSpacing
-            case .list, .openingDistance, .keepWithNext, .keepTogether, .orphanLines, .widowLines: break
+            case .list, .openingDistance, .keepWithNext, .keepTogether, .orphanLines, .widowLines, .nextLines, .previousLines: break
             }
         }
         var result = sheet
@@ -725,12 +731,12 @@ extension StyleValues {
 
 extension InspectorProperty {
     /// Una delle voci della tenuta delle righe fra le pagine.
-    public var isLineKeeping: Bool { [.keepWithNext, .keepTogether, .orphanLines, .widowLines].contains(self) }
+    public var isLineKeeping: Bool { [.keepWithNext, .keepTogether, .orphanLines, .widowLines, .nextLines, .previousLines].contains(self) }
 }
 
 extension LineKeeping.Resolved {
     /// Tutti e quattro i valori, fissati.
-    var full: LineKeeping { LineKeeping(withNext: withNext, together: together, linesAtEnd: linesAtEnd, linesAtStart: linesAtStart) }
+    var full: LineKeeping { LineKeeping(withNext: withNext, together: together, linesAtEnd: linesAtEnd, linesAtStart: linesAtStart, nextLines: nextLines, previousLines: previousLines) }
 }
 
 extension TextStyling {
@@ -783,6 +789,8 @@ extension InspectorProperty {
         case .keepTogether: return onOff(values.keeping.together)
         case .orphanLines: return values.keeping.linesAtEnd.map(String.init) ?? "—"
         case .widowLines: return values.keeping.linesAtStart.map(String.init) ?? "—"
+        case .nextLines: return values.keeping.nextLines.map(String.init) ?? "—"
+        case .previousLines: return values.keeping.previousLines.map(String.init) ?? "—"
         }
     }
 }

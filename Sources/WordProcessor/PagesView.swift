@@ -85,6 +85,11 @@ final class PagesView: NSView {
         didSet { if hoveredMargin?.page != oldValue?.page || hoveredMargin?.side != oldValue?.side { needsDisplay = true } }
     }
     var activeMargin: (page: Int, side: MarginSide)? { didSet { needsDisplay = true } }
+    /// La tenuta con le righe dei vicini: il gesto (con le righe del vicino com'erano all'inizio), la maniglia sotto il mouse.
+    var onKeepDrag: ((KeepSide, Int, DesignDragPhase) -> Void)?
+    var onKeepLocked: ((KeepSide) -> Void)?
+    var keepDrag: (side: KeepSide, mids: [CGFloat])?
+    var hoveredKeep: KeepSide? { didSet { if hoveredKeep != oldValue { needsDisplay = true } } }
     var hoveredDesignHandle: DesignHandle? {
         didSet { if hoveredDesignHandle != oldValue { needsDisplay = true } }
     }

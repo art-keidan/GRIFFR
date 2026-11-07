@@ -30,11 +30,12 @@ extension TypesettingSuite {
             return Dictionary(uniqueKeysWithValues: values.filter(\.property.isLineKeeping).map { ($0.property, $0) })
         }
 
-        @Test("L'ispettore mostra le quattro voci con valore e provenienza")
+        @Test("L'ispettore mostra le sei voci con valore e provenienza (quattro, più le righe del seguente e del precedente)")
         func inspect() throws {
             let (text, sheet) = try setup()
             let one = inspected(text, sheet, "Uno")
-            #expect(one.count == 4)
+            #expect(one.count == 6)
+            #expect(one[.previousLines]?.value.keeping.previousLines == 0 && one[.nextLines]?.value.keeping.nextLines == 1)
             #expect(one[.orphanLines]?.value.keeping.linesAtEnd == 2)
             #expect(one[.orphanLines]?.source == .style("Tenuto"))
             #expect(one[.keepWithNext]?.value.keeping.withNext == false)
@@ -76,7 +77,7 @@ extension TypesettingSuite {
             let (_, sheet) = try setup()
             let base = TextStyling.styleBase
             let shown = Dictionary(uniqueKeysWithValues: sheet.inspect(style: "Tenuto", base: base).filter(\.property.isLineKeeping).map { ($0.property, $0) })
-            #expect(shown.count == 4)
+            #expect(shown.count == 6)
             #expect(shown[.orphanLines]?.source == .own)
             #expect(shown[.keepTogether]?.source == .document)
             var values = StyleValues()

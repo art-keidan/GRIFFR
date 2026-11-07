@@ -355,6 +355,8 @@ extension TextStyling {
             if here.together != parent.together { values.keeping.together = here.together }
             if here.linesAtEnd != parent.linesAtEnd { values.keeping.linesAtEnd = here.linesAtEnd }
             if here.linesAtStart != parent.linesAtStart { values.keeping.linesAtStart = here.linesAtStart }
+            if here.nextLines != parent.nextLines { values.keeping.nextLines = here.nextLines }
+            if here.previousLines != parent.previousLines { values.keeping.previousLines = here.previousLines }
         }
         return values
     }

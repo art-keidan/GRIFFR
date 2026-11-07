@@ -35,12 +35,16 @@ final class ParagraphDesignSession {
     var values: [InspectorProperty: InspectedValue] = [:]
     var documentSources: [InspectorProperty: ValueSource] = [:]
     var scope = ParagraphDesignScope.style
+    /// Aggiornamento dal vivo di tutti i capoversi dello stile; spento, l'anteprima tocca solo quello evidenziato.
+    var livePreviewAll = true
     var draft = ParagraphDesignDraft()
     /// Annulla e Ripeti dentro la bozza.
     var undoStack: [ParagraphDesignDraft] = []
     var redoStack: [ParagraphDesignDraft] = []
     /// La maniglia trascinata: il valore all'inizio del gesto e quello mostrato ora.
     var drag: (handle: DesignHandle, start: CGFloat, value: CGFloat)?
+    /// La tenuta trascinata: da che parte, quante righe all'inizio e ora.
+    var keepDrag: (side: KeepSide, start: Int, value: Int)?
     /// Il margine trascinato: la pagina, il lato, il valore all'inizio e ora.
     var marginDrag: (page: Int, side: MarginSide, start: CGFloat, value: CGFloat)?
     /// Il testo della bozza (il documento con le modifiche), per leggerne i valori; `nil` senza bozza.
@@ -81,6 +85,8 @@ extension EditorWindowController {
             pagesView.onDesignDrag = { [weak self] handle, delta, phase, modifiers in self?.designDragged(handle, by: delta, phase: phase, modifiers: modifiers) }
             pagesView.onMarginDrag = { [weak self] page, side, delta, phase, modifiers in self?.marginDragged(page: page, side: side, by: delta, phase: phase, modifiers: modifiers) }
             pagesView.onDesignLockedHandle = { [weak self] handle in self?.openDesignFormula(handle.property) }
+            pagesView.onKeepDrag = { [weak self] side, count, phase in self?.keepDragged(side, count: count, phase: phase) }
+            pagesView.onKeepLocked = { [weak self] _ in self?.openDesignFormula(.keepWithNext) }
             pagesView.designBar = NSHostingView(rootView: ParagraphDesignBar(model: session.bar).themed())
             pagesView.designActions = NSHostingView(rootView: ParagraphDesignActions(model: session.bar).themed())
         } else {
@@ -134,7 +140,7 @@ extension EditorWindowController {
     /// Rilegge il capoverso del cursore e le sue misure, dalla bozza. Mentre si trascina, valgono quelle dell'anteprima.
     func refreshParagraphDesign() {
         selectionPanelModel.isDesigning = paragraphDesign != nil
-        guard let session = paragraphDesign, session.drag == nil, session.marginDrag == nil else { return }
+        guard let session = paragraphDesign, session.drag == nil, session.marginDrag == nil, session.keepDrag == nil else { return }
         let source = documentText
         guard source.length > 0 else {
             session.styleName = nil
@@ -154,9 +160,12 @@ extension EditorWindowController {
         session.styleName = name
         session.values = Dictionary(inspected.map { ($0.property, $0) }, uniquingKeysWith: { first, _ in first })
         session.documentSources = Dictionary(original.map { ($0.property, $0.source) }, uniquingKeysWith: { first, _ in first })
-        pagesView.design = ParagraphDesignOverlay(paragraphLocation: location,
-                                                  values: Dictionary(uniqueKeysWithValues: DesignHandle.allCases.map { ($0, session.number($0.property)) }),
-                                                  locked: Set(DesignHandle.allCases.filter { isDesignLocked($0.property) }))
+        var overlay = ParagraphDesignOverlay(paragraphLocation: location,
+                                             values: Dictionary(uniqueKeysWithValues: DesignHandle.allCases.map { ($0, session.number($0.property)) }),
+                                             locked: Set(DesignHandle.allCases.filter { isDesignLocked($0.property) }))
+        overlay.keep = [.next: keepCount(session, .next), .previous: keepCount(session, .previous)]
+        overlay.keepLocked = Set([KeepSide.next, .previous].filter { side in Self.keepProperties(side).contains { isDesignLocked($0) } })
+        pagesView.design = overlay
         selectionPanelModel.styleName = name
         refreshDesignBar(session, text: text, sheet: sheet, at: at)
     }
@@ -177,6 +186,7 @@ extension EditorWindowController {
         func value(_ property: InspectorProperty) -> StyleValues { values[property]?.value ?? StyleValues() }
         bar.styleName = session.styleName
         bar.scope = session.scope
+        bar.livePreviewAll = session.livePreviewAll
         bar.hasChanges = !session.draft.isEmpty
         bar.alignment = value(.alignment).alignment ?? .left
         bar.lineHeightMultiple = value(.lineHeightMultiple).lineHeightMultiple ?? 0
@@ -206,6 +216,12 @@ extension EditorWindowController {
         bar.setScope = { [weak self] scope in
             self?.paragraphDesign?.scope = scope
             self?.refreshParagraphDesign()
+        }
+        bar.setLivePreviewAll = { [weak self] on in
+            guard let self, let session = self.paragraphDesign else { return }
+            session.livePreviewAll = on
+            self.showDraft(session.draft)
+            self.refreshParagraphDesign()
         }
         bar.openFormula = { [weak self] property in self?.openDesignFormula(property) }
         bar.save = { [weak self] in self?.saveParagraphDesign() }
@@ -251,7 +267,12 @@ extension EditorWindowController {
         var document = settings
         let sheet = draftSheet(draft)
         if sheet != settings.styles {
-            TextStyling.restyle(copy, range: NSRange(location: 0, length: copy.length), from: settings.styles, to: sheet,
+            // Senza l'aggiornamento dal vivo di tutti, cambia solo il capoverso evidenziato; gli altri restano come sono.
+            var range = NSRange(location: 0, length: copy.length)
+            if paragraphDesign?.livePreviewAll == false, let id = paragraphDesign?.paragraphID, let paragraph = store.range(of: id) {
+                range = paragraph
+            }
+            TextStyling.restyle(copy, range: range, from: settings.styles, to: sheet,
                                 resolver: fontRoleResolver, base: settings.formulaBase ?? TextStyling.styleBase)
             document.styles = sheet
         }
@@ -266,7 +287,7 @@ extension EditorWindowController {
     }
 
     /// Le pagine composte dalla bozza (o da una bozza provvisoria, durante un gesto).
-    private func showDraft(_ draft: ParagraphDesignDraft) {
+    func showDraft(_ draft: ParagraphDesignDraft) {
         guard let session = paragraphDesign else { return }
         if draft.isEmpty {
             session.draftText = nil
@@ -352,6 +373,79 @@ extension EditorWindowController {
 
     var canUndoParagraphDesign: Bool { paragraphDesign?.undoStack.isEmpty == false }
     var canRedoParagraphDesign: Bool { paragraphDesign?.redoStack.isEmpty == false }
+
+    // MARK: Tenere con le righe dei vicini
+
+    /// Le proprietà che una tenuta cambia.
+    static func keepProperties(_ side: KeepSide) -> [InspectorProperty] { side == .next ? [.keepWithNext, .nextLines] : [.previousLines] }
+
+    /// Con quante righe del vicino il capoverso resta, nella bozza: 0 se non tiene.
+    func keepCount(_ session: ParagraphDesignSession, _ side: KeepSide) -> Int {
+        switch side {
+        case .next:
+            guard session.values[.keepWithNext]?.value.keeping.withNext == true else { return 0 }
+            return session.values[.nextLines]?.value.keeping.nextLines ?? 1
+        case .previous:
+            return session.values[.previousLines]?.value.keeping.previousLines ?? 0
+        }
+    }
+
+    /// I valori di una tenuta di `count` righe.
+    static func keepEdits(_ side: KeepSide, _ count: Int) -> [(InspectorProperty, StyleValues)] {
+        var flag = StyleValues(), lines = StyleValues()
+        switch side {
+        case .next:
+            flag.keeping.withNext = count > 0
+            guard count > 0 else { return [(.keepWithNext, flag)] }
+            lines.keeping.nextLines = min(count, LineKeeping.lineRange.upperBound)
+            return [(.keepWithNext, flag), (.nextLines, lines)]
+        case .previous:
+            lines.keeping.previousLines = min(count, LineKeeping.previousRange.upperBound)
+            return [(.previousLines, lines)]
+        }
+    }
+
+    func keepDragged(_ side: KeepSide, count: Int, phase: DesignDragPhase) {
+        guard let session = paragraphDesign else { return }
+        switch phase {
+        case .began:
+            let start = keepCount(session, side)
+            session.keepDrag = (side, start, start)
+            pagesView.design?.activeKeep = side
+        case .changed, .ended:
+            guard var drag = session.keepDrag, drag.side == side else { return }
+            if phase == .changed {
+                guard count != drag.value else { return }
+                drag.value = count
+                session.keepDrag = drag
+                pagesView.design?.keep[side] = count
+                var preview = session.draft
+                for (property, values) in Self.keepEdits(side, count) { preview = draft(preview, setting: property, values) }
+                showDraft(preview)
+                return
+            }
+            session.keepDrag = nil
+            pagesView.design?.activeKeep = nil
+            if count != drag.start {
+                designEdits(Self.keepEdits(side, count))
+            } else {
+                showDraft(session.draft)
+                refreshParagraphDesign()
+            }
+        }
+    }
+
+    /// Più valori insieme, in un solo passo della bozza.
+    func designEdits(_ edits: [(InspectorProperty, StyleValues)]) {
+        guard paragraphDesign != nil, !edits.contains(where: { isDesignLocked($0.0) }) else { return }
+        changeDraft { draft in for (property, values) in edits { draft = self.draft(draft, setting: property, values) } }
+    }
+
+    func dragKeepForTests(_ side: KeepSide, to count: Int) {
+        keepDragged(side, count: 0, phase: .began)
+        keepDragged(side, count: count, phase: .changed)
+        keepDragged(side, count: count, phase: .ended)
+    }
 
     // MARK: Il gesto sulle maniglie
 
@@ -475,5 +569,6 @@ extension EditorWindowController {
     var paragraphDesignOverlayForTests: ParagraphDesignOverlay? { pagesView.design }
     var paragraphDesignBarForTests: ParagraphDesignBarModel? { paragraphDesign?.bar }
     var paragraphDesignDraftForTests: ParagraphDesignDraft? { paragraphDesign?.draft }
+    var paragraphDesignPreviewForTests: NSAttributedString? { paragraphDesign?.draftText }
     var designHandleRectsForTests: [DesignHandle: NSRect] { pagesView.designHandleRects() }
 }

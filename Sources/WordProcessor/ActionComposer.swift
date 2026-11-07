@@ -792,7 +792,7 @@ extension StyleProperty {
         case .opensSection, .outlineLevel: "list.bullet.indent"
         case .nextStyle: "return"
         case .applyStyle: "paintbrush"
-        case .keepWithNext, .keepTogether, .orphanLines, .widowLines: "link"
+        case .keepWithNext, .keepTogether, .orphanLines, .widowLines, .nextLines, .previousLines: "link"
         }
     }
 

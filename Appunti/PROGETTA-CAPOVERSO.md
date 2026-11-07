@@ -97,3 +97,38 @@ parte. Non visti: i menu aperti, l'etichetta del valore durante il gesto, il tem
 
 Prove: `ParagraphDesignTests` (9) rifatte per la bozza: Salva in un passo, Cancel, Annulla interno, solo questo
 capoverso, valore a mano, formula, pulsanti, margini, lati con le pagine affacciate.
+
+## Terza tappa: rientri tratteggiati, aggiornamento dal vivo esplicito
+
+- I rientri sinistro e destro hanno il tratteggio, fra il bordo della colonna e la guida, come gli spazi prima e dopo.
+- La portata non era riconoscibile (due icone): ora sta nel riquadro in alto a destra, a parole, «Changes to: All
+  “Body” | This paragraph». Accanto, l'interruttore **Live on all** (occhio): spento, l'anteprima cambia solo il
+  capoverso evidenziato, gli altri restano com'erano finché non si salva; Save mette comunque le modifiche nello stile.
+- La build con la progettazione è anche in `GRIFFR-fork-stili/build/GRIFFR Stili.app`; quella di `main` che c'era è
+  nel Cestino.
+- Prova nuova: `livePreviewOff`. 220 prove di WordProcessorTests verdi. Verifica a schermo di questa tappa non fatta:
+  l'app era aperta dall'utente con la build precedente.
+
+## Quarta tappa: un solo controllo per «dal vivo», tenuta con n righe dei vicini (formato 17)
+
+- **Difetto di «Live on all»**: il meccanismo funzionava; l'interfaccia aveva due controlli sovrapposti («Changes to:
+  All / This paragraph» e «Live on all»), e con «This paragraph» scelto l'occhio non aveva effetto. Ora c'è un solo
+  gruppo di tre icone nella barra, accanto al nome dello stile: **occhio** (tutti i capoversi dello stile, dal vivo;
+  Save nello stile), **occhio barrato** (nello stile, ma dal vivo solo questo capoverso), **¶** (solo questo capoverso,
+  come valori dati a mano). Il riquadro in alto a destra è ridotto a puntino (modifiche non salvate) · Cancel · Save.
+- **Tieni con n righe del seguente**: tondino con il numero nel margine destro, sotto il capoverso; si tira in giù
+  dentro il seguente, scatta di riga in riga, le righe tenute si colorano con una graffa; a 0 la tenuta si spegne.
+- **Tieni con n righe del precedente** (nuovo): lo stesso sopra il capoverso, tirato in su dentro il precedente.
+- **Formato 17** (`DocumentFormat.version = 17`): `keep-next-lines` e `keep-with-previous` su `style` e `p`, proprietà
+  di formula `nextLines` e `previousLines`. Si scrive 17 solo se un documento li usa; i file vecchi restano leggibili.
+- **Impaginazione** (`PageLayout`): con «tieni col seguente» e n righe, il seguente deve avere almeno n righe in fondo
+  alla pagina, altrimenti passa con il precedente (riusa la catena di «tieni col seguente»). Con «tieni con n righe del
+  precedente», il precedente entra nella catena; se nella pagina in cui comincia questo ci sono meno di n sue righe, si
+  rifà spezzandolo perché le sue ultime n righe passino qui (se si spezzerebbe troppo presto, passa tutto).
+- Prove nuove: `KeepLinesTests` (motore: seguente, precedente, precedente già spezzato, lettura e scrittura) e in
+  `ParagraphDesignTests` i trascinatori della tenuta e Live riacceso. `LineKeepingInspectorTests` ora conta sei voci.
+- Verifica a schermo: tre icone e riquadro minimo; occhio acceso con tutti i «Body» aggiornati; «Keep with 2 lines of
+  the next»; «solo questo capoverso» con «Keep with 4 lines of the previous» (il precedente passa intero nella pagina);
+  Annulla dentro la bozza. Da sapere: con l'occhio acceso la tenuta vale per tutti i capoversi dello stile, e numeri alti
+  creano catene lunghe e pagine con buchi. Limite visto: la barra dei pulsanti, sopra il capoverso, copre le righe del
+  precedente che si agganciano.

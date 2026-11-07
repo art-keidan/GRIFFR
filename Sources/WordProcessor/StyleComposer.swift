@@ -590,6 +590,8 @@ extension StyleProperty {
         case .keepTogether: "Keep lines together"
         case .orphanLines: "Lines at the bottom"
         case .widowLines: "Lines at the top"
+        case .nextLines: "Lines of the next kept"
+        case .previousLines: "Keep with previous lines"
         case .font: "Font"
         case .family: "Family"
         case .face: "Exact face"
@@ -616,7 +618,8 @@ extension StyleProperty {
         case .applyStyle: .styleName("Strong")
         case .outlineLevel: .integer(1)
         case .keepWithNext, .keepTogether: .boolean(true)
-        case .orphanLines, .widowLines: .integer(2)
+        case .orphanLines, .widowLines, .nextLines: .integer(2)
+        case .previousLines: .integer(1)
         case .font: .font(.bold)
         case .family: .family("Hoefler Text")
         case .face: .face("HoeflerText-Regular")
@@ -656,6 +659,8 @@ extension ComposerBoard {
         case .keepTogether: return state.directives.keeping.together == true ? "Yes" : "No"
         case .orphanLines: return String(state.directives.keeping.linesAtEnd ?? 1)
         case .widowLines: return String(state.directives.keeping.linesAtStart ?? 1)
+        case .nextLines: return String(state.directives.keeping.nextLines ?? 1)
+        case .previousLines: return String(state.directives.keeping.previousLines ?? 0)
         case .face: return c.fontName
         case .font: return model.resolver.role(of: c).map(roleTitle) ?? c.fontName
         case .family: return NSFont(name: c.fontName, size: CGFloat(c.size))?.familyName ?? c.fontName

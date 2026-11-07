@@ -113,7 +113,7 @@ extension StyleSheet {
         case .lineSpacing: own.lineSpacing = values.lineSpacing
         case .list: own.listName = values.listName
         case .openingDistance: own.openingDistance = values.openingDistance
-        case .keepWithNext, .keepTogether, .orphanLines, .widowLines:
+        case .keepWithNext, .keepTogether, .orphanLines, .widowLines, .nextLines, .previousLines:
             own.clear(property)
             own.keeping = property.only(values).keeping.over(own.keeping)
         }

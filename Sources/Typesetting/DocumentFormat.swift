@@ -117,6 +117,9 @@ import Foundation
 ///   superiore, del paragrafo che apre una sequenza di pagine. `opens-section` su `style` di paragrafo: il ruolo della
 ///   sezione che lo stile apre quando lo si dà a un paragrafo (vuoto: nessuno).
 ///
+/// - La versione 17 aggiunge alla tenuta delle righe `keep-next-lines` (quante righe del seguente restano con il paragrafo
+///   che lo tiene) e `keep-with-previous` (quante righe del precedente restano con questo; 0 nessuna), su `style` e `p`,
+///   e le proprietà di formula `nextLines` e `previousLines`.
 /// - La versione 16 aggiunge «Scrivi risultato» agli stili: alle testate la parte `result`, con una formula di campo
 ///   (`expression` e, per le sezioni, `role`) calcolata nel punto del titolo.
 ///   Agli stili di paragrafo `<writes encoding="json-v1" data="…"/>`, dopo la testata: i risultati che lo stile scrive
@@ -134,7 +137,7 @@ import Foundation
 /// La lettura è severa: elementi o attributi sconosciuti sono un errore con il numero di riga, non vengono
 /// ignorati, così un refuso in un file corretto a mano non fa perdere contenuto in silenzio.
 public enum DocumentFormat {
-    public static let version = 16
+    public static let version = 17
 
     public static func writingVersion(for document: Document) -> Int {
         let contextual = document.styles.styles.flatMap(\.formulas).contains {
@@ -173,6 +176,10 @@ public enum DocumentFormat {
             (14, styles.contains { $0.heading != nil }),
             (15, styles.contains { $0.heading?.needsVersion15 == true }),
             (16, styles.contains { $0.heading?.needsVersion16 == true || !$0.writes.isEmpty }),
+            (17, styles.contains { style in
+                style.values.keeping.nextLines != nil || style.values.keeping.previousLines != nil
+                    || style.formulas.contains { [.nextLines, .previousLines].contains($0.operation.property) }
+            } || document.flatParagraphs.contains { $0.paragraph.keeping.nextLines != nil || $0.paragraph.keeping.previousLines != nil }),
         ]
         return needs.filter(\.used).map(\.version).reduce(max(1, document.sourceVersion), max)
     }

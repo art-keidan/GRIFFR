@@ -10,6 +10,8 @@ public enum StyleProperty: String, CaseIterable, Hashable, Sendable {
     case alignment, language, family, face, color, smallCaps, hyphenates
     case pageStartSpacing, openingDistance, opensSection, nextStyle, outlineLevel, applyStyle
     case keepWithNext, keepTogether, orphanLines, widowLines
+    /// Formato 17: righe del seguente tenute con questo, righe del precedente tenute con questo.
+    case nextLines, previousLines
 
     public var predicates: [StylePredicate] {
         if isDirective || self == .applyStyle { return [.set] }
@@ -106,6 +108,12 @@ public struct StylePropertyOperation: Hashable, Sendable {
         case (.orphanLines, .integer(let count)), (.widowLines, .integer(let count)):
             guard (1...9).contains(count) else { throw StylePredicateError.incompatibleArgument(property) }
             if property == .orphanLines { output.directives.keeping.linesAtEnd = count } else { output.directives.keeping.linesAtStart = count }
+        case (.nextLines, .integer(let count)):
+            guard LineKeeping.lineRange.contains(count) else { throw StylePredicateError.incompatibleArgument(property) }
+            output.directives.keeping.nextLines = count
+        case (.previousLines, .integer(let count)):
+            guard LineKeeping.previousRange.contains(count) else { throw StylePredicateError.incompatibleArgument(property) }
+            output.directives.keeping.previousLines = count
         case (.font, .font(let requested)):
             var role = requested
             if predicate != .set {

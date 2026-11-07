@@ -558,7 +558,7 @@ struct InspectorView: View {
         .init(id: "align", title: "Alignment and indents", properties: [.alignment, .leftIndent, .rightIndent, .firstLineIndent]),
         .init(id: "space", title: "Spacing", properties: [.spaceBefore, .spaceAfter, .openingDistance]),
         .init(id: "lines", title: "Lines", properties: [.lineHeightMultiple, .lineSpacing]),
-        .init(id: "keep", title: "Keeping", properties: [.keepWithNext, .keepTogether, .orphanLines, .widowLines]),
+        .init(id: "keep", title: "Keeping", properties: [.keepWithNext, .nextLines, .previousLines, .keepTogether, .orphanLines, .widowLines]),
         .init(id: "list", title: "List", properties: [.list]),
         .init(id: "font", title: "Font", properties: [.family, .face, .size]),
         .init(id: "form", title: "Form", properties: [.smallCaps, .verticalPosition, .decorations, .color, .shaping]),
@@ -1062,6 +1062,11 @@ struct InspectorView: View {
             linesPicker(v.keeping.linesAtEnd ?? 1) { lines in model.change(.orphanLines) { $0.keeping.linesAtEnd = lines } }
         case .widowLines:
             linesPicker(v.keeping.linesAtStart ?? 1) { lines in model.change(.widowLines) { $0.keeping.linesAtStart = lines } }
+        case .nextLines:
+            linesPicker(v.keeping.nextLines ?? 1) { lines in model.change(.nextLines) { $0.keeping.nextLines = lines } }
+        case .previousLines:
+            Stepper(value: Binding(get: { v.keeping.previousLines ?? 0 }, set: { lines in model.change(.previousLines) { $0.keeping.previousLines = lines } }),
+                    in: LineKeeping.previousRange) { Text("\(v.keeping.previousLines ?? 0)") }
         case .list:
             Picker("", selection: Binding(get: { v.listName ?? "" }, set: { name in model.change(.list) { $0.listName = name } })) {
                 Text("None").tag("")

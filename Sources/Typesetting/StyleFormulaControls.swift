@@ -36,6 +36,8 @@ extension StylePropertyOperation {
         case .keepTogether: return values.keeping.together.map { Self(.set, .keepTogether, .boolean($0)) }
         case .orphanLines: return values.keeping.linesAtEnd.map { Self(.set, .orphanLines, .integer($0)) }
         case .widowLines: return values.keeping.linesAtStart.map { Self(.set, .widowLines, .integer($0)) }
+        case .nextLines: return values.keeping.nextLines.map { Self(.set, .nextLines, .integer($0)) }
+        case .previousLines: return values.keeping.previousLines.map { Self(.set, .previousLines, .integer($0)) }
         case .family: return values.family.map { Self(.set, .family, .family($0)) }
         case .face: return values.fontName.map { Self(.set, .face, .face($0)) }
         case .size: return values.size.map { Self(.set, .size, .length($0, .points)) }

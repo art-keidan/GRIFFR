@@ -48,6 +48,8 @@ extension NamedStyle {
         if let flag = result.values.keeping.together { add(.keepTogether, .boolean(flag)); result.values.keeping.together = nil }
         if let count = result.values.keeping.linesAtEnd { add(.orphanLines, .integer(count)); result.values.keeping.linesAtEnd = nil }
         if let count = result.values.keeping.linesAtStart { add(.widowLines, .integer(count)); result.values.keeping.linesAtStart = nil }
+        if let count = result.values.keeping.nextLines { add(.nextLines, .integer(count)); result.values.keeping.nextLines = nil }
+        if let count = result.values.keeping.previousLines { add(.previousLines, .integer(count)); result.values.keeping.previousLines = nil }
         result.formulas = constants + result.formulas
         return result
     }
