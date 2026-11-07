@@ -23,8 +23,6 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     /// Il menu degli stili di parola e di carattere: si crea con la fascia del carattere, ma sta in quella del paragrafo.
     var characterStylesControl: NSView?
     private let panelModel = FeaturePanelModel()
-    /// L'ispettore, nel pannello a destra: il pannello delle funzioni del font ne è il gruppo finale del carattere.
-    lazy var inspector = InspectorModel(features: panelModel)
     /// La scheda Stili e il suo modulo: un secondo ispettore, sui valori dello stile scelto.
     lazy var styleInspector: InspectorModel = {
         let model = InspectorModel(features: panelModel)
@@ -46,17 +44,12 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         get { UserDefaults.standard.object(forKey: showsObjectTreeKey) as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: showsObjectTreeKey) }
     }
-    /// Il percorso degli oggetti sotto la barra: Documento › Paragrafo › Parola › Carattere.
-    let pathBar = NSStackView()
-    /// Nel percorso, dopo «Documento»: un pulsante per ogni sezione che contiene il cursore.
-    let sectionPath = NSStackView()
-    /// I pulsanti mostrati ora nel percorso delle sezioni (per non ricostruirli a ogni movimento del cursore).
-    var sectionPathTitles: [String] = []
-    /// Quale delle sezioni che contengono il cursore guarda l'ispettore (1 la più esterna); `nil` la più interna.
+    /// Su quale delle sezioni che contengono il cursore agiscono i comandi delle sezioni (1 la più esterna); `nil` la più interna.
     var inspectedSectionDepth: Int?
-    var pathButtons: [InspectedObject: NSButton] = [:]
-    /// Il «›» davanti a ogni pulsante del percorso (quello della Tabella si nasconde con lei).
-    var pathSeparators: [InspectedObject: NSView] = [:]
+    /// La progettazione del capoverso sulla pagina, mentre è accesa (vedi EditorWindowController+Progetta.swift).
+    var paragraphDesign: ParagraphDesignSession?
+    /// La vista Selection del pannello.
+    let selectionPanelModel = SelectionPanelModel()
     let pagesView = PagesView()
     var pendingLayout: DispatchWorkItem?
     var pendingSpellCheck: DispatchWorkItem?
@@ -207,9 +200,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         panelModel.setGraphite = { [weak self] features in
             var values = StyleValues()
             values.graphite = Graphite.encodedChoice(features)
-            self?.inspectorSet(.shaping, values)
+            self?.setSelectionValue(.shaping, values)
         }
-        connectInspector()
         connectStore()
         pagesView.showsInvisibles = UserDefaults.standard.bool(forKey: Self.showsInvisiblesKey)
         showSettingsInPanel()
@@ -241,13 +233,12 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     // MARK: Costruzione dell'interfaccia
 
     private func buildContent(in window: NSWindow) {
-        // Il pannello dell'avanzata: l'ispettore e, nelle altre schede, Liste, Flottanti e Regole.
-        let definitions = DefinitionsPanel(inspector: inspector.makeHostingView())
+        // Il pannello dell'avanzata: la vista della selezione e, nelle altre schede, le definizioni.
+        let definitions = DefinitionsPanel(selection: makeSelectionPanel())
         definitionsPanel = definitions
         connectDefinitionsPanel()
         let panel = definitions.view
         inspectorPanel = panel
-        buildPathBar()
         configureFontControls()
         // La barra del titolo prende il colore delle fasce, come nel disegno.
         window.titlebarAppearsTransparent = true
@@ -284,22 +275,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         panelMinimumWidth = panel.widthAnchor.constraint(greaterThanOrEqualToConstant: InspectorView.minimumWidth)
         pagesScroll.widthAnchor.constraint(greaterThanOrEqualToConstant: 360).isActive = true
 
-        // Dall'alto: gli strumenti, il carattere, il paragrafo con il righello, il percorso e i pannelli dettagliati,
-        // il testo, la barra di stato.
-        // Un percorso lungo scorre nella fascia: la sua larghezza non deve diventare
-        // la larghezza minima della finestra (per esempio con sezioni molto annidate).
-        let pathScroll = NSScrollView()
-        pathScroll.drawsBackground = false
-        pathScroll.borderType = .noBorder
-        pathScroll.hasHorizontalScroller = true
-        pathScroll.autohidesScrollers = true
-        pathScroll.scrollerStyle = .overlay
-        pathScroll.documentView = pathBar
-        pathBar.translatesAutoresizingMaskIntoConstraints = false
-        pathBar.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        pathScroll.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        pathBand = Bands.band([pathScroll], height: 30, spacing: 0)
-        pathScroll.widthAnchor.constraint(equalTo: pathBand.widthAnchor, constant: -24).isActive = true
+        // Dall'alto: gli strumenti, il carattere, il paragrafo con il righello, i pannelli dettagliati, il testo, la
+        // barra di stato.
         rulerView.translatesAutoresizingMaskIntoConstraints = false
         rulerView.heightAnchor.constraint(equalToConstant: 26).isActive = true
         let toolbar = buildToolbarBand()
@@ -308,7 +285,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         paragraphBand = buildParagraphBand()
         paragraphBand.lineOnBottom = false
         statusBand = buildStatusBand()
-        let column = NSStackView(views: [toolbar, characterBand, paragraphBand, rulerView, pathBand, findBar.view, split, statusBand])
+        let column = NSStackView(views: [toolbar, characterBand, paragraphBand, rulerView, findBar.view, split, statusBand])
         column.orientation = .vertical
         column.spacing = 0
         column.alignment = .leading
@@ -328,7 +305,6 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     private(set) var inspectorPanel: NSView!
     /// Il pannello con le schede (la sua vista è `inspectorPanel`).
     private(set) var definitionsPanel: DefinitionsPanel!
-    private var pathBand: NSView!
     var characterBand: BandView!
     var characterBandForTests: BandView? { characterBand }
     var paragraphBand: BandView!
@@ -412,6 +388,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     /// Annulla o Ripeti, dalla barra o dal menu: prima entrano nel documento le modifiche in attesa di una pausa (scheda
     /// Stili, schede del pannello), così Annulla toglie proprio quelle.
     func performUndo(redo: Bool) {
+        // Durante la progettazione del capoverso, Annulla e Ripeti lavorano sulla bozza.
+        if undoParagraphDesign(redo: redo) { return }
         definitionsPanel?.flushPending()
         flushStyleChanges()
         endUndoStep(next: .none)
@@ -819,8 +797,6 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         modeButton.setAccessibilityLabel(modeButton.toolTip)
         composeBands()
 
-        // Il percorso degli oggetti sta in testa all'ispettore: la vecchia fascia sopra la pagina non si mostra più.
-        pathBand.isHidden = true
         inspectorPanel.isHidden = !advanced
         objectTreeView.isHidden = !advanced || !Self.showsObjectTree
         let detailedOnly = ["stileCarattere", "barrato", "apice", "pedice", "maiuscoletto", "lingua", "nascosti",
@@ -882,7 +858,6 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         interfaceMode = mode
         InterfaceMode.lastChoice = mode
         applyInterfaceMode()
-        if mode == .advanced { refreshInspector() }
     }
 
     /// Vero se si vedono gli strumenti dettagliati (ispettore e percorso).
@@ -938,12 +913,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
     /// I segni della provenienza mostrati (per le prove).
     var provenanceMarks: (manual: [NSRange], rules: [NSRange]) { (pagesView.manualRanges, pagesView.ruleRanges) }
-    /// L'oggetto che l'ispettore mostra (per le prove).
-    var inspectedObject: InspectedObject { inspector.object }
     /// Per le prove: il pannello delle funzioni del font.
     var featurePanelForTests: FeaturePanelModel { panelModel }
-    /// Per le prove: l'ispettore del testo.
-    var inspectorForTests: InspectorModel { inspector }
     /// Per le prove: il nome che si scriverebbe nel foglio che chiede il nome di uno stile nuovo (il foglio non si apre).
     var styleNameAnswerForTests: String?
     var replaceFormulaAnswerForTests: Bool?
@@ -982,11 +953,6 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     func revealOutlineItem(_ item: OutlineItem) {
         let caret = item.isFloating ? min(item.range.location + 1, NSMaxRange(item.range)) : item.range.location
         apply(TextSelection(caret: caret))
-        // L'ispettore passa al paragrafo, e si mostra anche se il pannello era su un'altra scheda.
-        if !item.isFloating, interfaceMode == .advanced {
-            inspect(item.kind == .table ? .table : .paragraph)
-            definitionsPanel.show(.inspector)
-        }
         pagesView.scrollCaretToVisible()
         window?.makeFirstResponder(pagesView)
     }
@@ -1519,7 +1485,6 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     private func showSettingsInPanel() {
         panelModel.appliesFontTracking = settings.appliesFontTracking
         panelModel.usesOpticalMargins = settings.usesOpticalMargins
-        refreshInspector()
     }
 
     /// Cambia un'impostazione del documento. È una modifica annullabile, e il documento risulta modificato.
@@ -1544,29 +1509,6 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
     // MARK: Pagine
 
-    /// L'ispettore Pagina mostra il tipo della pagina in cui sta il cursore.
-    func syncPageInspector() {
-        var setup = settings.pageSetup
-        var name: String?
-        if let layout = pagesView.layout, let page = layout.caret(at: selection.head, affinity: selection.affinity)?.page {
-            setup = layout.setup(forPage: page)
-            name = layout.pages[page].typeName
-        }
-        if inspector.pageSetup != setup { inspector.pageSetup = setup }
-        if inspector.pageTypeName != name { inspector.pageTypeName = name }
-    }
-
-    /// Ispettore › Pagina: cambia il tipo della pagina del cursore (il predefinito, o quello con un nome).
-    func setInspectedPageSetup(_ setup: PageSetup) {
-        if let name = inspector.pageTypeName, let index = settings.pageTypes.firstIndex(where: { $0.name == name }) {
-            var types = settings.pageTypes
-            types[index].setup = setup
-            change(\.pageTypes, to: types, actionName: "Page type “\(name)”")
-        } else {
-            change(\.pageSetup, to: setup, actionName: "Page Setup")
-        }
-    }
-
     /// Scheda Pagine: i tipi di pagina, con le sezioni che seguono le rinomine, in un passo di Annulla.
     func applyPageTypeChanges(_ result: PageTypesSheetModel.Result) -> Bool {
         guard result.types != settings.pageTypes else { return false }
@@ -1588,9 +1530,9 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         pagesView.layout = PageLayout.layout(documentText, setup: settings.pageSetup, options: documentLayoutOptions)
         // Il conto delle parole del documento intero si rifà solo a richiesta (scegliendo «Documento» nel percorso).
         // Ciò che danno le regole si sa solo componendo: con un oggetto che ha proprietà, si rilegge tutto l'ispettore.
-        if inspector.object.level != nil { refreshInspector() } else if inspector.object != .document { refreshFacts() }
-        // La pagina nell'ispettore segue il documento anche dopo Annulla, che non cambia la selezione.
-        syncPageInspector()
+        // Durante la progettazione le pagine mostrano la bozza non ancora salvata.
+        showParagraphDesignDraftIfNeeded()
+        refreshParagraphDesign()
         scheduleProvenanceMarks()
         showSelectionInPages(scrollToVisible: false)
         scheduleCounts()
@@ -1630,7 +1572,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         // Il pannello dei font di sistema mostra il font della selezione della finestra in primo piano.
         if let font, window?.isMainWindow == true { NSFontManager.shared.setSelectedFont(font as NSFont, isMultiple: others > 0) }
         guard let font else {
-            refreshInspector()
+            refreshParagraphDesign()
             return
         }
         let family = OpticalFonts.family(of: font)
@@ -1667,7 +1609,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         showParagraphStyleInBar()
         updateFaceStrip(for: font, family: family)
         syncBandZones()
-        refreshInspector()
+        refreshParagraphDesign()
     }
 
     /// Un pulsante per peso, non per faccia: i corsivi restano al comando C e decorano gli stessi campioni.
@@ -2071,7 +2013,6 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
     func fontMenuGroupingChanged() {
         fillFamilyPopup()
-        inspector.groupsFamilies = FontMenuPreferences.groupsFamilies
         styleInspector.groupsFamilies = FontMenuPreferences.groupsFamilies
         refreshFromSelection()
     }
@@ -2340,12 +2281,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
     var isFindBarVisible: Bool { !findBar.view.isHidden }
 
-    // MARK: Ispettore e percorso degli oggetti (i metodi sono in EditorWindowController+Ispettore.swift)
-    /// I pulsanti del percorso delle sezioni, per le prove.
-    var sectionPathTitlesForTests: [String] { sectionPathTitles }
-
-    /// Le proprietà dinamiche che l'ispettore mostra ora.
-    var inspectorFacts: [InspectorModel.Fact] { inspector.facts }
+    // MARK: Progettazione del capoverso (i metodi sono in EditorWindowController+Progetta.swift)
 
     // MARK: La scheda Stili (i metodi sono in EditorWindowController+Stili.swift)
     /// Le modifiche ai valori di uno stile in attesa della pausa: un selettore dei colori ne manda una a ogni movimento,

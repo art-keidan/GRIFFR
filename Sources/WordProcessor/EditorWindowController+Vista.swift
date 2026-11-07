@@ -122,6 +122,8 @@ extension EditorWindowController {
             menuItem.state = interfaceMode == .advanced && Self.showsObjectTree ? .on : .off
         case #selector(toggleProvenanceMarks(_:)):
             menuItem.state = interfaceMode == .advanced && showsProvenanceMarks ? .on : .off
+        case #selector(toggleParagraphDesign(_:)):
+            menuItem.state = isDesigningParagraph ? .on : .off
         case #selector(toggleSpellChecking(_:)):
             menuItem.state = checksSpelling ? .on : .off
         case #selector(insertFootnote(_:)), #selector(insertNoteOfSeries(_:)), #selector(insertImage(_:)), #selector(insertFigure(_:)), #selector(insertSectionSameLevel(_:)):

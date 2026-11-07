@@ -214,21 +214,6 @@ extension EditorWindowController {
         window?.makeFirstResponder(pagesView)
     }
 
-    /// Ispettore › «Crea uno stile da qui…»: uno stile della specie dell'oggetto scelto.
-    func createStyleFromInspector() {
-        guard let level = inspector.object.level, store.length > 0 else { return }
-        let kind = switch level {
-        case .paragraph: "paragraph"
-        case .word: "word"
-        case .character: "character"
-        }
-        askStyleName(title: "New \(kind) style",
-                     message: "The style takes the look this \(inspector.object.title.lowercased()) has here, and is applied to it at once.",
-                     suggestion: nil) { [weak self] name in
-            self?.createStyleFromSelection(named: name, target: level)
-        }
-    }
-
     /// Ispettore › «Crea una regola da qui…»: indovina che cosa è il pezzo selezionato nel suo paragrafo (la prima
     /// lettera, le prime parole, la prima frase, il paragrafo intero, o una parola che si ripete) e crea una regola che
     /// dia quell'aspetto allo stesso pezzo nei paragrafi dello stesso stile. Lo stile è quello che il pezzo ha già, o
@@ -967,7 +952,11 @@ extension EditorWindowController {
         changeStyles(to: sheet, restyle: true, actionName: receivers.count == 1 ? "Additions into the Style “\(receivers[0])”" : "Additions into the Styles")
     }
 
-    @objc func pagesScrolled(_ notification: Notification) { refreshRuler() }
+    @objc func pagesScrolled(_ notification: Notification) {
+        refreshRuler()
+        // I pulsanti della progettazione restano nella zona visibile.
+        pagesView.positionDesignBar()
+    }
 
     func pinchForTests(by magnification: CGFloat) { pagesView.pinch(by: magnification, at: NSPoint(x: pagesView.bounds.midX, y: 40)) }
 

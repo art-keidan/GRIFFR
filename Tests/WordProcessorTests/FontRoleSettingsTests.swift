@@ -98,8 +98,7 @@ struct FontRoleSettingsTests {
         h.select(0, length: 9)
         h.editor.toggleBold(nil)
         h.step()
-        h.editor.inspect(.character)
-        h.editor.inspectorForTests.change(.family) { $0.family = "Baskerville" }
+        h.editor.changeForTests(.family) { $0.family = "Baskerville" }
         h.step()
         try expectBold()
 

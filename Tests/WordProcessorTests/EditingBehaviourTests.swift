@@ -144,22 +144,6 @@ struct EditingBehaviourTests {
         #expect(h.text == "x")
     }
 
-    @Test("Il trascinamento dell'espansione si annulla in un solo passo")
-    func undoGlyphExpansionDrag() {
-        let h = EditorHarness(paragraphs: ["Testo giustificato di prova."])
-        defer { h.close() }
-        let inspector = h.editor.inspectorForTests
-        #expect(inspector.glyphExpansionLimit == LayoutOptions.defaultGlyphExpansionLimit)
-        inspector.glyphExpansionDragging?(true)
-        inspector.setGlyphExpansionLimit?(0.01)
-        inspector.setGlyphExpansionLimit?(0.03)
-        inspector.glyphExpansionDragging?(false)
-        h.step()
-        #expect(inspector.glyphExpansionLimit == 0.03)
-        h.undo()
-        #expect(inspector.glyphExpansionLimit == LayoutOptions.defaultGlyphExpansionLimit)
-    }
-
     // MARK: Note
 
     @Test("N1 · Inserire una nota porta il cursore nel suo testo; Esc torna al corpo, dopo il richiamo")
@@ -522,26 +506,6 @@ struct EditingBehaviourTests {
         #expect(h.selection == NSRange(location: 6, length: 0))
         #expect(smallCapsText(h) == [firstLineText(), "Breve."], "dopo aver scritto, ancora tutta e sola la prima riga")
         #expect(firstLineText().hasPrefix("Ecco: "))
-    }
-
-    @Test("I1b · L'ispettore mostra le proprietà dinamiche, e le aggiorna mentre si scrive")
-    func dynamicFactsInInspector() {
-        let h = EditorHarness(paragraphs: ["Breve.", "Altro."])
-        defer { h.close() }
-        func fact(_ title: String) -> String? { h.editor.inspectorFacts.first { $0.title == title }?.value }
-        h.select(2)
-        h.editor.inspect(.paragraph)
-        #expect(fact("Lines") == "1")
-        #expect(fact("Preceded by") == "nothing: it is the first of the document")
-        h.select(6)
-        h.type(String(repeating: " ancora parole", count: 20))
-        #expect(Int(fact("Lines") ?? "") ?? 0 >= 3, "scrivendo, il numero di righe cresce")
-        h.editor.inspect(.line)
-        #expect(fact("Position")?.hasPrefix("line ") == true)
-        h.editor.inspect(.page)
-        #expect(fact("Number") == "1 (odd)")
-        h.editor.inspect(.document)
-        #expect(fact("Paragraphs") == "2")
     }
 
     @Test("R3 · Una regola con condizione segue il paragrafo mentre si scrive: una riga centrata, più righe no")
@@ -1058,26 +1022,6 @@ struct EditingBehaviourTests {
         #expect(b.text == original && !b.editor.currentDocument().floatStyles.contains { $0.name == "Postilla" })
     }
 
-    @Test("I2 · Scegliendo un oggetto nel percorso l'altezza delle pagine non cambia, e l'ispettore resta largo quanto serve")
-    func inspectorDoesNotResizeWindow() throws {
-        let h = EditorHarness(paragraphs: ["Una prova di testo."])
-        defer { h.close() }
-        let window = try #require(h.editor.window)
-        window.setContentSize(NSSize(width: 1180, height: 900))
-        h.editor.setInterfaceMode(.advanced)
-        h.select(3)
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.3))
-        var heights: Set<CGFloat> = []
-        for object in InspectedObject.allCases {
-            h.editor.inspect(object)
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
-            let panel = try #require(h.editor.inspectorPanel)
-            heights.insert(try #require(panel.superview).frame.height)
-            #expect(panel.frame.width >= InspectorView.minimumWidth, "\(object): ispettore largo almeno \(InspectorView.minimumWidth)")
-        }
-        #expect(heights.count == 1, "con «Parola» la finestra restava vuota per metà: \(heights)")
-    }
-
     @Test("U7 · Annullando o ripetendo un comando (uno stile) torna la selezione di prima e di dopo, non un cursore altrove")
     func undoAttributeChangeSelectsText() {
         let h = EditorHarness(paragraphs: ["Primo paragrafo di prova.", "Secondo paragrafo.", "Terzo."])
@@ -1467,6 +1411,8 @@ struct EditingBehaviourTests {
     func statusBarCountsAndStyleMenu() throws {
         let h = EditorHarness(paragraphs: ["Una prova di testo.", "Altro."])
         defer { h.close() }
+        // I caratteri si contano nella barra solo nell'interfaccia dettagliata (la scelta si ricorda fra le prove).
+        h.editor.setInterfaceMode(.advanced)
         func row(_ section: Int, _ name: String) -> String? {
             let sections = h.editor.countSections()
             guard sections.indices.contains(section) else { return nil }
@@ -1643,15 +1589,12 @@ struct EditingBehaviourTests {
         let paragraph = try #require(tree.items.last?.children?.first)
         #expect(paragraph.title == "Ultimo paragrafo." && paragraph.label == "¶")
 
-        // Un clic: il cursore va all'inizio del paragrafo, l'ispettore mostra il paragrafo (anche dalla scheda Regole).
-        h.editor.inspect(.character)
+        // Un clic: il cursore va all'inizio del paragrafo; il pannello resta sulla scheda in cui era.
         h.editor.definitionsPanel.show(.rules)
         tree.choose(paragraph)
         h.step()
         #expect(h.selection == NSRange(location: paragraph.range.location, length: 0))
         #expect(tree.selection == paragraph.id)
-        #expect(h.editor.inspectedObject == .paragraph)
-        #expect(h.editor.definitionsPanel.tab == .inspector)
 
         // Il cursore altrove: l'albero evidenzia il suo oggetto.
         h.select(17)
@@ -1825,91 +1768,20 @@ struct EditingBehaviourTests {
 
         let h = EditorHarness(paragraphs: ["Una prova."])
         defer { h.close() }
-        h.editor.inspectorForTests.change(.firstLineIndent) { $0.firstLineIndent = converted }
+        h.editor.changeForTests(.firstLineIndent) { $0.firstLineIndent = converted }
         h.step()
         let style = try #require(h.attributed.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)
         #expect(abs(style.firstLineHeadIndent - centimetre) < 0.0001, "1 cm arriva al rientro della prima riga come 28,35 pt")
     }
 
-    @Test("Nell'ispettore Tab e Maiusc-Tab percorrono i campi e applicano il valore lasciato")
-    func inspectorTabNavigation() throws {
-        let h = EditorHarness(paragraphs: ["Una prova."])
-        defer { h.close() }
-        h.editor.setInterfaceMode(.advanced)
-        h.editor.inspect(.paragraph)
-        h.step()
-
-        func host(in view: NSView) -> InspectorHostingView? {
-            if let host = view as? InspectorHostingView { return host }
-            for child in view.subviews { if let found = host(in: child) { return found } }
-            return nil
-        }
-        let inspectorHost = try #require(host(in: h.editor.inspectorPanel))
-        inspectorHost.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
-
-        func fieldsInVisualOrder() -> [NSTextField] {
-            var fields: [NSTextField] = []
-            func collect(_ view: NSView) {
-                if let field = view as? NSTextField, field.isEditable, field.isEnabled, !field.isHiddenOrHasHiddenAncestor {
-                    fields.append(field)
-                }
-                for child in view.subviews { collect(child) }
-            }
-            collect(inspectorHost)
-            return fields.sorted { left, right in
-                let a = left.convert(left.bounds, to: inspectorHost), b = right.convert(right.bounds, to: inspectorHost)
-                if abs(a.midY - b.midY) > 6 { return a.midY > b.midY }
-                return a.minX < b.minX
-            }
-        }
-        let ordered = fieldsInVisualOrder()
-        #expect(ordered.count > 2)
-
-        let window = try #require(h.editor.window)
-        #expect(window.makeFirstResponder(ordered[0]))
-        ordered[0].selectText(nil)
-        let fieldEditor = try #require(ordered[0].currentEditor() as? NSTextView)
-        fieldEditor.insertText("1cm", replacementRange: NSRange(location: 0, length: (fieldEditor.string as NSString).length))
-        func pressTab(shift: Bool = false) throws {
-            let event = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: shift ? [.shift] : [],
-                timestamp: 0, windowNumber: window.windowNumber, context: nil, characters: shift ? "\u{19}" : "\t",
-                charactersIgnoringModifiers: shift ? "\u{19}" : "\t", isARepeat: false, keyCode: 48))
-            NSApp.sendEvent(event)
-        }
-        func focusedField() -> NSTextField? {
-            window.firstResponder as? NSTextField ?? (window.firstResponder as? NSTextView)?.delegate as? NSTextField
-        }
-        try pressTab()
-        #expect(ordered.firstIndex { $0 === focusedField() } == 1, "Tab sposta davvero il focus")
-        h.step()
-        let leftIndent = try #require(h.editor.inspectorForTests.values.first { $0.property == .leftIndent }?.value.leftIndent)
-        #expect(abs(leftIndent - 720 / 25.4) < 0.001, "lasciare il campo con Tab applica anche la conversione")
-        try pressTab(shift: true)
-        #expect(ordered.firstIndex { $0 === focusedField() } == 0, "Maiusc-Tab torna al campo precedente")
-
-        // Cambiando oggetto cambiano i campi: la navigazione usa quelli nuovi, non una catena rimasta vecchia.
-        h.editor.inspect(.page)
-        h.step()
-        inspectorHost.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
-        let pageFields = fieldsInVisualOrder()
-        #expect(pageFields.count > 2)
-        window.makeFirstResponder(pageFields[0])
-        try pressTab()
-        #expect(pageFields.firstIndex { $0 === focusedField() } == 1, "Tab funziona anche dopo aver cambiato oggetto")
-    }
-
     // MARK: Stili e regole dall'ispettore (tappa I.8)
 
-    @Test("R1 · Dall'ispettore nasce una regola; ciò che dà si dice «dalla regola»; cambiarlo lì vale solo lì")
+    @Test("R1 · Dalla selezione nasce una regola che dà lo stesso aspetto allo stesso pezzo; Annulla la toglie")
     func ruleFromInspector() throws {
         let h = EditorHarness(paragraphs: ["Roma, città aperta.", "Napoli, città bella."])
         defer { h.close() }
-        let inspector = h.editor.inspectorForTests
         h.select(0, length: 4)
-        h.editor.inspect(.character)
-        inspector.change(.size) { $0.size = 18 }
+        h.editor.changeForTests(.size) { $0.size = 18 }
         h.step()
 
         // «Roma» è la prima parola: la regola la cerca nei paragrafi «Testo», con uno stile nuovo che ha il corpo 18.
@@ -1923,46 +1795,10 @@ struct EditingBehaviourTests {
                 "il corpo dato a mano se ne va: ora lo dà la regola")
         #expect(h.editor.definitionsPanel.rules?.selectedIndex == 0, "si apre la scheda Regole, con la regola nuova scelta")
 
-        // Nell'altro paragrafo il corpo viene dalla regola.
-        h.editor.definitionsPanel.show(.inspector)
-        h.select(20, length: 2)
-        h.editor.inspect(.character)
-        let size = try #require(inspector.values.first { $0.property == .size })
-        #expect(size.source == .rule(h.editor.rules[0].summary) && size.value.size == 18)
-        #expect(inspector.sourceText(size).hasPrefix("From the rule"))
-
-        // Cambiato lì, anche al valore dello stile, vale solo lì: vince sulla regola.
-        let inherited = try #require(size.inherited.size)
-        inspector.change(.size) { $0.size = inherited }
-        h.step()
-        #expect(TextStyling.ruleExceptions(in: h.attributed, at: 20) == [.size])
-        #expect(inspector.values.first { $0.property == .size }?.source == .own)
-        #expect(inspector.values.first { $0.property == .size }?.value.size == inherited)
-
-        // Annullando: prima l'eccezione, poi la regola con il suo stile, e «Roma» riprende il suo corpo.
-        h.undo()
-        #expect(TextStyling.ruleExceptions(in: h.attributed, at: 20).isEmpty)
+        // Annullando: la regola se ne va con il suo stile, e «Roma» riprende il suo corpo.
         h.undo()
         #expect(h.editor.rules.isEmpty && h.editor.styleSheet.style(named: "Prime parole") == nil)
         #expect((h.attributed.attribute(.font, at: 1, effectiveRange: nil) as? NSFont)?.pointSize == 18)
-    }
-
-    @Test("R2 · «Crea uno stile da qui…» crea uno stile della specie dell'oggetto scelto e glielo dà")
-    func styleFromInspector() throws {
-        let h = EditorHarness(paragraphs: ["Roma, città aperta."])
-        defer { h.close() }
-        let inspector = h.editor.inspectorForTests
-        h.select(6, length: 5)
-        h.editor.inspect(.word)
-        inspector.change(.language) { $0.language = "la" }
-        h.step()
-        h.editor.styleNameAnswerForTests = "Parola latina"
-        inspector.createStyle?()
-        h.step()
-        let style = try #require(h.editor.styleSheet.style(named: "Parola latina"))
-        #expect(style.target == .word && style.formulas.contains { $0.operation == StylePropertyOperation(.set, .language, .language("la")) })
-        #expect(h.attributed.attribute(.wordStyleName, at: 7, effectiveRange: nil) as? String == "Parola latina")
-        #expect(inspector.styleName == "Parola latina")
     }
 
     @Test("R3 · Vista › Segni della provenienza: si accendono per la finestra, solo nell'avanzata, e seguono le modifiche")
@@ -2005,9 +1841,8 @@ struct EditingBehaviourTests {
             let h = EditorHarness(paragraphs: ["सत्यमेव"])
             defer { h.close() }
             h.select(0, length: 7)
-            h.editor.inspect(.character)
-            h.editor.inspectorForTests.change(.family) { $0.family = "Annapurna SIL" }
-            if graphite { h.editor.inspectorForTests.change(.shaping) { $0.graphite = "on" } }
+            h.editor.changeForTests(.family) { $0.family = "Annapurna SIL" }
+            if graphite { h.editor.changeForTests(.shaping) { $0.graphite = "on" } }
             h.step()
             h.select(6)
             h.press(#selector(NSResponder.deleteBackward(_:)))
@@ -2023,21 +1858,19 @@ struct EditingBehaviourTests {
 
     // MARK: La pagina (tappa P.2)
 
-    @Test("F4 · Ispettore › Pagina: formato, margini, pagine affacciate; la composizione segue, Annulla torna indietro")
+    @Test("F4 · Pagina del cursore: formato, margini, pagine affacciate; la composizione segue, Annulla torna indietro")
     func pageSetupFromInspector() throws {
         let h = EditorHarness(paragraphs: [String(repeating: "Una riga di prova che si ripete. ", count: 300)])
         defer { h.close() }
-        let inspector = h.editor.inspectorForTests
-        h.editor.inspect(.page)
-        #expect(inspector.pageSetup == h.editor.currentDocument().pageSetup)
-        #expect(PageSetupForm.format(of: inspector.pageSetup.paperSize) == "A4")
-        var setup = inspector.pageSetup
+        #expect(h.editor.caretPageSetup().setup == h.editor.currentDocument().pageSetup)
+        #expect(PageSetupForm.format(of: h.editor.caretPageSetup().setup.paperSize) == "A4")
+        var setup = h.editor.caretPageSetup().setup
         setup.paperSize = CGSize(width: PageSetup.points(fromMillimetres: 148), height: PageSetup.points(fromMillimetres: 210))
         setup.left = try #require(Length.points(from: "2 cm"))
         setup.right = try #require(Length.points(from: "1 in"))
         setup.facing = true
         #expect(PageSetupForm.isValid(setup))
-        inspector.setPageSetup?(setup)
+        h.editor.setCaretPageSetup(setup)
         h.step()
         let layout = try #require(h.editor.currentLayout())
         #expect(layout.setup == setup && PageSetupForm.format(of: setup.paperSize) == "A5")
@@ -2045,7 +1878,7 @@ struct EditingBehaviourTests {
         #expect(abs(layout.pages[1].lines[0].origin.x - 72) < 0.5, "pagina 2: lo specchio comincia dopo il margine esterno di un pollice")
         #expect(DocumentFormat.string(for: h.editor.currentDocument()).contains("facing=\"on\""))
         h.undo()
-        #expect(h.editor.currentDocument().pageSetup == PageSetup.a4 && inspector.pageSetup == PageSetup.a4, "Annulla torna all'A4, anche nell'ispettore")
+        #expect(h.editor.currentDocument().pageSetup == PageSetup.a4 && h.editor.caretPageSetup().setup == PageSetup.a4, "Annulla torna all'A4")
         // Margini che non lasciano spazio al testo non si accettano.
         var crowded = setup
         crowded.left = PageSetup.points(fromMillimetres: 80)
@@ -2059,21 +1892,17 @@ struct EditingBehaviourTests {
     func graphiteChoice() throws {
         let h = EditorHarness(paragraphs: ["Prova မြန်မာ fine."])
         defer { h.close() }
-        let inspector = h.editor.inspectorForTests
         let burmese = (h.text as NSString).range(of: "မြန်မာ")
         h.select(burmese.location, length: burmese.length)
-        h.editor.inspect(.character)
-        inspector.change(.family) { $0.family = "Padauk" }
+        h.editor.changeForTests(.family) { $0.family = "Padauk" }
         h.step()
-        #expect(inspector.values.first { $0.property == .shaping }?.value.graphite == "off", "si parte da Core Text")
-        #expect(inspector.fontHasGraphite)
-        inspector.change(.shaping) { $0.graphite = "on" }
+        #expect(h.editor.valueForTests(.shaping)?.value.graphite == "off", "si parte da Core Text")
+        h.editor.changeForTests(.shaping) { $0.graphite = "on" }
         h.step()
         #expect(h.attributed.attribute(.graphite, at: burmese.location, effectiveRange: nil) as? String == "")
         #expect(h.attributed.attribute(.graphite, at: 0, effectiveRange: nil) == nil, "solo il testo scelto")
-        let shaping = try #require(inspector.values.first { $0.property == .shaping })
+        let shaping = try #require(h.editor.valueForTests(.shaping))
         #expect(shaping.value.graphite == "on" && shaping.source == .own)
-        #expect(inspector.graphiteProblem == nil)
         let layout = try #require(h.editor.currentLayout())
         #expect(layout.graphiteFallbacks == 0)
         let runs = layout.pages[0].lines.flatMap { CTLineGetGlyphRuns($0.line) as! [CTRun] }
@@ -2083,10 +1912,8 @@ struct EditingBehaviourTests {
 
         // Su «Prova», in Hoefler Text, Graphite non può comporre: avviso nell'ispettore e nella barra di stato.
         h.select(0, length: 5)
-        h.editor.inspect(.character)
-        inspector.change(.shaping) { $0.graphite = "on" }
+        h.editor.changeForTests(.shaping) { $0.graphite = "on" }
         h.step()
-        #expect(!inspector.fontHasGraphite && inspector.graphiteProblem?.contains("“Hoefler Text”") == true, "l'avviso nomina il font che c'è davvero")
         #expect(h.editor.currentLayout()?.graphiteFallbacks == 1)
         #expect(h.editor.warningTitles.contains { $0.contains("Graphite") })
         h.undo()
@@ -2116,15 +1943,14 @@ struct EditingBehaviourTests {
     func graphiteFeatures() throws {
         let h = EditorHarness(paragraphs: ["Prova မြန်မာ fine."])
         defer { h.close() }
-        let inspector = h.editor.inspectorForTests, panel = h.editor.featurePanelForTests
+        let panel = h.editor.featurePanelForTests
         let burmese = (h.text as NSString).range(of: "မြန်မာ")
         h.select(burmese.location, length: burmese.length)
-        h.editor.inspect(.character)
-        inspector.change(.family) { $0.family = "Padauk" }
+        h.editor.changeForTests(.family) { $0.family = "Padauk" }
         h.step()
         let lldt = try #require(panel.graphiteFeatures.first { $0.tag == "lldt" }, "le funzioni Graphite di Padauk")
         #expect(panel.graphiteSettings == nil, "con Core Text le funzioni Graphite non valgono")
-        inspector.change(.shaping) { $0.graphite = "on" }
+        h.editor.changeForTests(.shaping) { $0.graphite = "on" }
         h.step()
         #expect(panel.graphiteSettings == "")
         panel.setGraphiteValue(1, of: lldt)
@@ -2408,7 +2234,7 @@ struct EditingBehaviourTests {
 
     // MARK: La sezione nell'ispettore (tappa S.2b)
 
-    @Test("SZ9 · Percorso e ispettore della Sezione: un pulsante per livello; ruolo, livello, contenuto, pagine; ogni cambio un passo di Annulla")
+    @Test("SZ9 · Comandi della Sezione: livello scelto; ruolo, livello, contenuto, pagine; ogni cambio un passo di Annulla")
     func sectionInspector() throws {
         let h = EditorHarness(paragraphs: ["Testo.", "Fine."])
         defer { h.close() }
@@ -2418,34 +2244,32 @@ struct EditingBehaviourTests {
         h.select((h.text as NSString).range(of: "Fine.").location)
         h.editor.insertSectionInside(nil)
         h.type("Sezione")
-        #expect(h.editor.sectionPathTitlesForTests == ["Chapter “Capitolo”", "Section “Sezione”"])
+        #expect(h.editor.enclosingSections().map { h.editor.displayTitle(of: $0) } == ["“Capitolo”", "“Sezione”"])
 
-        let inspector = h.editor.inspectorForTests
-        h.editor.inspectSection(depth: nil)
-        var info = try #require(inspector.section)
+        h.editor.inspectedSectionDepth = nil
+        var info = try #require(h.editor.sectionInfo())
         #expect(info.role == "section" && info.title == "“Sezione”" && info.depth == 2 && info.paragraphs == 1 && info.sections == 0)
         #expect(!info.canMoveInside && info.canMoveOutside)
-        #expect(h.editor.inspectorFacts == [InspectorModel.Fact(title: "Pages", value: "1")])
 
-        h.editor.inspectSection(depth: 1)
-        info = try #require(inspector.section)
+        h.editor.inspectedSectionDepth = 1
+        info = try #require(h.editor.sectionInfo())
         #expect(info.title == "“Capitolo”" && info.paragraphs == 3 && info.sections == 1, "Testo., e la sezione col suo titolo e Fine.")
 
-        h.editor.inspectSection(depth: nil)
-        inspector.setSectionRole?("paragrafo")
+        h.editor.inspectedSectionDepth = nil
+        h.editor.setSectionRole("paragrafo")
         h.step()
         #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo", "2 paragrafo Sezione"])
         #expect(h.undoActionName == "Section Role")
-        inspector.moveSection?(-1)
+        h.editor.moveInspectedSection(by: -1)
         h.step()
         #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo", "1 paragrafo Sezione"])
-        #expect(inspector.section?.depth == 1 && inspector.section?.canMoveInside == true)
-        inspector.moveSection?(1)
+        #expect(h.editor.sectionInfo()?.depth == 1 && h.editor.sectionInfo()?.canMoveInside == true)
+        h.editor.moveInspectedSection(by: 1)
         h.step()
         #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo", "2 paragrafo Sezione"])
-        inspector.removeSection?()
+        h.editor.removeInspectedSection()
         h.step()
-        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo"] && h.editor.sectionPathTitlesForTests == ["Chapter “Capitolo”"])
+        #expect(outline(h.editor.currentDocument().sections) == ["1 chapter Capitolo"] && h.editor.enclosingSections().map { h.editor.displayTitle(of: $0) } == ["“Capitolo”"])
         h.undo()
         h.undo()
         h.undo()
@@ -2501,13 +2325,12 @@ struct EditingBehaviourTests {
         h.editor.insertSectionSameLevel(nil)
         h.step()
         h.type("Uno")
-        h.editor.inspectSection(depth: nil)
-        let inspector = h.editor.inspectorForTests
-        #expect(inspector.section?.start == .continuous)
+        h.editor.inspectedSectionDepth = nil
+        #expect(h.editor.sectionInfo()?.start == .continuous)
         #expect(try #require(h.editor.currentLayout()).pages.count == 1)
-        inspector.setSectionStart?(.oddPage)
+        h.editor.setSectionStart(.oddPage)
         h.step()
-        #expect(h.undoActionName == "Section Start" && inspector.section?.start == .oddPage)
+        #expect(h.undoActionName == "Section Start" && h.editor.sectionInfo()?.start == .oddPage)
         #expect(try #require(h.editor.currentLayout()).pages.count == 3, "il capitolo va a pagina 3, la 2 resta bianca")
         h.select(at("Testo due."))
         h.editor.insertSectionSameLevel(nil)
@@ -2531,8 +2354,8 @@ struct EditingBehaviourTests {
         h.select(uno)
         h.editor.applyNamedStyle(.paragraph, name: "Heading 1")
         h.step()
-        h.editor.inspectSection(depth: nil)
-        h.editor.inspectorForTests.setSectionStart?(.newPage)
+        h.editor.inspectedSectionDepth = nil
+        h.editor.setSectionStart(.newPage)
         h.step()
         func top() throws -> CGFloat {
             let layout = try #require(h.editor.currentLayout())
@@ -2541,12 +2364,10 @@ struct EditingBehaviourTests {
         }
         let before = try top()
         h.select(uno + 1)
-        h.editor.inspect(.paragraph)
-        let inspector = h.editor.inspectorForTests
-        #expect(inspector.values.first { $0.property == .openingDistance }?.value.openingDistance == 0)
-        inspector.change(.openingDistance) { $0.openingDistance = 100 }
+        #expect(h.editor.valueForTests(.openingDistance)?.value.openingDistance == 0)
+        h.editor.changeForTests(.openingDistance) { $0.openingDistance = 100 }
         h.step()
-        let value = try #require(inspector.values.first { $0.property == .openingDistance })
+        let value = try #require(h.editor.valueForTests(.openingDistance))
         #expect(value.value.openingDistance == 100 && value.source == .own)
         #expect(abs((before - (try top())) - 100) < 0.01, "il titolo scende di 100 pt")
         #expect(h.editor.currentDocument().sections.first?.title.openingDistance == 100)
@@ -2617,21 +2438,18 @@ struct EditingBehaviourTests {
         document.setFlatParagraphs(flat)
         h.editor.replaceContent(document)
         h.step()
-        let inspector = h.editor.inspectorForTests
 
         // L'ispettore Pagina: il tipo della pagina del cursore.
         h.select(at("Testo della tavola."))
-        h.editor.inspect(.page)
-        #expect(inspector.pageTypeName == "Orizzontale" && inspector.pageSetup == landscape)
+        #expect(h.editor.caretPageSetup().typeName == "Orizzontale" && h.editor.caretPageSetup().setup == landscape)
         var taller = landscape
         taller.top = 80
-        inspector.setPageSetup?(taller)
+        h.editor.setCaretPageSetup(taller)
         h.step()
         #expect(h.editor.currentDocument().pageTypes.first?.setup.top == 80 && h.editor.currentDocument().pageSetup == document.pageSetup)
         #expect(h.undoActionName == "Page type “Orizzontale”")
         h.select(at("Premessa."))
-        h.editor.inspect(.page)
-        #expect(inspector.pageTypeName == nil, "la prima pagina ha il tipo predefinito")
+        #expect(h.editor.caretPageSetup().typeName == nil, "la prima pagina ha il tipo predefinito")
         h.undo()
         #expect(h.editor.currentDocument().pageTypes.first?.setup.top == 50)
 
@@ -2650,9 +2468,9 @@ struct EditingBehaviourTests {
 
         // L'ispettore della sezione: senza tipo, la tavola torna al predefinito.
         h.select(at("Testo della tavola."))
-        h.editor.inspectSection(depth: nil)
-        #expect(inspector.section?.pageTypes.pages == "Orizzontale" && inspector.section?.typeNames == ["Orizzontale"])
-        inspector.setSectionPageTypes?(SectionPageTypes())
+        h.editor.inspectedSectionDepth = nil
+        #expect(h.editor.sectionInfo()?.pageTypes.pages == "Orizzontale" && h.editor.sectionInfo()?.typeNames == ["Orizzontale"])
+        h.editor.setSectionPageTypes(SectionPageTypes())
         h.step()
         #expect(try #require(h.editor.currentLayout()).setup(forPage: 1) == document.pageSetup)
         h.undo()
@@ -2749,7 +2567,7 @@ struct EditingBehaviourTests {
         // L'aspetto del testo, non quello del titolo (Titolo 1, 18 pt in nero): cinque sesti del corpo del testo.
         let run = try #require(floats(in: title).first?.runs.first)
         #expect(run.text == "Apertura" && run.style.size == 10 && run.style.fontName == "HoeflerText-Regular")
-        #expect(h.editor.sectionPathTitlesForTests == ["Chapter “Capitolo”"], "il nome della sezione non comprende l'intestazione")
+        #expect(h.editor.enclosingSections().map { h.editor.displayTitle(of: $0) } == ["“Capitolo”"], "il nome della sezione non comprende l'intestazione")
     }
 
     @Test("SZ18 · Scheda Liste › Pagine numerate con; ispettore della Sezione › Numeri di pagina ripartono")
@@ -2767,10 +2585,9 @@ struct EditingBehaviourTests {
         h.select((h.text as NSString).range(of: "Capitolo").location)
         h.editor.applyNamedStyle(.paragraph, name: "Heading 1")
         h.step()
-        h.editor.inspectSection(depth: nil)
-        let inspector = h.editor.inspectorForTests
-        #expect(inspector.section?.listNames.contains("Numbered List") == true && inspector.section?.pageNumbering == nil)
-        inspector.setSectionPageNumbering?("Numbered List")
+        h.editor.inspectedSectionDepth = nil
+        #expect(h.editor.sectionInfo()?.listNames.contains("Numbered List") == true && h.editor.sectionInfo()?.pageNumbering == nil)
+        h.editor.setSectionPageNumbering("Numbered List")
         h.step()
         #expect(h.editor.currentDocument().sections.first?.pageNumbering == "Numbered List")
         number = try #require(h.editor.currentLayout()).pages.first?.number
@@ -2908,16 +2725,13 @@ struct EditingBehaviourTests {
         h.step()
         #expect(table?.columnCount == 4 && cellOfCaret() == [1, 1])
         // L'ispettore della tabella.
-        h.editor.inspect(.table)
-        let inspector = h.editor.inspectorForTests
-        let info = try #require(inspector.table)
+        let info = try #require(h.editor.tableAndCellInfo()?.table)
         let shape: [Int] = [info.rows, info.columns, info.headerRows, info.row, info.column]
         #expect(shape == [4, 4, 1, 2, 2])
-        #expect(h.editor.inspectorFacts.contains { $0.title == "Pages" })
-        inspector.setTableHeaderRows?(2)
+        h.editor.setTableHeaderRows(2)
         h.step()
         #expect(table?.headerRows == 2)
-        inspector.tableCommand?(.removeColumn)
+        h.editor.perform(.removeColumn)
         h.step()
         h.editor.perform(.removeRow)
         h.step()
@@ -2931,7 +2745,7 @@ struct EditingBehaviourTests {
         // Togli la tabella: l'ispettore torna al paragrafo; Annulla la rimette.
         h.editor.perform(.removeTable)
         h.step()
-        #expect(h.text == "Prima.\nDopo." && inspector.object == .paragraph)
+        #expect(h.text == "Prima.\nDopo." && h.editor.tableAndCellInfo() == nil)
         h.undo()
         #expect(table?.rows.count == 3)
         // Fuori dalla tabella i comandi sono spenti.
@@ -2949,36 +2763,33 @@ struct EditingBehaviourTests {
         h.type("a")
         var table: Table? { h.editor.currentDocument().blocks.lazy.compactMap { if case .table(let t) = $0 { t } else { nil } }.first }
         var page: LaidOutPage? { h.editor.currentLayout()?.pages.first }
-        let inspector = h.editor.inspectorForTests
-        h.editor.inspect(.table)
-        #expect(inspector.table?.style == nil && inspector.table?.styleNames.count == 5 && inspector.table?.resolved == .initial)
+        #expect(h.editor.tableAndCellInfo()?.table.style == nil && h.editor.tableAndCellInfo()?.table.styleNames.count == 5 && h.editor.tableAndCellInfo()?.table.resolved == .initial)
         // Lo stile «Tre filetti»: niente filetti verticali.
-        inspector.setTableStyle?("Three Rules")
+        h.editor.setTableStyle("Three Rules")
         h.step()
-        #expect(table?.styleName == "Three Rules" && inspector.table?.style == "Three Rules")
+        #expect(table?.styleName == "Three Rules" && h.editor.tableAndCellInfo()?.table.style == "Three Rules")
         #expect(page?.rules.allSatisfy { $0.width > $0.height } == true)
         // Un fondo solo per questa tabella; la selezione resta dov'era.
         let caret = h.selection
-        inspector.changeTable?(.background("#ff0000"))
+        h.editor.changeTableAppearance(.background("#ff0000"))
         h.step()
         #expect(table?.values.background == "#ff0000" && page?.fills.count == 9 && h.selection == caret)
         // La cella: un filetto di 2 punti sopra, al centro, senza fondo.
-        h.editor.inspect(.cell)
-        #expect(inspector.cell?.row == 1 && inspector.cell?.column == 1)
-        inspector.changeCell?(.border(.top, .rule(2)))
+        #expect(h.editor.tableAndCellInfo()?.cell.row == 1 && h.editor.tableAndCellInfo()?.cell.column == 1)
+        h.editor.changeCellAppearance(.border(.top, .rule(2)))
         h.step()
-        inspector.changeCell?(.alignment(.middle))
+        h.editor.changeCellAppearance(.alignment(.middle))
         h.step()
-        inspector.changeCell?(.background(""))
+        h.editor.changeCellAppearance(.background(""))
         h.step()
         #expect(table?.rows[0].cells[0].values == CellValues(top: .rule(2), background: "", verticalAlignment: .middle))
         #expect(page?.fills.count == 8)
         // Scegliere i filetti per la tabella toglie i lati detti per le celle (il resto resta).
-        inspector.changeTable?(.rules(.grid))
+        h.editor.changeTableAppearance(.rules(.grid))
         h.step()
         #expect(table?.values.rules == .grid && table?.rows[0].cells[0].values == CellValues(background: "", verticalAlignment: .middle))
         // Togliere l'eccezione torna allo stile; Annulla la rimette.
-        inspector.changeTable?(.rules(nil))
+        h.editor.changeTableAppearance(.rules(nil))
         h.step()
         #expect(table?.values.rules == nil)
         h.undo()
@@ -3024,8 +2835,7 @@ struct EditingBehaviourTests {
         #expect(table?.caption.count == 1 && table?.rows.count == 3)
         _ = h.editor.validateMenuItem(item)
         #expect(item.state == .on)
-        h.editor.inspect(.table)
-        #expect(h.editor.inspectorForTests.table?.floatStyle == FloatStyle.tableName)
+        #expect(h.editor.tableAndCellInfo()?.table.floatStyle == FloatStyle.tableName)
         // Nella pagina: la didascalia con il numero, sopra la tabella.
         let captionAt = (h.text as NSString).range(of: "Popolazione").location
         let line = try #require(h.editor.currentLayout()?.pages.first?.lines.first { $0.paragraphLocation == captionAt })
@@ -3075,10 +2885,9 @@ struct EditingBehaviourTests {
         #expect(table?.rows[0].cells[0].columnSpan == 2 && table?.rows[0].cells[1].isCovered == true)
         #expect(table?.rows[0].cells[0].paragraphs.count == 2 && h.selection == NSRange(location: 7, length: 0))
         #expect(h.editor.validateMenuItem(split))
-        h.editor.inspect(.cell)
-        #expect(h.editor.inspectorForTests.cell?.columnSpan == 2)
+        #expect(h.editor.tableAndCellInfo()?.cell.columnSpan == 2)
         // Dividere dall'ispettore; Annulla la riunisce.
-        h.editor.inspectorForTests.splitCell?()
+        h.editor.splitTableCell(nil)
         h.step()
         #expect(table?.rows[0].cells.map(\.isCovered) == [false, false, false] && table?.rows[0].cells[0].columnSpan == 1)
         h.undo()
@@ -3098,8 +2907,7 @@ struct EditingBehaviourTests {
         #expect(style.isDecimalAligned)
         h.editor.refreshBandState()
         #expect(alignment.selectedSegment == 4)
-        h.editor.inspect(.paragraph)
-        #expect(h.editor.inspectorForTests.values.first { $0.property == .alignment }?.value.alignment == .decimal)
+        #expect(h.editor.valueForTests(.alignment)?.value.alignment == .decimal)
         guard case .paragraph(let paragraph) = h.editor.currentDocument().blocks.first else { Issue.record("niente paragrafo"); return }
         #expect(paragraph.style.alignment == .decimal)
         // A destra resta a destra.

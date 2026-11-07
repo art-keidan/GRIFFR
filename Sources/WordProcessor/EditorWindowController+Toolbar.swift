@@ -435,6 +435,7 @@ extension EditorWindowController {
                                        "riduciLivello": button("riduciLivello", "decrease.indent", help: "Decrease level (Shift-Tab)", action: #selector(decreaseListLevel(_:))),
                                        "aumentaLivello": button("aumentaLivello", "increase.indent", help: "Increase level (Tab)", action: #selector(increaseListLevel(_:))),
                                        "regoleBanda": button("regoleBanda", "wand.and.rays", help: "Rules…", action: #selector(editRules(_:))),
+                                       "progetta": button("progetta", "paragraphsign", label: "Design", help: "Design the paragraph on the page: drag its measures; changes go into its style (⌥⌘G)", action: #selector(toggleParagraphDesign(_:))),
                                        "stiliFlottanteBanda": button("stiliFlottanteBanda", "rectangle.on.rectangle", help: "Float Styles…", action: #selector(editFloatStyles(_:)))]
         if let characterStylesControl { items["stileCarattere"] = characterStylesControl }
         register(items)

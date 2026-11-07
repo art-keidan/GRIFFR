@@ -41,7 +41,52 @@ final class PagesView: NSView {
             fitToEnclosingClipView()
             updateInsertionIndicator()
             if pendingScroll != nil { schedulePendingScroll() }
+            positionDesignBar()
         }
+    }
+
+    // MARK: Progettazione del capoverso (il disegno e i gesti sono in PagesView+Progetta.swift)
+
+    /// Il capoverso che si progetta sulla pagina, con le sue misure: `nil` fuori dalla modalità.
+    var design: ParagraphDesignOverlay? {
+        didSet {
+            guard design != oldValue else { return }
+            needsDisplay = true
+            positionDesignBar()
+        }
+    }
+    /// Una maniglia trascinata: lo spostamento dall'inizio del gesto, in punti di pagina (in basso è positivo).
+    var onDesignDrag: ((DesignHandle, CGSize, DesignDragPhase, NSEvent.ModifierFlags) -> Void)?
+    /// Un clic su una maniglia bloccata da una formula.
+    var onDesignLockedHandle: ((DesignHandle) -> Void)?
+    /// I pulsanti intorno al capoverso: la vista la dà chi possiede il testo, qui la si colloca.
+    var designBar: NSView? {
+        didSet {
+            oldValue?.removeFromSuperview()
+            if let designBar { addSubview(designBar) }
+            positionDesignBar()
+        }
+    }
+    /// Il gesto su una maniglia: dove è cominciato e quanto conta lo spostamento verticale (per l'interlinea presa su
+    /// una riga più in basso, meno di un punto per punto).
+    var designDrag: (handle: DesignHandle, start: NSPoint, factor: CGFloat)?
+    /// Salva e Annulla, fissi in alto a destra della zona visibile.
+    var designActions: NSView? {
+        didSet {
+            oldValue?.removeFromSuperview()
+            if let designActions { addSubview(designActions) }
+            positionDesignBar()
+        }
+    }
+    /// I margini della pagina: il gesto, la maniglia sotto il mouse e quella trascinata ora.
+    var onMarginDrag: ((Int, MarginSide, CGSize, DesignDragPhase, NSEvent.ModifierFlags) -> Void)?
+    var marginDrag: (page: Int, side: MarginSide, start: NSPoint)?
+    var hoveredMargin: (page: Int, side: MarginSide)? {
+        didSet { if hoveredMargin?.page != oldValue?.page || hoveredMargin?.side != oldValue?.side { needsDisplay = true } }
+    }
+    var activeMargin: (page: Int, side: MarginSide)? { didSet { needsDisplay = true } }
+    var hoveredDesignHandle: DesignHandle? {
+        didSet { if hoveredDesignHandle != oldValue { needsDisplay = true } }
     }
 
     /// Uno scorrimento da fare appena le pagine sono abbastanza lunghe da raggiungerlo: riaprendo un documento, le
@@ -211,6 +256,7 @@ final class PagesView: NSView {
         setFrameSize(NSSize(width: contentWidth, height: max(height, superview?.bounds.height ?? 0)))
         updateInsertionIndicator()
         needsDisplay = true
+        positionDesignBar()
         onScaleChange?()
     }
 
@@ -241,7 +287,7 @@ final class PagesView: NSView {
     }
 
     /// Da coordinate di pagina (origine in basso a sinistra, in punti) a coordinate di questa vista.
-    private func viewRect(for rect: CGRect, onPage page: Int) -> NSRect {
+    func viewRect(for rect: CGRect, onPage page: Int) -> NSRect {
         let pageFrame = frame(ofPage: page)
         let height = layout?.setup(forPage: page).paperSize.height ?? 0
         return NSRect(x: pageFrame.minX + rect.minX * scale, y: pageFrame.minY + (height - rect.maxY) * scale,
@@ -278,6 +324,7 @@ final class PagesView: NSView {
 
     override func mouseMoved(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        if designMouseMoved(at: point) { return }
         if lineSelectionAnchor != nil || lineSelectionRange(at: point) != nil { Self.lineSelectionCursor.set() } else { NSCursor.arrow.set() }
     }
 
@@ -292,6 +339,7 @@ final class PagesView: NSView {
         window?.makeFirstResponder(self)
         inputContext?.discardMarkedText()
         editing?.pagesUnmarkText()
+        if designMouseDown(at: point, modifiers: event.modifierFlags) { return }
         if let range = lineSelectionRange(at: point) {
             lineSelectionAnchor = range
             editing?.pagesSelectLineRange(range)
@@ -310,6 +358,7 @@ final class PagesView: NSView {
 
     override func mouseDragged(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        if designMouseDragged(to: point, modifiers: event.modifierFlags) { return }
         if let anchor = lineSelectionAnchor {
             // Cominciato nel margine, il trascinamento resta per righe anche se il puntatore entra nel testo.
             if let line = lineSelectionRange(at: point, inMarginOnly: false) {
@@ -321,7 +370,10 @@ final class PagesView: NSView {
         autoscroll(with: event)
     }
 
-    override func mouseUp(with event: NSEvent) { lineSelectionAnchor = nil }
+    override func mouseUp(with event: NSEvent) {
+        lineSelectionAnchor = nil
+        _ = designMouseUp(at: convert(event.locationInWindow, from: nil), modifiers: event.modifierFlags)
+    }
 
     /// La riga da selezionare con un clic nel margine sinistro. Il range è quello della riga composta, quindi include
     /// l'a capo quando la riga chiude il paragrafo. Durante il trascinamento si può uscire dal margine e dalla pagina.
@@ -409,7 +461,7 @@ final class PagesView: NSView {
         pageTopsScale = scale
     }
 
-    private func frame(ofPage index: Int) -> NSRect {
+    func frame(ofPage index: Int) -> NSRect {
         guard let layout else { return .zero }
         if pageTops.count != layout.pages.count || pageTopsScale != scale { computePageTops() }
         let setup = layout.setup(forPage: index)
@@ -500,6 +552,7 @@ final class PagesView: NSView {
                 for rect in conflicts { context.stroke(rect.insetBy(dx: -2, dy: -2)) }
             }
             context.restoreGState()
+            if design != nil { drawDesign(onPage: index, pageFrame: pageFrame, in: context) }
 
             if let guideX, guideX >= pageFrame.minX, guideX <= pageFrame.maxX {
                 context.saveGState()

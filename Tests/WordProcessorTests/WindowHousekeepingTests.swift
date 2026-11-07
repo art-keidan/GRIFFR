@@ -59,20 +59,12 @@ struct WindowHousekeepingTests {
             #expect(abs(window.frame.width - initial.width) < 1, "dimensioni dopo Lorem: \(window.frame.size)")
             #expect(abs(window.frame.height - initial.height) < 1)
         }
-        #expect(h.editor.sectionPathTitles.count >= 5, "il percorso contiene sezioni annidate")
+        #expect(h.editor.enclosingSections().count >= 5, "il cursore sta in sezioni annidate")
         window.setFrame(NSRect(origin: window.frame.origin, size: compact), display: true)
         h.step()
         window.contentView?.layoutSubtreeIfNeeded()
         #expect(abs(window.frame.width - compact.width) < 1, "larghezza minima effettiva: \(window.frame.width)")
         #expect(abs(window.frame.height - compact.height) < 1)
-        // Il percorso sta in testa all'ispettore e va a capo: ogni sezione vi ha il suo passo, raggiungibile.
-        let sections = h.editor.inspector.path.filter { if case .section = $0.target { true } else { false } }
-        #expect(sections.map(\.title) == h.editor.sectionPathTitles, "il percorso dell'ispettore contiene tutte le sezioni")
-        if let deepest = sections.last {
-            h.editor.inspector.choosePath?(deepest.target)
-            h.step()
-            #expect(h.editor.inspector.object == .section && h.editor.inspector.pathChoice == deepest.target)
-        }
     }
 
     @Test("Chiudendo la finestra si tolgono gli ascolti delle notifiche")

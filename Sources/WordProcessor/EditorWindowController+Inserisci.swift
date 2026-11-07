@@ -291,7 +291,7 @@ extension EditorWindowController {
         }
         setSelection(TextSelection(caret: min(caret, store.length)))
         typingAttributes = Self.typingAttributes(in: store, at: selection)
-        refreshInspector()
+        refreshParagraphDesign()
         window?.makeFirstResponder(pagesView)
     }
 
@@ -304,7 +304,7 @@ extension EditorWindowController {
         writeStore(actionName: actionName) { body(point, $0) }
         setSelection(kept)
         typingAttributes = Self.typingAttributes(in: store, at: selection)
-        refreshInspector()
+        refreshParagraphDesign()
     }
 
     /// Le celle (della tabella dell'inizio della selezione) che la selezione tocca.
@@ -335,7 +335,7 @@ extension EditorWindowController {
         guard let start else { return }
         setSelection(TextSelection(caret: start))
         typingAttributes = Self.typingAttributes(in: store, at: selection)
-        refreshInspector()
+        refreshParagraphDesign()
     }
 
     /// Tabella › Dividi la cella: la cella unita del cursore torna a coprire una sola posizione.
@@ -382,7 +382,7 @@ extension EditorWindowController {
             setSelection(TextSelection(caret: min(keptLocation, store.length)))
         }
         typingAttributes = Self.typingAttributes(in: store, at: selection)
-        refreshInspector()
+        refreshParagraphDesign()
     }
 
     /// Scheda Tabelle: gli stili di tabella, con le tabelle che seguono le rinomine, in un passo di Annulla.
@@ -405,7 +405,7 @@ extension EditorWindowController {
         guard TableEditing.cell(at: point, in: store) != nil else { return }
         endUndoStep(next: .none)
         writeStore(actionName: "Header Rows") { TableEditing.setHeaderRows(count, ofTableAt: point, in: $0) }
-        refreshInspector()
+        refreshParagraphDesign()
     }
 
     /// Inserisci › Tabella: una tabella 3 × 3, con una riga d'intestazione, dopo il paragrafo del cursore; il cursore
@@ -520,7 +520,7 @@ extension EditorWindowController {
         writeStore(actionName: actionName) { body(title, $0) }
         setSelection(point)
         typingAttributes = Self.typingAttributes(in: store, at: selection)
-        refreshInspector()
+        refreshParagraphDesign()
     }
 
 

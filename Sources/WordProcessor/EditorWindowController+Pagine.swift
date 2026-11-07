@@ -100,6 +100,11 @@ extension EditorWindowController: PagesViewEditing {
     ]
 
     func pagesPerform(_ command: Selector) {
+        // Esc esce dalla progettazione del capoverso.
+        if command == #selector(NSResponder.cancelOperation(_:)), isDesigningParagraph {
+            setParagraphDesign(false)
+            return
+        }
         if let (movement, extending) = Self.movements[command] {
             guard let layout = currentLayout() else { return }
             apply(layout.selection(selection, moving: movement, extending: extending))
@@ -513,8 +518,10 @@ extension EditorWindowController: PagesViewEditing {
         case #selector(NSTextView.changeFont(_:)):
             return true
         case Selector(("undo:")):
+            if isDesigningParagraph { return canUndoParagraphDesign }
             return (document as? NSDocument)?.undoManager?.canUndo == true || pendingStyles != nil
         case Selector(("redo:")):
+            if isDesigningParagraph { return canRedoParagraphDesign }
             return (document as? NSDocument)?.undoManager?.canRedo == true
         default:
             return false

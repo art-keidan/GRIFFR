@@ -174,6 +174,8 @@ enum MainMenu {
         tree.keyEquivalentModifierMask = [.command, .option]
         let marks = view.addItem(withTitle: "Provenance Marks", action: #selector(EditorWindowController.toggleProvenanceMarks(_:)), keyEquivalent: "p")
         marks.keyEquivalentModifierMask = [.command, .option]
+        let design = view.addItem(withTitle: "Design Paragraph", action: #selector(EditorWindowController.toggleParagraphDesign(_:)), keyEquivalent: "g")
+        design.keyEquivalentModifierMask = [.command, .option]
         view.addItem(withTitle: "Customize Tools…", action: #selector(EditorWindowController.customizeToolbar(_:)), keyEquivalent: "")
 
 

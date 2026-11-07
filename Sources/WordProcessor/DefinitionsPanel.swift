@@ -9,11 +9,11 @@ import Typesetting
 @MainActor
 final class DefinitionsPanel {
     enum Tab: Int, CaseIterable {
-        case inspector, styles, lists, floats, rules, pages, tables
+        case selection, styles, lists, floats, rules, pages, tables
 
         var title: String {
             switch self {
-            case .inspector: "Inspector"
+            case .selection: "Selection"
             case .styles: "Styles"
             case .lists: "Lists"
             case .floats: "Floats"
@@ -25,9 +25,9 @@ final class DefinitionsPanel {
     }
 
     let view = NSView()
-    /// Le due viste del pannello: l'ispettore della selezione e le definizioni del documento.
+    /// Le due viste del pannello: la selezione e le definizioni del documento.
     private let mode = BandSegments([
-        .init(label: "Selection", image: nil, help: "The inspector: the chosen object and where its values come from"),
+        .init(label: "Selection", image: nil, help: "The paragraph of the cursor: design it on the page"),
         .init(label: "Definitions", image: nil, help: "Styles, lists, floats, rules, pages and tables of the document"),
     ], help: "Detailed tools section")
     /// Le definizioni, una per tipo: si vedono solo nella vista Definitions.
@@ -38,7 +38,7 @@ final class DefinitionsPanel {
     private var lastDefinition = Tab.styles
     private let content = NSView()
     private var hosts: [Tab: NSView] = [:]
-    private(set) var tab = Tab.inspector
+    private(set) var tab = Tab.selection
 
     private(set) var lists: ListsSheetModel?
     private(set) var floats: FloatStylesSheetModel?
@@ -69,10 +69,10 @@ final class DefinitionsPanel {
     /// La pausa dopo l'ultima modifica, prima di applicarla.
     static let pause: TimeInterval = 0.4
 
-    init(inspector: NSView) {
+    init(selection: NSView) {
         mode.onSelect = { [weak self] index in
             guard let self else { return }
-            show(index == 0 ? .inspector : lastDefinition)
+            show(index == 0 ? .selection : lastDefinition)
         }
         kinds.onSelect = { [weak self] index in self?.show(Tab(rawValue: index + 1) ?? .styles) }
         let bar = Bands.band([mode, Bands.spacer()], height: 32)
@@ -99,16 +99,16 @@ final class DefinitionsPanel {
             content.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             content.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
-        hosts[.inspector] = inspector
-        place(inspector)
-        markTab(.inspector)
+        hosts[.selection] = selection
+        place(selection)
+        markTab(.selection)
     }
 
     /// I due segmenti e la fila delle definizioni secondo la scheda mostrata.
     private func markTab(_ tab: Tab) {
-        mode.selectedSegment = tab == .inspector ? 0 : 1
-        kinds.selectedSegment = tab == .inspector ? nil : tab.rawValue - 1
-        kindsBar.isHidden = tab == .inspector
+        mode.selectedSegment = tab == .selection ? 0 : 1
+        kinds.selectedSegment = tab == .selection ? nil : tab.rawValue - 1
+        kindsBar.isHidden = tab == .selection
     }
 
     private func place(_ child: NSView) {
@@ -128,9 +128,9 @@ final class DefinitionsPanel {
         // Prima di lasciare una scheda, ciò che vi si è appena scritto va al documento.
         flushPending()
         self.tab = tab
-        if tab != .inspector { lastDefinition = tab }
+        if tab != .selection { lastDefinition = tab }
         markTab(tab)
-        if tab != .inspector { reload(tab, force: hosts[tab] == nil) }
+        if tab != .selection { reload(tab, force: hosts[tab] == nil) }
         if let host = hosts[tab] { place(host) }
     }
 
@@ -173,7 +173,7 @@ final class DefinitionsPanel {
     private func reload(_ tab: Tab, force: Bool) {
         guard let document = settings?() else { return }
         switch tab {
-        case .inspector: return
+        case .selection: return
         case .styles:
             refreshStyles?()
             guard hosts[.styles] == nil, let model = stylesModel else { return }
@@ -253,7 +253,7 @@ final class DefinitionsPanel {
         isAdjusting = true
         defer { isAdjusting = false }
         switch tab {
-        case .inspector, .styles: return
+        case .selection, .styles: return
         case .lists:
             guard let lists, lists.problem == nil else { return }
             if applyLists?(lists.result()) == true { lists.markApplied() }

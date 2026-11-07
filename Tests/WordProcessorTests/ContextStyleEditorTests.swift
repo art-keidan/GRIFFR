@@ -79,26 +79,4 @@ struct ContextStyleEditorTests {
         #expect(h.editor.settings.rules == [rule])
     }
 
-    @Test("L'ispettore mostra la formula contestuale attiva e conserva un'eccezione esplicita")
-    func inspectorSeesContext() throws {
-        let h = EditorHarness(paragraphs: ["Uno due tre"])
-        defer { h.close() }
-        var sheet = h.editor.settings.styles
-        let i = try #require(sheet.styles.firstIndex { $0.name == "Body" })
-        sheet.styles[i].formulas.append(StyleFormula(operation: StylePropertyOperation(.set, .size, .length(18, .points)),
-            when: StyleCondition(measurement: .init(.words, .lessOrEqual, 3))))
-        h.editor.changeStyles(to: sheet, restyle: false, actionName: "Formula contestuale")
-        h.select(0, length: 3)
-        h.editor.inspect(.character)
-        let inspector = h.editor.inspectorForTests
-        let value = try #require(inspector.values.first { $0.property == .size })
-        #expect(value.value.size == 18)
-        if case .rule = value.source {} else { Issue.record("Manca la provenienza dalla formula contestuale") }
-        inspector.change(.size) { $0.size = 20 }
-        h.step()
-        #expect((h.attributed.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.pointSize == 20)
-        #expect(TextStyling.ruleExceptions(in: h.attributed, at: 0).contains(.size))
-        #expect(inspector.values.first { $0.property == .size }?.value.size == 20)
-    }
-
 }

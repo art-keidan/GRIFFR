@@ -96,8 +96,7 @@ struct FormulaControlTests {
         let item = NSMenuItem(); item.representedObject = StyleTarget.paragraph.rawValue
         h.editor.updateStyleFromSelection(item)
         #expect(h.editor.settings.styles.style(named: "Body")?.formulas == [formula])
-        h.editor.inspect(.character)
-        h.editor.inspectorForTests.change(.size) { $0.size = 20 }
+        h.editor.changeForTests(.size) { $0.size = 20 }
         h.editor.replaceFormulaAnswerForTests = false
         h.editor.updateStyleFromSelection(item)
         #expect(h.editor.settings.styles.style(named: "Body")?.formulas == [formula])
@@ -134,35 +133,6 @@ struct FormulaControlTests {
         h.undo()
         #expect((h.attributed.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.pointSize == 12)
     }
-
-    @Test("L'ispettore distingue il valore locale dal calcolo nello stile e apre la sua bacheca")
-    func textInspector() throws {
-        let h = EditorHarness(paragraphs: ["Prova"])
-        defer { h.close() }
-        var sheet = h.editor.settings.styles
-        let i = try #require(sheet.styles.firstIndex { $0.name == "Body" })
-        let formula = StyleFormula(operation: StylePropertyOperation(.add, .size, .length(2, .points)))
-        sheet.styles[i].formulas = [formula]
-        h.editor.changeStyles(to: sheet, restyle: true, actionName: "Calcolo")
-        h.select(0, length: 5)
-        h.editor.inspect(.character)
-        let inspector = h.editor.inspectorForTests
-        #expect(inspector.formulaDefinitions[.size]?.owner == "Body")
-        inspector.modes[.size] = .style
-        #expect(inspector.formulaIsLocked(.size))
-        inspector.change(.size) { $0.size = 18 }
-        #expect(h.editor.settings.styles.style(named: "Body")?.formulas == [formula])
-        inspector.modes[.size] = .here
-        inspector.change(.size) { $0.size = 18 }
-        #expect((h.attributed.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.pointSize == 18)
-        #expect(h.editor.settings.styles.style(named: "Body")?.formulas == [formula])
-        inspector.replaceFormula?(.size)
-        #expect(h.editor.settings.styles.style(named: "Body")?.formulas.first?.operation == StylePropertyOperation(.set, .size, .length(18, .points)))
-        inspector.openFormula?("Body")
-        #expect(h.editor.composerModel?.selectedStyle == "Body")
-        #expect(h.editor.window?.attachedSheet == nil)
-    }
-
 
     @Test("Il controllo della faccia usa le equivalenze dei ruoli del documento")
     func documentFontRoles() throws {
