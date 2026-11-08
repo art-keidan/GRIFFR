@@ -236,7 +236,7 @@ struct FontFaceStripTests {
         #expect(WeightSlider.snapped(895, to: stops, in: 300...900) == 900)
         #expect(WeightSlider.snapped(437.6, to: stops, in: 300...900) == 440, "fuori dagli agganci, la decina")
         #expect(WeightSlider.snapped(1.234, to: [0.48, 3.2], in: 0.48...3.2) == 1.23, "scala piccola: il centesimo")
-        #expect(FontFaceStrip.number(440) == "440" && FontFaceStrip.number(0.48) == "0,48")
+        #expect(FontFaceStrip.number(440) == "440" && FontFaceStrip.number(0.48) == "0.48")
     }
 
     @Test("Un font variabile ha il cursore del peso al posto dei pesi; G e ⌘B vanno al nero e tornano al tondo",

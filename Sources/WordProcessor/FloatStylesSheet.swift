@@ -177,7 +177,7 @@ private struct FloatStyleDetailView: View {
                 TextField("Rule length:", text: Binding(
                     get: { style.ruleLength.map { String(format: "%g", $0) } ?? "" },
                     set: { field(\.ruleLength, nil).wrappedValue = Double($0.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespaces)) }),
-                    prompt: Text("automatica"))
+                    prompt: Text("automatic"))
                     .fieldWidth(230, embedded: embedded)
                 Text("pt").foregroundStyle(.secondary)
             }

@@ -311,10 +311,10 @@ final class FontFaceStrip: NSStackView {
 
     var isDraggingWeight = false
 
-    /// Un peso come si legge: intero se lo è, altrimenti con al più due decimali (0,48 in Skia).
+    /// Un peso come si legge: intero se lo è, altrimenti con al più due decimali (0.48 in Skia).
     static func number(_ value: Double) -> String {
         if abs(value - value.rounded()) < 0.005 { return String(Int(value.rounded())) }
-        return String(format: "%.2f", value).replacingOccurrences(of: ".", with: ",")
+        return String(format: "%.2f", value)
     }
 
     /// Il valore del cursore per VoiceOver: il nome dell'istanza, se il peso è proprio su una, altrimenti il numero.

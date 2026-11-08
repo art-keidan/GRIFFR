@@ -228,7 +228,8 @@ public enum Length {
     /// Una misura scritta nell'unità data, con al più due decimali e la virgola: «25 mm», «2,54 cm».
     public static func text(_ points: CGFloat, unit: LengthUnit = .millimetres) -> String {
         let value = Double(points) / unit.points
-        return value.formatted(.number.precision(.fractionLength(0...2)).locale(Locale(identifier: "it_IT"))) + " " + unit.rawValue
+        // Con il punto decimale, come l'interfaccia in inglese; la lettura accetta anche la virgola.
+        return value.formatted(.number.precision(.fractionLength(0...2)).grouping(.never).locale(Locale(identifier: "en_US_POSIX"))) + " " + unit.rawValue
     }
 }
 

@@ -498,7 +498,7 @@ struct TableStylesSheetView: View {
                         let style = model.rows[index].style
                         TableValuesForm(values: style.values, resolved: style.values.over(.initial),
                                         resetHelp: "Back to the Initial Value") { model.changeSelected($0) }
-                        Text("Tables choose their style in the Table inspector; there they can change something just for themselves. With no style, a table uses “\(Typesetting.TableStyle.defaultName)”.")
+                        Text("The tables that use this style follow these changes. A table without a style of its own uses “\(Typesetting.TableStyle.defaultName)”.")
                             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(14)

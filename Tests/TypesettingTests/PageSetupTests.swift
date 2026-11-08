@@ -19,7 +19,7 @@ extension TypesettingSuite {
             #expect(close("1p6", 18) && close("p6", 6) && close("6p", 72), "pica e punti come in InDesign")
             #expect(Length.points(from: "abc") == nil && Length.points(from: "") == nil && Length.points(from: "2 cubiti") == nil)
             #expect(Length.points(from: "10", defaultUnit: .points) == 10)
-            #expect(Length.text(mm(25)) == "25 mm" && Length.text(mm(25.4), unit: .centimetres) == "2,54 cm")
+            #expect(Length.text(mm(25)) == "25 mm" && Length.text(mm(25.4), unit: .centimetres) == "2.54 cm")
         }
 
         @Test("Un campo di misura fa anche i conti: + − × ÷ e parentesi, con unità diverse")
