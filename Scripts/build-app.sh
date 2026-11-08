@@ -28,7 +28,7 @@ cat > $app/Contents/Info.plist <<'PLIST'
 <dict>
     <key>CFBundleName</key><string>GRIFFR</string>
     <key>CFBundleDisplayName</key><string>GRIFFR</string>
-    <key>CFBundleIdentifier</key><string>local.wordprocessor.stili</string>
+    <key>CFBundleIdentifier</key><string>local.griffr</string>
     <key>CFBundleExecutable</key><string>WordProcessor</string>
     <key>CFBundleIconFile</key><string>GRIFFR</string>
     <key>CFBundlePackageType</key><string>APPL</string>
@@ -46,14 +46,14 @@ cat > $app/Contents/Info.plist <<'PLIST'
             <key>CFBundleTypeRole</key><string>Editor</string>
             <key>LSHandlerRank</key><string>Alternate</string>
             <key>CFBundleTypeIconFile</key><string>GRIFFR-documento</string>
-            <key>LSItemContentTypes</key><array><string>local.wordprocessor.document</string></array>
+            <key>LSItemContentTypes</key><array><string>local.griffr.document</string></array>
             <key>NSDocumentClass</key><string>TextDocument</string>
         </dict>
     </array>
     <key>UTExportedTypeDeclarations</key>
     <array>
         <dict>
-            <key>UTTypeIdentifier</key><string>local.wordprocessor.document</string>
+            <key>UTTypeIdentifier</key><string>local.griffr.document</string>
             <key>UTTypeDescription</key><string>GRIFFR Document</string>
             <key>UTTypeIconFile</key><string>GRIFFR-documento</string>
             <key>UTTypeConformsTo</key><array><string>public.xml</string></array>

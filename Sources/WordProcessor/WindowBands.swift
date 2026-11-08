@@ -1083,7 +1083,7 @@ final class BandZone: NSView, NSDraggingSource, NSTextFieldDelegate {
         draggedView = nil
     }
 
-    static let pasteboardType = NSPasteboard.PasteboardType("local.wordprocessor.band-zone")
+    static let pasteboardType = NSPasteboard.PasteboardType("local.griffr.band-zone")
 
     /// L'immagine di una vista com'è ora, per la sagoma che segue il mouse.
     static func snapshot(of view: NSView) -> NSImage {

@@ -162,7 +162,7 @@ final class ObjectTreeView: NSVisualEffectView, NSOutlineViewDataSource, NSOutli
         }
     }
 
-    static let dragType = NSPasteboard.PasteboardType("local.wordprocessor.outline-item")
+    static let dragType = NSPasteboard.PasteboardType("local.griffr.outline-item")
 
     private let model: ObjectTreeModel
     let outline = NSOutlineView()

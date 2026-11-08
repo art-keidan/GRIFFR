@@ -14,7 +14,7 @@ struct DocumentViewState: Codable, Equatable {
     /// La cornice della finestra: x, y, larghezza, altezza.
     var frame: [Double]
 
-    static let attributeName = "local.wordprocessor.viewstate"
+    static let attributeName = "local.griffr.viewstate"
 
     /// Lo stato conservato nel file, se c'è e si legge.
     static func read(from url: URL) -> DocumentViewState? {

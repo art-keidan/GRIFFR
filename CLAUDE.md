@@ -21,7 +21,7 @@ Il branch locale è `main`. Molto lavoro valido è modificato o non ancora tracc
 - Le azioni rappresentano definizioni dichiarative. Il motore distingue resa di base, collocazione, contesto, composizione naturale e azioni dell'editor. L'aspetto di Automator non autorizza a trasformare tutto in uno script procedurale.
 - Annulla/Ripeti, bozze concorrenti, ereditarietà, importazione e provenienza fanno parte del comportamento da preservare.
 - Il prototipo HTML è un riferimento di progettazione. Non inserirlo nell'app come WebView.
-- Non alterare bundle identifier, estensioni dei documenti o associazioni dei file per questo lavoro.
+- Bundle identifier `local.griffr`, tipo dei documenti `local.griffr.document`, estensione `.grx` (8 novembre). Non alterarli senza richiesta.
 
 ## Compilazione e verifiche
 

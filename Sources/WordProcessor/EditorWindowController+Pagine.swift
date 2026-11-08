@@ -351,7 +351,7 @@ extension EditorWindowController: PagesViewEditing {
     }
 
     /// Il nostro formato sugli appunti: un frammento di documento, che conserva note, font e funzioni.
-    private static let fragmentType = NSPasteboard.PasteboardType("local.wordprocessor.fragment")
+    private static let fragmentType = NSPasteboard.PasteboardType("local.griffr.fragment")
 
     /// Il testo del documento, per le prove.
     var editingText: NSAttributedString { store }

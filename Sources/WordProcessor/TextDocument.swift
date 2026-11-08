@@ -5,7 +5,7 @@ import Typesetting
 /// Il documento visto da AppKit: lettura e scrittura del file, finestra, stato «modificato», annullamento.
 @objc(TextDocument)
 final class TextDocument: NSDocument {
-    static let typeName = "local.wordprocessor.document"
+    static let typeName = "local.griffr.document"
 
     /// Contenuto letto da un file, in attesa che venga creata la finestra.
     /// AppKit dichiara lettura e scrittura fuori dal thread principale, ma senza lettura concorrente

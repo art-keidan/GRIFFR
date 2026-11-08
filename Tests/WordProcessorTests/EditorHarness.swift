@@ -20,7 +20,7 @@ final class EditorHarness {
         document = TextDocument()
         document.makeWindowControllers()
         editor = document.windowControllers.first as! EditorWindowController
-        editor.pasteboard = NSPasteboard(name: NSPasteboard.Name("local.wordprocessor.tests.\(UUID().uuidString)"))
+        editor.pasteboard = NSPasteboard(name: NSPasteboard.Name("local.griffr.tests.\(UUID().uuidString)"))
         if let paragraphs {
             let sheet = StyleSheet.builtIn
             let style = sheet.resolveCharacter(paragraphStyle: "Body", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
