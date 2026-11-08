@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document version="4" font="HoeflerText-Italic" size="14">
+<document version="18" font="HoeflerText-Italic" size="14">
 <styles>
 <style name="Forte come formula" target="character">
 <formula id="4F6DC1BB-29CF-4AF2-A253-00F000000001" predicate="add" property="font" kind="font" value="bold"/>
@@ -13,7 +13,7 @@
 </styles>
 <page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
 <p>Il carattere di partenza di questo documento è corsivo.</p>
-<p><t char-style="Forte come formula">Aggiungi grassetto: il testo diventa grassetto corsivo.</t></p>
-<p><t char-style="Nero assoluto">Imposta grassetto: il testo diventa grassetto tondo.</t></p>
+<p font="HoeflerText-BlackItalic" font-role="boldItalic"><t char-style="Forte come formula">Aggiungi grassetto: il testo diventa grassetto corsivo.</t></p>
+<p font="HoeflerText-Black" font-role="bold"><t char-style="Nero assoluto">Imposta grassetto: il testo diventa grassetto tondo.</t></p>
 <p style="Citazione relativa">Anche questo rientro è una formula: aggiunge 6 mm al rientro ricevuto dal contesto.</p>
 </document>

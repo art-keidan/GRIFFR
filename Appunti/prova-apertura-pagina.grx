@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document version="2" font="HoeflerText-Regular" size="12">
+<document version="18" font="HoeflerText-Regular" size="12">
 <styles>
 <style name="Corpo" target="paragraph" size="12" space-after="8"/>
-<style name="Titolo di capitolo" target="paragraph" size="22" space-before="12" space-after="8" page-start-spacing="30mm" keep-with-next="on"/>
+<style name="Titolo di capitolo" target="paragraph" size="22" space-before="12" space-after="8" page-start-spacing="85.0394" keep-with-next="on"/>
 </styles>
 <page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
 <p style="Titolo di capitolo">I. Le prime pagine</p>

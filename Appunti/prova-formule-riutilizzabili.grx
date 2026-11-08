@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document version="11" font="HoeflerText-Regular" size="12">
+<document version="18" font="HoeflerText-Regular" size="12">
 <styles>
 <style name="Testo" target="paragraph"/>
 <style name="Citazione calcolata" target="paragraph" based-on="Testo">
-<formula id="3FDAF694-E270-476A-8C25-C937A07B40E6" predicate="set" property="leftIndent" kind="length" value="18" unit="pt" binding="eyJjYWxsIjp7Il8wIjoiM0UxNjYxQzItRTVBNS00MkQ0LUJCOUQtMkYyNzk2QzkzRDY0IiwiYXJndW1lbnRzIjpbIjkwMTg5NTM5LUZDM0EtNDJEQy1BNENDLUJCODYxM0Q2QTczNyIseyJjb25zdGFudCI6eyJfMCI6eyJsZW5ndGgiOnsiXzAiOjEyfX19fV19fQ=="/>
+<formula id="3FDAF694-E270-476A-8C25-C937A07B40E6" predicate="set" property="leftIndent" binding="eyJjYWxsIjp7Il8wIjoiM0UxNjYxQzItRTVBNS00MkQ0LUJCOUQtMkYyNzk2QzkzRDY0IiwiYXJndW1lbnRzIjpbIjkwMTg5NTM5LUZDM0EtNDJEQy1BNENDLUJCODYxM0Q2QTczNyIseyJjb25zdGFudCI6eyJfMCI6eyJsZW5ndGgiOnsiXzAiOjEyfX19fV19fQ==" kind="length" value="18" unit="pt"/>
 </style>
 </styles>
-<rules><reusable-formulas encoding="json-v1" data="W3siaWQiOiIzRTE2NjFDMi1FNUE1LTQyRDQtQkI5RC0yRjI3OTZDOTNENjQiLCJuYW1lIjoiUmllbnRybyBjb24gbWFyZ2luZSIsInBhcmFtZXRlcnMiOlt7ImlkIjoiOTAxODk1MzktRkMzQS00MkRDLUE0Q0MtQkI4NjEzRDZBNzM3IiwibmFtZSI6IkJhc2UiLCJ0eXBlIjoibGVuZ3RoIn1dLCJyZXN1bHRUeXBlIjoibGVuZ3RoIiwiZXhwcmVzc2lvbiI6eyJhZGQiOnsiXzAiOnsicGFyYW1ldGVyIjp7Il8wIjoiOTAxODk1MzktRkMzQS00MkRDLUE0Q0MtQkI4NjEzRDZBNzM3In19LCJfMSI6eyJjb25zdGFudCI6eyJfMCI6eyJsZW5ndGgiOnsiXzAiOjZ9fX19fX19XQ=="/></rules>
+<rules>
+<reusable-formulas encoding="json-v1" data="W3siZXhwcmVzc2lvbiI6eyJhZGQiOnsiXzAiOnsicGFyYW1ldGVyIjp7Il8wIjoiOTAxODk1MzktRkMzQS00MkRDLUE0Q0MtQkI4NjEzRDZBNzM3In19LCJfMSI6eyJjb25zdGFudCI6eyJfMCI6eyJsZW5ndGgiOnsiXzAiOjZ9fX19fX0sImlkIjoiM0UxNjYxQzItRTVBNS00MkQ0LUJCOUQtMkYyNzk2QzkzRDY0IiwibmFtZSI6IlJpZW50cm8gY29uIG1hcmdpbmUiLCJwYXJhbWV0ZXJzIjpbeyJpZCI6IjkwMTg5NTM5LUZDM0EtNDJEQy1BNENDLUJCODYxM0Q2QTczNyIsIm5hbWUiOiJCYXNlIiwidHlwZSI6Imxlbmd0aCJ9XSwicmVzdWx0VHlwZSI6Imxlbmd0aCJ9XQ=="/>
+</rules>
 <page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
 <p style="Testo">Formule riutilizzabili: apri Formato → Compositore di stili → Formule.</p>
 <p style="Citazione calcolata">Questo paragrafo usa un rientro calcolato: Base 12 pt più margine 6 pt, quindi 18 pt. Cambia il margine nella definizione per aggiornare tutte le occorrenze.</p>

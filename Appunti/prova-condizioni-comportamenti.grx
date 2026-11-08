@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document version="8" font="HoeflerText-Regular" size="14">
+<document version="18" font="HoeflerText-Regular" size="14">
 <styles>
 <style name="Testo" target="paragraph">
 <formula id="5F6DC1BB-29CF-4AF2-A253-00F000000001" predicate="set" property="family" kind="family" value="Hoefler Text"/>
@@ -29,7 +29,9 @@
 <formula id="5F6DC1BB-29CF-4AF2-A253-00F000000041" predicate="set" property="applyStyle" kind="style" value="Evidenza" find="selection" selection="5F6DC1BB-29CF-4AF2-A253-00F000000051"/>
 </style>
 </styles>
-<rules><selection id="5F6DC1BB-29CF-4AF2-A253-00F000000051" name="Quinta parola" source="words" index="5"/></rules>
+<rules>
+<selection id="5F6DC1BB-29CF-4AF2-A253-00F000000051" name="Quinta parola" source="words" index="5"/>
+</rules>
 <page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
 <p style="Titolo capitolo">Un capitolo fatto di formule</p>
 <p style="Testo">Questo capoverso segue il titolo: la sua prima riga parte senza rientro. Apri Testo nella bacheca per vedere la condizione.</p>

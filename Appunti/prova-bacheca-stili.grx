@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document version="4" font="HoeflerText-Regular" size="14">
+<document version="18" font="HoeflerText-Regular" size="14">
 <styles>
-<style name="Testo" target="paragraph" family="Hoefler Text" size="14" italic="on" space-after="10"/>
+<style name="Testo" target="paragraph" family="Hoefler Text" italic="on" size="14" space-after="10"/>
 <style name="Forte" target="character" bold="on"/>
 <style name="Citazione" target="paragraph" based-on="Testo" left-indent="24"/>
 <style name="Citazione relativa" target="paragraph" based-on="Citazione">

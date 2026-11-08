@@ -1,20 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document version="3" font="HoeflerText-Regular" size="14">
+<document version="18" font="HoeflerText-Regular" size="12">
 <styles>
-<style name="Titolo" target="paragraph" size="26" space-after="20"/>
-<style name="Testo" target="paragraph" space-after="12"/>
-<style name="Citazione" target="paragraph" left-indent="15" space-after="12"/>
-<style name="Richiamo rosso" target="character" color="#9c2326" size="19"/>
-<style name="Richiamo blu" target="character" color="#215f84" size="19"/>
+<style name="Titolo" target="paragraph" size="26" space-after="20" outline-level="1"/>
+<style name="Testo" target="paragraph" space-after="12">
+<formula id="2B0B5F57-E766-490A-8817-82F8B49602DC" predicate="set" property="applyStyle" kind="style" value="Richiamo rosso" find="selection" selection="40DE3C61-A6A2-4CDB-BB3A-89684CAA35E2"/>
+</style>
+<style name="Citazione" target="paragraph" left-indent="15" space-after="12">
+<formula id="D5A7D4F4-EA8B-449D-8FC7-1C9987160721" predicate="set" property="applyStyle" kind="style" value="Richiamo blu" find="selection" selection="40DE3C61-A6A2-4CDB-BB3A-89684CAA35E2"/>
+</style>
+<style name="Richiamo rosso" target="character" size="19" color="#9c2326"/>
+<style name="Richiamo blu" target="character" size="19" color="#215f84"/>
 </styles>
 <rules>
 <selection id="40DE3C61-A6A2-4CDB-BB3A-89684CAA35E2" name="Parola del richiamo" source="words" index="5"/>
-<rule find="selection" ref="40DE3C61-A6A2-4CDB-BB3A-89684CAA35E2" in="Testo" style="Richiamo rosso"/>
-<rule find="selection" ref="40DE3C61-A6A2-4CDB-BB3A-89684CAA35E2" in="Citazione" style="Richiamo blu"/>
 </rules>
+<page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
 <p style="Titolo">Una parola, due stili</p>
-<p style="Testo">La quinta parola è rossa quando scrivo nel corpo.</p>
-<p style="Citazione">La quinta parola è blu quando scrivo una citazione.</p>
-<p style="Testo">Aggiungi una parola qui davanti e osserva dove passa il colore.</p>
-<p style="Citazione">Apri Formato → Compositore di stili e cambia la posizione da cinque a tre. Entrambi i trattamenti seguono la stessa definizione.</p>
+<p style="Testo" size="14">La quinta parola è rossa quando scrivo nel corpo.</p>
+<p style="Citazione" size="14">La quinta parola è blu quando scrivo una citazione.</p>
+<p style="Testo" size="14">Aggiungi una parola qui davanti e osserva dove passa il colore.</p>
+<p style="Citazione" size="14">Apri Formato → Compositore di stili e cambia la posizione da cinque a tre. Entrambi i trattamenti seguono la stessa definizione.</p>
 </document>

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document version="1" font="HoeflerText-Regular" size="12">
+<document version="18" font="HoeflerText-Regular" size="12">
 <styles>
 <style name="Testo" target="paragraph" family="Hoefler Text" size="12" align="justified"/>
-<style name="Titolo 1" target="paragraph" based-on="Testo" bold="on" size="18" align="natural" space-before="18" space-after="6"/>
-<style name="Titolo 2" target="paragraph" based-on="Testo" bold="on" size="14" align="natural" space-before="12" space-after="4"/>
+<style name="Titolo 1" target="paragraph" based-on="Testo" bold="on" size="18" align="natural" space-before="18" space-after="6" outline-level="1"/>
+<style name="Titolo 2" target="paragraph" based-on="Testo" bold="on" size="14" align="natural" space-before="12" space-after="4" outline-level="2"/>
 <style name="Citazione" target="paragraph" based-on="Testo" size="11" left-indent="24" right-indent="24" space-before="6" space-after="6"/>
 <style name="Esempio" target="paragraph" based-on="Testo" align="natural" space-before="6" space-after="6"/>
 <style name="Sottoesempio" target="paragraph" based-on="Esempio" space-before="0" space-after="0"/>
@@ -11,8 +11,8 @@
 <style name="Greco antico" target="word" lang="grc"/>
 <style name="Enfasi" target="character" italic="on"/>
 <style name="Forte" target="character" bold="on"/>
-<style name="Maiuscoletto" target="character" features="3/3 37/1 smcp=1"/>
-<style name="Maiuscoletto delle sigle" target="character" features="38/1 c2sc=1"/>
+<style name="Maiuscoletto" target="character" small-caps="lowercase"/>
+<style name="Maiuscoletto delle sigle" target="character" small-caps="uppercase"/>
 </styles>
 <page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
 <p style="Titolo 1">Le tabelle di Annapurna SIL</p>
@@ -22,7 +22,7 @@
 <p style="Testo"><t char-style="Forte">name</t> (12,9 KB), i nomi leggibili: la famiglia «Annapurna SIL», lo stile «Regular», il nome PostScript «AnnapurnaSIL-Regular» con cui il programma lo scrive nei file, la versione, il copyright, i progettisti, il testo della licenza e il suo indirizzo.</p>
 <p style="Testo"><t char-style="Forte">OS/2</t> (96 byte), misure e dati per i sistemi: peso 400 (normale), larghezza 5 (normale), fornitore «SIL», altezza della x 1024 unità, delle maiuscole 1434. Il campo fsType vale 0: il font si può incorporare senza restrizioni, ed è per questo che il PDF lo contiene.</p>
 <p style="Testo"><t char-style="Forte">hhea</t> (36 byte), le misure verticali di tutto il font: 1939 unità sopra la linea di base, 984 sotto, nessuna interlinea aggiunta. A corpo 22 sono 20,8 punti sopra e 10,6 sotto: più del corpo, perché i segni sopra (matra, anusvara, candrabindu) e sotto (ukar, virama) chiedono spazio. Si vede nella distanza fra queste due righe:</p>
-<p style="Testo" font="AnnapurnaSIL-Regular" size="22">कूँ कें ङ्ख्य र्द्धं<t font="HoeflerText-Regular" size="12"> </t><t font="HoeflerText-Regular" size="12"><br/></t>ग्रृ हॄ ष्ट्र द्ध्र्य</p>
+<p style="Testo" font="AnnapurnaSIL-Regular" size="22">कूँ कें ङ्ख्य र्द्धं<t font="HoeflerText-Regular" size="12"> <br/></t>ग्रृ हॄ ष्ट्र द्ध्र्य</p>
 <p style="Testo"><t char-style="Forte">hmtx</t> (4,3 KB), la larghezza di ogni glifo: «क» 1706 unità, «झ» 1490, la sua variante nepalese 1906, la linea di testa U+A8FB 1201, la sua forma stretta 244 e quella di riempimento 0.</p>
 <p style="Testo"><t char-style="Forte">maxp</t> (32 byte), i limiti: 1087 glifi; il più complesso ha 205 punti e 16 contorni.</p>
 <p style="Testo"><t char-style="Forte">post</t> (15,2 KB), i nomi dei glifi (846) e la posizione del sottolineato (−160 unità). I nomi dicono che cosa è ogni disegno: uni091D è «झ», uni091D.alt la sua variante nepalese, uniA8FB.narrow la linea di testa stretta.</p>
