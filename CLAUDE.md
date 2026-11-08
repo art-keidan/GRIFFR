@@ -1,6 +1,6 @@
 # GRIFFR · contesto per Claude Code
 
-Questa cartella è l'unico progetto di lavoro: `/Users/artemio/WordProcessor/GRIFFR-fork-stili`.
+Questa cartella è l'unico progetto di lavoro: `/Users/artemio/GRIFFR`.
 L'app nativa macOS usa Swift Package Manager, AppKit, SwiftUI e Core Text. Il prodotto si chiama GRIFFR; la copia di sviluppo è `build/GRIFFR Stili.app`.
 
 ## Lavoro attuale autorizzato
@@ -25,7 +25,7 @@ Il branch locale è `main`. Molto lavoro valido è modificato o non ancora tracc
 
 ## Compilazione e verifiche
 
-Esegui dalla radice del fork. In questo ambiente funzionano le cache locali e il sandbox dei subprocessi di SwiftPM disabilitato:
+Esegui dalla radice del progetto. In questo ambiente funzionano le cache locali e il sandbox dei subprocessi di SwiftPM disabilitato:
 
 ```sh
 CLANG_MODULE_CACHE_PATH="$PWD/.build/clang-module-cache" SWIFT_MODULE_CACHE_PATH="$PWD/.build/swift-module-cache" swift test --disable-sandbox --filter 'ReusableFormula|FormulaControlTests|RealStyleBoardTests|StyleContextFormulaTests|ContextStyleEditorTests'
