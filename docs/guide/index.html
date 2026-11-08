@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRIFFR Guide</title>
+<style>
+  :root {
+    --ink: #1c2330;
+    --muted: #5b6474;
+    --accent: #2f5fd0;
+    --paper: #ffffff;
+    --desk: #f2f5fa;
+    --line: #d9e0ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e6e9ef;
+      --muted: #a3abb9;
+      --accent: #7ea2ff;
+      --paper: #1b1f27;
+      --desk: #13161c;
+      --line: #2c323d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--desk);
+    color: var(--ink);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  }
+  header, main, footer { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+  header { padding-top: 48px; padding-bottom: 8px; }
+  h1 { font-size: 40px; letter-spacing: 0.02em; margin: 0; }
+  .tagline { color: var(--muted); margin: 4px 0 0; }
+  nav { margin: 24px 0 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+  nav a {
+    color: var(--accent); text-decoration: none; font-size: 14px;
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; background: var(--paper);
+  }
+  section { margin: 56px 0; }
+  h2 { font-size: 24px; margin: 0 0 4px; }
+  h2 small { color: var(--muted); font-weight: 500; font-size: 15px; margin-left: 6px; }
+  .lead { color: var(--muted); margin: 0 0 16px; max-width: 640px; }
+  figure { margin: 0 0 28px; }
+  figure img {
+    display: block; width: 100%; height: auto; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--paper);
+    box-shadow: 0 6px 24px rgba(20, 30, 50, 0.08);
+  }
+  figure.narrow img { width: auto; max-width: 100%; }
+  figcaption { font-size: 14px; color: var(--muted); margin-top: 8px; max-width: 680px; }
+  figcaption b { color: var(--ink); font-weight: 600; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .grid4 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 720px) { .pair, .grid4 { grid-template-columns: 1fr; } h1 { font-size: 32px; } }
+  kbd {
+    font: 12px ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 4px; padding: 0 4px; background: var(--paper); color: var(--ink);
+  }
+  footer { color: var(--muted); font-size: 13px; padding-bottom: 48px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>GRIFFR</h1>
+  <p class="tagline">Object-based typographic word processor for macOS · a short visual guide</p>
+  <nav>
+    <a href="#simple">1 · Simple</a>
+    <a href="#detailed">2 · Detailed</a>
+    <a href="#design">3 · Visual design</a>
+    <a href="#definitions">4 · Definitions</a>
+    <a href="#composer">5 · Style composer</a>
+  </nav>
+</header>
+
+<main>
+  <section id="simple">
+    <h2>Simple interface <small>only what you need to write</small></h2>
+    <p class="lead">A new window opens with a few tools and the page. Everything else stays out of the way.</p>
+    <figure>
+      <img src="images/simple-window.png" alt="GRIFFR window in the simple interface, with a page of text">
+      <figcaption>The page is composed as it will be printed: what you see is the PDF.</figcaption>
+    </figure>
+    <figure>
+      <img src="images/simple-bands.png" alt="The bands of the simple interface">
+      <figcaption><b>Top band:</b> save, undo, find, notes, images, tables. <b>Second:</b> font, weight, size, italic, colour. <b>Third:</b> paragraph style, alignment, spacing, lists, and <b>Design</b>.</figcaption>
+    </figure>
+  </section>
+
+  <section id="detailed">
+    <h2>Detailed interface <small>every setting</small></h2>
+    <p class="lead">The button at the top right (<kbd>⌥⌘A</kbd>) shows all the tools, the object tree and the side panel.</p>
+    <figure>
+      <img src="images/detailed-window.png" alt="GRIFFR window in the detailed interface">
+      <figcaption>Object tree on the left, the page in the middle, the panel of the selection and of the document's definitions on the right.</figcaption>
+    </figure>
+    <figure>
+      <img src="images/detailed-bands.png" alt="The three bands of the detailed interface">
+      <figcaption>The bands are grouped into labelled zones: <b>File, Print, Edit, Insert, View</b>; <b>Family, Weight, Roles, Size, Form, Marks, Language</b>; <b>Styles, Design, Alignment, Spacing, Lists</b>. Zones can be rearranged.</figcaption>
+    </figure>
+    <figure>
+      <img src="images/ruler.png" alt="The ruler">
+      <figcaption><b>Ruler:</b> indents of the paragraph and margins of the page, in centimetres. Drag the markers.</figcaption>
+    </figure>
+    <div class="pair">
+      <figure class="narrow">
+        <img src="images/object-tree.png" alt="The object tree">
+        <figcaption><b>Object tree:</b> sections (§) and paragraphs (¶) of the document. A click moves the cursor there.</figcaption>
+      </figure>
+      <div>
+        <figure>
+          <img src="images/side-panel.png" alt="The side panel with Selection and Definitions">
+          <figcaption><b>Selection</b> works on the paragraph of the cursor; <b>Definitions</b> holds styles, lists, floats, pages and tables.</figcaption>
+        </figure>
+        <figure>
+          <img src="images/status-bar.png" alt="The status bar">
+          <figcaption><b>Status bar:</b> counts, the style and the additions at the cursor, language and zoom.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="design">
+    <h2>Visual design <small>settings set by hand, on the page</small></h2>
+    <p class="lead"><b>Design</b> (<kbd>⌥⌘G</kbd>) turns the paragraph of the cursor into an object with handles.</p>
+    <figure>
+      <img src="images/design-paragraph.png" alt="Design Paragraph mode, with handles around a paragraph">
+      <figcaption>The rest of the page fades. Drag the handles for indents, space before and after, line spacing and margins; the bar above holds the other properties. <b>Save</b> writes the changes into the style, <b>Cancel</b> (<kbd>Esc</kbd>) discards them.</figcaption>
+    </figure>
+  </section>
+
+  <section id="definitions">
+    <h2>Definitions <small>what the document is made of</small></h2>
+    <p class="lead">In the side panel, <b>Definitions</b> holds the shared objects of the document. Changes apply as you type, and can be undone.</p>
+    <div class="grid4">
+      <figure>
+        <img src="images/definitions-styles.jpg" alt="The Styles tab">
+        <figcaption><b>Styles:</b> paragraph, word and character styles, each based on another.</figcaption>
+      </figure>
+      <figure>
+        <img src="images/definitions-lists.jpg" alt="The Lists tab">
+        <figcaption><b>Lists:</b> counters with a name, for lists, examples, notes, figures and pages.</figcaption>
+      </figure>
+      <figure>
+        <img src="images/definitions-floats.jpg" alt="The Floats tab">
+        <figcaption><b>Floats:</b> footnotes, margin notes, endnotes, figures, running heads.</figcaption>
+      </figure>
+      <figure>
+        <img src="images/definitions-tables.jpg" alt="The Tables tab">
+        <figcaption><b>Tables:</b> table styles, with their rules, margins and background.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="composer">
+    <h2>Style composer <small>a style as a sequence of actions</small></h2>
+    <p class="lead"><b>Format › Style Composer…</b> opens a window where a style is built from blocks, like a recipe.</p>
+    <figure>
+      <img src="images/style-composer.png" alt="The style composer window">
+      <figcaption><b>Left:</b> the library of actions; <b>+</b> adds one. <b>Middle:</b> the actions of the chosen style, in order; a click on a value changes it, a drag moves the block. <b>Right:</b> the preview on a sample, with the conditions to try. <b>Apply to Document</b> (<kbd>⌘↩</kbd>) writes the style.</figcaption>
+    </figure>
+  </section>
+</main>
+
+<footer>GRIFFR · work in progress · screenshots from GRIFFR on macOS</footer>
+</body>
+</html>
