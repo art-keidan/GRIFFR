@@ -2,7 +2,17 @@
 
 Object-based typographic word processor for macOS.
 
-GRIFFR is a native macOS app (AppKit, SwiftUI, Core Text) that composes text with typographic care: styles defined by formulas, sections and chapter headings, notes and floats, lists, tables, fields, AAT and OpenType features, and PDF output.
+GRIFFR is a native macOS app (AppKit, SwiftUI, Core Text) for writing and typesetting in the same place.
+
+## What it does
+
+- **Every font technology.** AAT (`morx` features and selectors), OpenType features, Graphite (when installed on the system), and variable fonts with their axes and optical sizes.
+- **Layout as objects.** A document is made of objects (paragraphs, sections, chapter headings, notes, floats, lists, tables, fields) that are combined through functions: a style is a set of formulas, a field is a chain that reads a result from other objects and writes it where it stands, a heading composes its parts around the title. All of this is built visually, with blocks, not written as code.
+- **Three levels of interface.**
+  - *Simple*: only what you need to write.
+  - *Advanced*: every setting of the document, its styles, lists, floats, pages and tables.
+  - *Visual*: the same settings, set by hand on the page (Design Paragraph) and in the style composer.
+- **PDF output** from the same composition shown on screen.
 
 ## Requirements
 
