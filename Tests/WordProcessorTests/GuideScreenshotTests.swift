@@ -81,6 +81,43 @@ struct GuideScreenshotTests {
         composer.close()
         h.close()
     }
+
+    /// Una nota, una figura e una tabella sulla pagina, vista intera.
+    @Test("Note, figure e tabelle")
+    func objects() throws {
+        let h = try window(.advanced)
+        let string = h.text as NSString
+        // Una nota a piè di pagina dopo «in front of them».
+        let them = string.range(of: "in front of them")
+        h.select(NSMaxRange(them))
+        h.editor.insertFootnote(nil)
+        h.type("A note stays on the page of its reference mark.")
+        h.press(#selector(NSResponder.cancelOperation(_:)))
+        // Una figura nel primo paragrafo del capitolo, con il marchio di GRIFFR e la sua didascalia.
+        let asks = (h.text as NSString).range(of: "the next line, and it easily")
+        if asks.location != NSNotFound {
+            h.select(asks.location)
+            let mark = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+                .appendingPathComponent("Branding_GRIFFR/icona_trasparente.png")
+            let data = try Data(contentsOf: mark)
+            let figure = try #require(h.editor.settings.floatStyles.first { $0.placement == .figure }?.name)
+            h.editor.insertNote(style: figure, image: ImageObject(source: .embedded(data), width: 90, height: 90))
+            h.type("The GRIFFR mark: a figure with its caption.")
+            h.press(#selector(NSResponder.cancelOperation(_:)))
+        }
+        // Una tabella dopo il primo paragrafo, con due righe scritte.
+        h.select(NSMaxRange(them))
+        h.editor.insertTable(nil)
+        for (index, cell) in ["Text", "Size", "Leading", "Body", "12 pt", "14 pt", "Notes", "9 pt", "11 pt"].enumerated() {
+            if index > 0 { h.press(#selector(NSResponder.insertTab(_:))) }
+            h.type(cell)
+        }
+        h.editor.setZoom(0.62)
+        h.editor.scrollToTopForTests()
+        settle(h, 1)
+        try save(try #require(h.editor.window?.contentView), "objects")
+        h.close()
+    }
 }
 
 extension EditorWindowController {

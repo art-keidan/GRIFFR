@@ -21,6 +21,7 @@ let crops: [(name: String, from: String, rect: CGRect?)] = [
     ("status-bar", "detailed", CGRect(x: 0, y: 872, width: 1180, height: 28)),
     ("design-paragraph", "design", CGRect(x: 0, y: 176, width: 1180, height: 480)),
     ("style-composer", "composer", nil),
+    ("objects", "objects", CGRect(x: 0, y: 176, width: 820, height: 560)),
 ]
 
 for crop in crops {

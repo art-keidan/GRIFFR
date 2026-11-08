@@ -21,6 +21,10 @@ Fatta in anticipo rispetto all'ordine consigliato, su richiesta. Il programma sc
 
 I documenti di prova in `Appunti/` sono stati convertiti alla 18 prima della pulizia (le due regole di `prova-compositore.grx` sono diventate formule di «Testo» e «Citazione»; `annapurna-sil-tabelle` è ora `.grx`). Restano invece, perché non sono compatibilità ma il modo in cui gli stili funzionano oggi, i valori fissi degli stili accanto alle formule.
 
+## Guida visuale · 8–9 novembre
+
+`docs/guide/index.html`, in inglese, con foto vere e poche righe di commento: interfaccia semplice e dettagliata, Design Paragraph, note, figure e tabelle, definizioni, compositore degli stili. Le foto le genera `GuideScreenshotTests` (si attiva con `GRIFFR_GUIDE_OUT`) e le ritaglia `Scripts/guide-crops.swift`; le schede delle definizioni vengono dall'app, perché i loro pannelli SwiftUI fuori dallo schermo escono neri. Quando l'interfaccia cambia, le foto vanno rifatte. Collegata dal README.
+
 ## Nuovo ispettore · in corso dal 6 novembre
 
 Fa parte del revamp dell'interfaccia. Disegno scelto (variante A: definizioni nel pannello, dietro un segmento «Definitions»), prototipo e fasi sono in [Interfaccia-ispettore/ISPETTORE.md](Interfaccia-ispettore/ISPETTORE.md).

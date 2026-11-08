@@ -41,7 +41,7 @@ extension TypesettingSuite {
             let first = try #require(tree.first?.children)
             #expect(first.map(\.kind) == [.paragraph, .note, .heading(level: 2)])
             #expect(first[0].title == "Il primo paragrafo del capitolo.", "le prime parole senza il testo della nota")
-            #expect(first[1].label == "1" && first[1].title == "Una nota a piè di pagina" && first[1].detail == "Nota")
+            #expect(first[1].label == "1" && first[1].title == "Una nota a piè di pagina" && first[1].detail == "Note")
             let section = try #require(first[2].children)
             #expect(section.map(\.kind) == [.listItem, .paragraph, .figure])
             #expect(section[0].label == "(1)" && section[0].title == "lat. rosa")

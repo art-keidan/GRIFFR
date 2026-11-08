@@ -64,13 +64,13 @@ public enum DocumentOutline {
                 let cells = TableEditing.paragraphs(ofTableAt: paragraph.location, in: text)
                 tableEnd = cells.last.map { NSMaxRange($0.range) } ?? paragraph.location
                 _ = mark
-                tableItem = OutlineItem(kind: .table, title: "Tabella", label: "▦", detail: "\(shape.rows) × \(shape.columns)",
+                tableItem = OutlineItem(kind: .table, title: "Table", label: "▦", detail: "\(shape.rows) × \(shape.columns)",
                                         range: NSRange(location: paragraph.location, length: tableEnd - paragraph.location), children: [])
             }
             if tableItem != nil {
                 let words = shortened(BodyText(text, paragraph: paragraph).string as String)
                 let style = text.attribute(.paragraphStyleName, at: paragraph.location, effectiveRange: nil) as? String
-                tableItem?.children?.append(OutlineItem(kind: .paragraph, title: words.isEmpty ? "(vuoto)" : words, label: "¶", detail: style ?? "",
+                tableItem?.children?.append(OutlineItem(kind: .paragraph, title: words.isEmpty ? "(empty)" : words, label: "¶", detail: style ?? "",
                                                         range: paragraph, children: nil))
                 continue
             }
@@ -84,12 +84,12 @@ public enum DocumentOutline {
             if let section = sectionAt[paragraph.location], paragraph.length > 0 {
                 flat.append(sectionItem(section, words: words, style: style, number: layout?.listMarks[paragraph.location]))
             } else if sections.isEmpty, let level {
-                flat.append(OutlineItem(kind: .heading(level: level), title: words.isEmpty ? "(titolo vuoto)" : words, label: "",
+                flat.append(OutlineItem(kind: .heading(level: level), title: words.isEmpty ? "(untitled)" : words, label: "",
                                         detail: style ?? "", range: paragraph, children: []))
             } else if let mark = layout?.listMarks[paragraph.location] {
                 flat.append(OutlineItem(kind: .listItem, title: words, label: mark, detail: style ?? "", range: paragraph, children: nil))
             } else {
-                flat.append(OutlineItem(kind: .paragraph, title: words.isEmpty ? "(vuoto)" : words, label: "¶", detail: style ?? "",
+                flat.append(OutlineItem(kind: .paragraph, title: words.isEmpty ? "(empty)" : words, label: "¶", detail: style ?? "",
                                         range: paragraph, children: nil))
             }
             // Le note e le figure del paragrafo, subito dopo di lui.
@@ -107,7 +107,7 @@ public enum DocumentOutline {
                                             range: span, children: nil))
                 } else {
                     flat.append(OutlineItem(kind: .note, title: shortened(content), label: mark.isEmpty ? "•" : mark,
-                                            detail: series == FloatStyle.footnoteName ? "Nota" : series, range: span, children: nil))
+                                            detail: series == FloatStyle.footnoteName ? "Note" : series, range: span, children: nil))
                 }
                 index = NSMaxRange(span)
             }
