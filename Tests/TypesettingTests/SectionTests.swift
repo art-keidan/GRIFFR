@@ -60,7 +60,7 @@ extension TypesettingSuite {
 
         private let source = """
         <?xml version="1.0" encoding="UTF-8"?>
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
         <p>Premessa.</p>
         <section id="p1" role="part">
@@ -121,9 +121,9 @@ extension TypesettingSuite {
 
         @Test("Un file senza sezioni si apre come prima; senza id né ruolo valgono un identificativo nuovo e «sezione»")
         func defaults() throws {
-            let plain = try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><p>a</p><p>b</p></document>")
+            let plain = try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"><p>a</p><p>b</p></document>")
             #expect(plain.sections.isEmpty && plain.blocks.count == 2)
-            let bare = try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><section><title/><p>a</p></section></document>")
+            let bare = try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"><section><title/><p>a</p></section></document>")
             #expect(bare.sections.count == 1 && bare.sections[0].role == "section" && bare.sections[0].id.hasPrefix("s"))
             #expect(bare.sections[0].title.plainText.isEmpty && bare.sections[0].blocks.count == 1)
         }
@@ -274,7 +274,7 @@ extension TypesettingSuite {
             let written = DocumentFormat.string(for: document)
             #expect(written.contains("opens-section=\"chapter\"") && written.contains("opens-section=\"section\""))
             #expect(try DocumentFormat.document(from: written).styles == document.styles)
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><styles><style name=\"L\" target=\"word\" opens-section=\"chapter\"/></styles></document>")) == nil,
+            #expect((try? DocumentFormat.document(from: "<document version=\"18\"><styles><style name=\"L\" target=\"word\" opens-section=\"chapter\"/></styles></document>")) == nil,
                     "solo uno stile di paragrafo apre una sezione")
         }
 
@@ -323,7 +323,7 @@ extension TypesettingSuite {
             #expect(written.contains("<section id=\"c1\" role=\"chapter\" start=\"new-page\">") && written.contains("<section id=\"c4\" role=\"chapter\">"))
             let read = try DocumentFormat.document(from: written)
             #expect(read.sections == pagedBook().sections)
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><section start=\"altrove\"><title/></section></document>")) == nil)
+            #expect((try? DocumentFormat.document(from: "<document version=\"18\"><section start=\"altrove\"><title/></section></document>")) == nil)
             let text = NSMutableAttributedString(attributedString: pagedBook().attributedString().text)
             SectionEditing.insertSection(in: text, at: location(of: "Testo due.", in: text) + 10, level: .same, sheet: .builtIn)
             #expect(tree(text).sections.map(\.start) == [.newPage, .oddPage, .oddPage, .oddPage, .continuous], "la nuova, dopo «Due», copia la dispari")
@@ -378,7 +378,7 @@ extension TypesettingSuite {
             #expect(written.contains("opening-distance=\"50\"") && written.contains("opening-distance=\"20\""))
             let read = try DocumentFormat.document(from: written)
             #expect(read.sections == document.sections && read.styles == document.styles)
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><p opening-distance=\"-3\">a</p></document>")) == nil)
+            #expect((try? DocumentFormat.document(from: "<document version=\"18\"><p opening-distance=\"-3\">a</p></document>")) == nil)
 
             let text = NSMutableAttributedString(attributedString: openingBook(distance: 50).attributedString().text)
             let due = (text.string as NSString).range(of: "Due").location
@@ -452,7 +452,7 @@ extension TypesettingSuite {
             let written = DocumentFormat.string(for: numberedBook())
             #expect(written.contains("numbers-sections=\"chapter\"") && written.contains("parent-section=\"chapter\""))
             #expect(try DocumentFormat.document(from: written).lists == numberedBook().lists)
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><lists><list name=\"A\" counter=\"1\" parent=\"page\" parent-section=\"chapter\"/></lists></document>")) == nil)
+            #expect((try? DocumentFormat.document(from: "<document version=\"18\"><lists><list name=\"A\" counter=\"1\" parent=\"page\" parent-section=\"chapter\"/></lists></document>")) == nil)
         }
 
         // MARK: Tipi di pagina (tappa S.5a)
@@ -488,8 +488,8 @@ extension TypesettingSuite {
             #expect(written.contains("first-page-type=\"Apertura\"") && written.contains("even-page-type=\"Pari\"") && written.contains("page-type=\"Default\""))
             let read = try DocumentFormat.document(from: written)
             #expect(read.pageTypes == typedBook().pageTypes && read.sections == typedBook().sections)
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><section page-type=\"Nessuno\"><title/></section></document>")) == nil)
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><page-types><page-type name=\"Default\"/></page-types></document>")) == nil)
+            #expect((try? DocumentFormat.document(from: "<document version=\"18\"><section page-type=\"Nessuno\"><title/></section></document>")) == nil)
+            #expect((try? DocumentFormat.document(from: "<document version=\"18\"><page-types><page-type name=\"Default\"/></page-types></document>")) == nil)
         }
 
         @Test("Ogni pagina col suo tipo: prima pagina, tipo ereditato dalle interne, pari e dispari; il seguito di un paragrafo si ricompone")
@@ -619,16 +619,16 @@ extension TypesettingSuite {
             let page = "<field kind=\"formula\" expression=\"position.page-containing.number.write-here\"/>"
             #expect(written.contains(page + page))
             #expect(written.contains("<field kind=\"formula\" expression=\"position.section-containing.title.write-here\" role=\"chapter\"/>"))
-            #expect(written.contains("version=\"13\""), "la sezione contenente richiede il formato 13")
+            #expect(written.contains("version=\"18\""), "la sezione contenente richiede il formato 13")
             #expect(written.contains("page-numbering=\"Romani\"") && written.contains("page-numbering=\"Arabi\""))
             let read = try DocumentFormat.document(from: written)
             #expect(read.blocks == document.blocks && read.sections == document.sections && read.pageNumbering == "Romani")
             let (text, _) = read.attributedString()
             let back = Document(attributedString: text, settings: read.settingsOnly)
             #expect(back.blocks == document.blocks, "dal testo dell'editor, i campi tornano uguali")
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><p><field kind=\"data\"/></p></document>")) == nil)
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><p><field kind=\"section-title\"/></p></document>")) == nil, "manca il ruolo")
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\" page-numbering=\"Nessuna\"><p>a</p></document>")) == nil)
+            #expect((try? DocumentFormat.document(from: "<document version=\"18\"><p><field kind=\"data\"/></p></document>")) == nil)
+            #expect((try? DocumentFormat.document(from: "<document version=\"18\"><p><field kind=\"section-title\"/></p></document>")) == nil, "manca il ruolo")
+            #expect((try? DocumentFormat.document(from: "<document version=\"18\" page-numbering=\"Nessuna\"><p>a</p></document>")) == nil)
         }
 
         @Test("Numeri di pagina da una Lista; una sezione li fa ripartire; i campi scrivono pagina, totale e titolo in corso")
@@ -709,9 +709,9 @@ extension TypesettingSuite {
             #expect(written.contains("placement=\"head\"") && written.contains("placement=\"bottom\"") && written.contains("pages=\"even\"") && written.contains("edge=\"30\""))
             let read = try DocumentFormat.document(from: written)
             #expect(read.floatStyles == document.floatStyles && read.blocks == document.blocks && read.sections == document.sections)
-            let bare = try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><float-styles><float-style name=\"Testa\" placement=\"head\"/></float-styles><p>a</p></document>")
+            let bare = try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"><float-styles><float-style name=\"Testa\" placement=\"head\"/></float-styles><p>a</p></document>")
             #expect(bare.floatStyles.last == .running(name: "Testa"), "senza altro, un'intestazione non ha richiamo né filetto")
-            #expect((try? DocumentFormat.document(from: "<document version=\"1\"><float-styles><float-style name=\"N\" pages=\"even\"/></float-styles></document>")) == nil,
+            #expect((try? DocumentFormat.document(from: "<document version=\"18\"><float-styles><float-style name=\"N\" pages=\"even\"/></float-styles></document>")) == nil,
                     "pages solo per intestazioni e piè di pagina")
         }
 
@@ -753,7 +753,7 @@ extension TypesettingSuite {
 
         private let tableSource = """
         <?xml version="1.0" encoding="UTF-8"?>
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
         <p>Prima.</p>
         <table id="t1" header-rows="1">
@@ -790,11 +790,11 @@ extension TypesettingSuite {
             #expect(DocumentFormat.string(for: tabled()) == tableSource)
             let read = try DocumentFormat.document(from: tableSource)
             #expect(read.blocks == tabled().blocks && read.sections == tabled().sections)
-            let empty = try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><table><row><cell/></row></table></document>")
+            let empty = try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"><table><row><cell/></row></table></document>")
             guard case .table(let table)? = empty.blocks.first else { Issue.record("una tabella"); return }
             #expect(table.rows.first?.cells.first?.paragraphs.count == 1, "una cella vuota ha un paragrafo vuoto")
             func fails(_ content: String) -> Bool {
-                (try? DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\">\(content)</document>")) == nil
+                (try? DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\">\(content)</document>")) == nil
             }
             #expect(fails("<table><row><p>fuori dalla cella</p></row></table>") && fails("<table><p>a</p></table>"))
             #expect(fails("<table id=\"a\"><row><cell/></row></table><table id=\"a\"><row><cell/></row></table>"), "due tabelle con la stessa identità")
@@ -1067,7 +1067,7 @@ extension TypesettingSuite {
         func tableAppearanceFile() throws {
             let source = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <document version="1" font="HoeflerText-Regular" size="12">
+            <document version="18" font="HoeflerText-Regular" size="12">
             <table-styles>
             <table-style name="Griglia" rules="grid"/>
             <table-style name="Elegante" rules="three-rules" rule-width="0.75" padding="3 6 3 6" valign="middle" background="#f2f2f2"/>
@@ -1097,16 +1097,16 @@ extension TypesettingSuite {
             #expect(resolved == TableValues(rules: .threeRules, ruleWidth: 0.75, padding: CellInsets(all: 2), verticalAlignment: .middle, background: ""))
             #expect(TableStyle.resolved(styleName: nil, values: TableValues(), in: TableStyle.builtIn) == .initial)
             // Un documento senza <table-styles> ha quelli con cui nasce ogni documento, e non li scrive.
-            let plain = try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><p>a</p></document>")
+            let plain = try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"><p>a</p></document>")
             #expect(plain.tableStyles == TableStyle.builtIn && !DocumentFormat.string(for: plain).contains("table-styles"))
             // Errori: uno stile che non c'è, valori sbagliati.
             for (bad, attribute) in [("<table style=\"Nessuno\">", "style"), ("<table rules=\"tutte\">", "rules"), ("<table padding=\"1 2\">", "padding"),
                                      ("<table background=\"rosso\">", "background"), ("<table valign=\"alto\">", "valign")] {
-                let text = "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\">\(bad)<row><cell/></row></table></document>"
+                let text = "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\">\(bad)<row><cell/></row></table></document>"
                 #expect(throws: DocumentFormatError.self, "\(attribute)") { try DocumentFormat.document(from: text) }
             }
             #expect(throws: DocumentFormatError.self) {
-                try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><table><row><cell top=\"spesso\"/></row></table></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"><table><row><cell top=\"spesso\"/></row></table></document>")
             }
             // Una tabella con uno stile che il documento non ha più si scrive senza (il file si riapre).
             var orphan = document
@@ -1209,7 +1209,7 @@ extension TypesettingSuite {
             #expect(read.blocks == document.blocks)
             #expect(Document(attributedString: document.attributedString().text, settings: document.settingsOnly).blocks == document.blocks)
             #expect(throws: DocumentFormatError.self) {
-                try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><table float=\"Nessuno\"><row><cell/></row></table></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"><table float=\"Nessuno\"><row><cell/></row></table></document>")
             }
             // Due tabelle: «Tabella 1. Popolazione» sopra la prima, «Tabella 2. Area» sopra la seconda.
             let two = floatingDocument([.table(table("t1", caption: "Popolazione")), .paragraph(paragraph("In mezzo.")), .table(table("t2", caption: "Area"))])
@@ -1259,7 +1259,7 @@ extension TypesettingSuite {
         func mergedCells() throws {
             let source = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <document version="1" font="HoeflerText-Regular" size="12">
+            <document version="18" font="HoeflerText-Regular" size="12">
             <page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
             <table id="m">
             <row>
@@ -1281,7 +1281,7 @@ extension TypesettingSuite {
             #expect(DocumentFormat.string(for: document) == source + "\n")
             #expect(Document(attributedString: document.attributedString().text, settings: document.settingsOnly).blocks == document.blocks)
             #expect(throws: DocumentFormatError.self) {
-                try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><table><row><cell/><cell rowspan=\"2\"/></row><row><cell colspan=\"2\"/></row></table></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"><table><row><cell/><cell rowspan=\"2\"/></row><row><cell colspan=\"2\"/></row></table></document>")
             }
             // Nella pagina: «Titolo» largo come «a» e «b», «Alta» alta come le due righe; nessun filetto dentro.
             let text = document.attributedString().text
@@ -1396,7 +1396,7 @@ extension TypesettingSuite {
         // MARK: La fine della sezione: il testo che torna alla sezione esterna (tappa 1)
 
         private let returning = """
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <p>Premessa.</p>
         <section id="c" role="chapter">
         <title><p>Capitolo</p></title>
@@ -1490,7 +1490,7 @@ extension TypesettingSuite {
         @Test("La lettura è severa sulla struttura delle sezioni")
         func strict() {
             func fails(_ content: String) -> Bool {
-                (try? DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\">\(content)</document>")) == nil
+                (try? DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\">\(content)</document>")) == nil
             }
             #expect(fails("<section><p>senza titolo</p></section>"))
             #expect(fails("<section></section>"), "manca il titolo")

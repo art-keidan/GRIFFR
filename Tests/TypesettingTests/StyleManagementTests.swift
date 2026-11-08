@@ -47,18 +47,22 @@ extension TypesettingSuite {
             #expect(sheet.freeName("Body") == "Body 2" && sheet.freeName("Nuovo") == "Nuovo")
         }
 
-        @Test("Rinominare e togliere uno stile: gli stili che si basano su di lui, le regole e gli stili di flottante seguono")
+        @Test("Rinominare e togliere uno stile: gli stili che si basano su di lui, le formule e gli stili di flottante seguono")
         func renameAndRemove() throws {
             var document = Document(styles: StyleSheet.builtIn)
-            document.rules = [TextRule(target: .firstWords(1), paragraphStyle: "Example", position: .firstAfter("Example"), styleName: "Small Caps")]
+            let after = StyleFormula(operation: StylePropertyOperation(.set, .applyStyle, .styleName("Small Caps")),
+                                     when: StyleCondition(position: .firstAfter("Example")), target: .firstWords(1))
+            let body = try #require(document.styles.styles.firstIndex { $0.name == "Body" })
+            document.styles.styles[body].formulas.append(after)
             var float = FloatStyle(name: "Postille", listName: nil)
             float.contentStyle = "Example"
             document.floatStyles.append(float)
+            func bodyFormula(_ document: Document) -> StyleFormula? { document.styles.style(named: "Body")?.formulas.last }
 
             let renamed = document.renamingStyle("Example", to: "Esempio linguistico")
             #expect(renamed.styles.style(named: "Example") == nil && renamed.styles.style(named: "Esempio linguistico") != nil)
             #expect(renamed.styles.style(named: "Subexample")?.basedOn == "Esempio linguistico")
-            #expect(renamed.rules.first?.paragraphStyle == "Esempio linguistico" && renamed.rules.first?.position == .firstAfter("Esempio linguistico"))
+            #expect(bodyFormula(renamed)?.when.position == .firstAfter("Esempio linguistico"))
             #expect(renamed.floatStyles.last?.contentStyle == "Esempio linguistico")
             #expect(document.renamingStyle("Example", to: "Body").styles == document.styles, "un nome già usato non si prende")
 
@@ -66,12 +70,13 @@ extension TypesettingSuite {
             #expect(replacement == "Body")
             #expect(removed.styles.style(named: "Example") == nil)
             #expect(removed.styles.style(named: "Subexample")?.basedOn == "Body", "chi si basava su di lui passa al suo stile di base")
-            #expect(removed.rules.first?.paragraphStyle == "Body" && removed.rules.first?.position == .firstAfter("Body"))
+            #expect(bodyFormula(removed)?.when.position == .firstAfter("Body"))
             #expect(removed.floatStyles.last?.contentStyle == "Body")
-            // Una regola che applica uno stile senza stile di base si toglie con lui.
-            var withRule = document
-            withRule.rules = [TextRule(target: .firstWords(1), paragraphStyle: nil, position: .any, styleName: "Emphasis")]
-            #expect(withRule.removingStyle("Emphasis").document.rules.isEmpty)
+            // Una formula che applica uno stile senza stile di base si toglie con lui.
+            var withFormula = document
+            withFormula.styles.styles[body].formulas = [StyleFormula(operation: StylePropertyOperation(.set, .applyStyle, .styleName("Emphasis")),
+                                                                     target: .firstWords(1))]
+            #expect(withFormula.removingStyle("Emphasis").document.styles.style(named: "Body")?.formulas.isEmpty == true)
         }
     }
 }

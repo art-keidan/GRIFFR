@@ -32,7 +32,6 @@ extension EditorWindowController {
         .init(id: "nuovoStile", title: "New Style from Selection…", symbol: "paintbrush"),
         .init(id: "liste", title: "Lists…", symbol: "list.number"),
         .init(id: "stiliFlottante", title: "Float Styles…", symbol: "rectangle.on.rectangle"),
-        .init(id: "regole", title: "Rules…", symbol: "wand.and.rays"),
         .init(id: "nascosti", title: "Invisibles", symbol: "paragraphsign"),
         .init(id: "provenienza", title: "Provenance Marks", symbol: "highlighter"),
         .init(id: "correzione", title: "Spelling", symbol: "textformat.abc.dottedunderline"),
@@ -42,9 +41,6 @@ extension EditorWindowController {
     /// La configurazione dettagliata conserva quella già scelta dall'utente; l'essenziale ha una configurazione propria.
     static let defaultToolbar = ["nuovo", "apri", "salva", "salvaCome", "chiudi", "|", "stampa", "pdf", "|", "annulla", "ripeti", "cerca", "|",
                                  "nota", "illustrazione", "tabella", "|", "nascosti", "provenienza", "correzione", "|", "lorem"]
-    /// La barra predefinita precedente: chi l'aveva così, senza averla cambiata, passa a quella nuova.
-    static let previousDefaultToolbar = ["nuovo", "apri", "salva", "salvaCome", "chiudi", "|", "stampa", "pdf", "|", "annulla", "ripeti",
-                                                 "cerca", "|", "nota", "illustrazione", "tabella", "carattere"]
     static let defaultSimpleToolbar = ["salva", "|", "annulla", "ripeti", "cerca", "|", "nota", "illustrazione", "tabella"]
     static let toolbarKey = "ToolbarItems"
     static let simpleToolbarKey = "ToolbarItems.simple"
@@ -52,11 +48,10 @@ extension EditorWindowController {
 
     static func sanitizedToolbar(_ items: [String]) -> [String] {
         let known = Set(toolbarCommands.map(\.id) + ["|"])
-        // «nascostiBarra» è il nome precedente di «nascosti».
-        return items.map { $0 == "nascostiBarra" ? "nascosti" : $0 }.filter(known.contains)
+        return items.filter(known.contains)
     }
 
-    /// Compatibilità con le preferenze esistenti: questa è la configurazione dettagliata.
+    /// La configurazione della barra nell'interfaccia dettagliata.
     static var toolbarItems: [String] {
         get { toolbarItems(for: .advanced) }
         set { setToolbarItems(newValue, for: .advanced) }
@@ -66,29 +61,7 @@ extension EditorWindowController {
         let key = mode == .simple ? simpleToolbarKey : toolbarKey
         let fallback = mode == .simple ? defaultSimpleToolbar : defaultToolbar
         guard let stored = UserDefaults.standard.stringArray(forKey: key) else { return fallback }
-        if mode == .advanced, stored == previousDefaultToolbar { return defaultToolbar }
         return sanitizedToolbar(stored)
-    }
-
-    /// Il pulsante «Lorem» è venuto dopo: chi ha già una barra sua lo trova in fondo, una volta sola.
-    static func addLoremToToolbarOnce() {
-        let flag = "ToolbarItems.loremAdded"
-        guard !UserDefaults.standard.bool(forKey: flag) else { return }
-        UserDefaults.standard.set(true, forKey: flag)
-        guard let stored = UserDefaults.standard.stringArray(forKey: toolbarKey), !stored.contains("lorem") else { return }
-        setToolbarItems(toolbarItems(for: .advanced) + ["|", "lorem"], for: .advanced)
-    }
-
-    /// Anche il pulsante della correzione ortografica è venuto dopo: va accanto ai segni della provenienza, o in fondo.
-    static func addSpellingToToolbarOnce() {
-        let flag = "ToolbarItems.spellingAdded"
-        guard !UserDefaults.standard.bool(forKey: flag) else { return }
-        UserDefaults.standard.set(true, forKey: flag)
-        guard UserDefaults.standard.stringArray(forKey: toolbarKey) != nil else { return }
-        var items = toolbarItems(for: .advanced)
-        guard !items.contains("correzione") else { return }
-        if let index = items.firstIndex(of: "provenienza") { items.insert("correzione", at: index + 1) } else { items += ["|", "correzione"] }
-        setToolbarItems(items, for: .advanced)
     }
 
     static func setToolbarItems(_ items: [String], for mode: InterfaceMode) {
@@ -152,7 +125,7 @@ extension EditorWindowController {
             case "stampa", "pdf": "print"
             case "annulla", "ripeti", "cerca": "edit"
             case "nota", "illustrazione", "tabella", "carattere", "lorem": "insert"
-            case "nuovoStile", "liste", "stiliFlottante", "regole": "styles"
+            case "nuovoStile", "liste", "stiliFlottante": "styles"
             case "nascosti", "provenienza", "correzione": "view"
             default: "tools"
             }
@@ -222,7 +195,6 @@ extension EditorWindowController {
         case "nuovoStile": return button(id, "paintbrush", help: "New Style from Selection…", action: #selector(newStyleFromSelection(_:)))
         case "liste": return button(id, "list.number", help: "Lists…", action: #selector(editLists(_:)))
         case "stiliFlottante": return button(id, "rectangle.on.rectangle", help: "Float Styles…", action: #selector(editFloatStyles(_:)))
-        case "regole": return button(id, "wand.and.rays", help: "Rules…", action: #selector(editRules(_:)))
         case "lorem": return button(id, nil, label: "Lorem", help: "Insert about two pages of sample text, with headings, in Garamond Premier Pro",
                                     action: #selector(insertLorem(_:)))
         case "nascosti":
@@ -429,12 +401,11 @@ extension EditorWindowController {
             menu.addItem(.separator())
             menu.addItem(withTitle: "Lists…", action: #selector(self.editLists(_:)), keyEquivalent: "").target = self
         }
-        // Gli stili (paragrafo, carattere, flottanti); allineamento e spazi; elenchi e regole (disposizione dell'utente, 29 ottobre).
+        // Gli stili (paragrafo, carattere, flottanti); allineamento e spazi; elenchi (disposizione dell'utente, 29 ottobre).
         var items: [String: NSView] = ["stile": named("stile", stylePopup), "allineamento": alignment, "interlinea": spacing, "spazi": spaces,
                                        "puntato": bullets, "numerato": numbers, "lista": lists,
                                        "riduciLivello": button("riduciLivello", "decrease.indent", help: "Decrease level (Shift-Tab)", action: #selector(decreaseListLevel(_:))),
                                        "aumentaLivello": button("aumentaLivello", "increase.indent", help: "Increase level (Tab)", action: #selector(increaseListLevel(_:))),
-                                       "regoleBanda": button("regoleBanda", "wand.and.rays", help: "Rules…", action: #selector(editRules(_:))),
                                        "progetta": button("progetta", "paragraphsign", label: "Design", help: "Design the paragraph on the page: drag its measures; changes go into its style (⌥⌘G)", action: #selector(toggleParagraphDesign(_:))),
                                        "stiliFlottanteBanda": button("stiliFlottanteBanda", "rectangle.on.rectangle", help: "Float Styles…", action: #selector(editFloatStyles(_:)))]
         if let characterStylesControl { items["stileCarattere"] = characterStylesControl }

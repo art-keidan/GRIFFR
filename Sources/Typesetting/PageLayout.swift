@@ -451,8 +451,8 @@ public struct LayoutOptions: Equatable, Sendable {
     public var floatStyles: [FloatStyle]
     /// Gli stili con un nome: servono a comporre il contenuto dei flottanti con il loro stile di paragrafo.
     public var styles: StyleSheet
-    /// Le regole del documento, applicate a ogni composizione.
-    public var rules: [TextRule]
+    /// Le regole del motore, compilate dalle formule contestuali degli stili all'inizio di ogni composizione.
+    var rules: [TextRule] = []
     public var fontRoles = FontRoleTable()
     /// I tipi di pagina con un nome, che le sezioni scelgono.
     public var pageTypes: [PageType] = []
@@ -496,10 +496,9 @@ public struct LayoutOptions: Equatable, Sendable {
 
     public init(appliesFontTracking: Bool = true, usesOpticalMargins: Bool = true, glyphExpansionLimit: Double = defaultGlyphExpansionLimit,
                 hyphenationLanguage: String? = nil, hyphenates: Bool = true, lineBreaking: LineBreaking = .optimal, lists: [ListDefinition] = [],
-                noteList: String? = nil, floatStyles: [FloatStyle]? = nil, styles: StyleSheet = StyleSheet(), rules: [TextRule] = []) {
+                noteList: String? = nil, floatStyles: [FloatStyle]? = nil, styles: StyleSheet = StyleSheet()) {
         self.appliesFontTracking = appliesFontTracking
         self.styles = styles
-        self.rules = rules
         self.lists = lists
         self.floatStyles = floatStyles ?? [.footnote(listName: noteList)]
         self.usesOpticalMargins = usesOpticalMargins
@@ -528,12 +527,12 @@ public enum PageLayout {
 
     public static func layout(_ source: NSAttributedString, setup: PageSetup = .a4, options originalOptions: LayoutOptions) -> DocumentLayout {
         var options = originalOptions
-        let compiled = options.styles.compilingStyleRules(options.rules)
+        let compiled = options.styles.compilingStyleRules()
         options.styles = compiled.sheet
         options.rules = compiled.rules
         // Le regole danno il loro aspetto a una copia del testo, prima della spaziatura `trak`, che dipende dal corpo.
         var graphite = (graphite: 0, coreText: 0)
-        let text = prepared(Rules.applied(options.rules, to: source, sheet: options.styles, resolver: FontRoleResolver(table: options.fontRoles)), appliesFontTracking: options.appliesFontTracking,
+        let text = prepared(Rules.applied(to: source, sheet: options.styles, resolver: FontRoleResolver(table: options.fontRoles)), appliesFontTracking: options.appliesFontTracking,
                             documentLanguage: options.hyphenationLanguage, graphite: &graphite)
         // Le note numerate pagina per pagina: la prima composizione suppone che ogni nota stia nella pagina dove comincia
         // il suo paragrafo; se non è così, si ricompone con le pagine vere. Il numero cambia la larghezza del richiamo,

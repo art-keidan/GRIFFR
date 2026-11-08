@@ -116,11 +116,11 @@ struct HeadingCompositionTests {
         heading.parts.insert(.label(text: "Capitolo", style: nil, alignment: .center, minHeight: nil), at: 0)
         let document = book(title: "Il mare", heading: heading)
         let xml = DocumentFormat.string(for: document)
-        #expect(xml.contains("version=\"14\"") && xml.contains("<heading encoding=\"json-v1\""))
+        #expect(xml.contains("version=\"18\"") && xml.contains("<heading encoding=\"json-v1\""))
         let read = try DocumentFormat.document(from: xml)
         #expect(read.styles.style(named: "Titolo capitolo")?.heading == heading)
         #expect(DocumentFormat.string(for: read) == xml)
-        #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"14\"", with: "version=\"13\"")) }
+        #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"18\"", with: "version=\"13\"")) }
         var bad = heading
         bad.parts.append(.plainTitle)
         #expect(bad.problem != nil)
@@ -228,12 +228,12 @@ struct HeadingCompositionTests {
         let heading = HeadingComposition(parts: [.numberBeside(prefix: "§ ", style: "Body", side: .inside, gap: 5 * mm),
                                                  .title(alignment: .center, minHeight: 20 * mm), .space(8 * mm)])
         let xml = DocumentFormat.string(for: book(title: "Il mare", heading: heading))
-        #expect(xml.contains("version=\"15\""))
+        #expect(xml.contains("version=\"18\""))
         let read = try DocumentFormat.document(from: xml)
         #expect(read.styles.style(named: "Titolo capitolo")?.heading == heading)
         #expect(DocumentFormat.string(for: read) == xml)
-        #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"15\"", with: "version=\"13\"")) }
-        #expect(DocumentFormat.string(for: book(title: "Il mare", heading: .standard)).contains("version=\"14\""))
+        #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"18\"", with: "version=\"13\"")) }
+        #expect(DocumentFormat.string(for: book(title: "Il mare", heading: .standard)).contains("version=\"18\""))
         #expect(HeadingComposition(parts: [.numberBeside(prefix: "", style: nil, side: .center, gap: 0), .plainTitle]).problem != nil)
         #expect(HeadingComposition(parts: [.numberBeside(prefix: "", style: nil, side: .left, gap: 0),
                                            .numberBeside(prefix: "", style: nil, side: .right, gap: 0), .plainTitle]).problem != nil)
@@ -246,7 +246,7 @@ struct HeadingCompositionTests {
             .result(formula: .sectionContainingTitle(role: "chapter"), prefix: "» ", style: "Body", alignment: .right, minHeight: nil),
             .plainTitle,
         ])
-        #expect(heading.problem == nil && heading.needsVersion16)
+        #expect(heading.problem == nil)
         let composed = layout(book(title: "Il mare", heading: heading, chapters: 2))
         let pdf = try #require(PDFDocument(data: PDFRenderer.pdfData(for: composed)))
         let pages = (0..<pdf.pageCount).compactMap { pdf.page(at: $0)?.string }
@@ -275,7 +275,7 @@ struct HeadingCompositionTests {
         let heading = HeadingComposition(parts: [.result(formula: .sectionContainingNumber(role: "part"), prefix: "Part ", style: "Body", alignment: .outside, minHeight: 10 * mm),
                                                  .plainTitle])
         let xml = DocumentFormat.string(for: book(title: "Il mare", heading: heading))
-        #expect(xml.contains("version=\"16\""))
+        #expect(xml.contains("version=\"18\""))
         let read = try DocumentFormat.document(from: xml)
         #expect(read.styles.style(named: "Titolo capitolo")?.heading == heading)
         #expect(DocumentFormat.string(for: read) == xml)

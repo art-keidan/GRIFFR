@@ -6,7 +6,7 @@ extension TypesettingSuite {
     @Suite("Tenuta delle righe: modello e formato (tappa A1)")
     struct LineKeepingTests {
         private let file = """
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <styles>
         <style name="Testo" target="paragraph"/>
         <style name="Tenuto" target="paragraph" based-on="Testo" orphan-lines="2" widow-lines="2"/>
@@ -33,7 +33,7 @@ extension TypesettingSuite {
         @Test("Senza voci non c'è tenuta, e il file non cambia")
         func absentMeansNone() throws {
             let document = try DocumentFormat.document(from: """
-            <document version="1" font="HoeflerText-Regular" size="12">
+            <document version="18" font="HoeflerText-Regular" size="12">
             <styles><style name="Testo" target="paragraph"/></styles>
             <p style="Testo">Uno.</p>
             </document>
@@ -102,7 +102,7 @@ extension TypesettingSuite {
             for bad in ["<p widow-lines=\"0\">x</p>", "<p orphan-lines=\"10\">x</p>", "<p keep-together=\"yes\">x</p>",
                         "<styles><style name=\"C\" target=\"character\" keep-with-next=\"on\"/></styles><p>x</p>"] {
                 #expect(throws: (any Error).self) {
-                    try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\">\(bad)</document>")
+                    try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\">\(bad)</document>")
                 }
             }
         }

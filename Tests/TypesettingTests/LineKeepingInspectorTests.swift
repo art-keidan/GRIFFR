@@ -6,7 +6,7 @@ extension TypesettingSuite {
     @Suite("Tenuta delle righe: ispettore e stili (tappa A4)")
     struct LineKeepingInspectorTests {
         private let file = """
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <styles>
         <style name="Testo" target="paragraph"/>
         <style name="Tenuto" target="paragraph" based-on="Testo" orphan-lines="2" widow-lines="2"/>

@@ -4,7 +4,7 @@ import Foundation
 ///
 /// ```xml
 /// <?xml version="1.0" encoding="UTF-8"?>
-/// <document version="1" font="HoeflerText-Regular" size="12">
+/// <document version="18" font="HoeflerText-Regular" size="12">
 /// <page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
 /// <p align="justified">Testo con <t small-caps="lowercase">maiuscoletto</t> e <t font="Vulcanius" size="14" features="17/1003">𐌹𐍃</t>.</p>
 /// </document>
@@ -19,15 +19,13 @@ import Foundation
 /// - `small-caps` è il maiuscoletto voluto, qualunque sia il font: `lowercase` (le minuscole, il maiuscoletto consueto),
 ///   `uppercase` (le maiuscole: sigle, numeri romani), `all`, `off`. Le forme che lo realizzano (AAT 3/3, 37/1, 38/1,
 ///   OpenType `smcp`, `c2sc`) si scelgono quando si compone, fra quelle che il font conosce, e non si scrivono in
-///   `features`. Si eredita, ma come nei file di prima, dove stava fra le funzioni, si azzera dove cambiano `font` o
-///   `features`: lì va ripetuto. Leggendo un file di prima, quelle forme in `features` diventano `small-caps`.
+///   `features`. Si eredita, ma si azzera dove cambiano `font` o `features`: lì va ripetuto.
 /// - `variable="on"` chiede il font a più assi quando lo stesso nome è installato anche in un file statico (che
 ///   macOS altrimenti preferirebbe). Serve solo senza `axes`: un testo con assi fissati lo sottintende.
 /// - Attributi di paragrafo, in punti: `align` (`left`, `right`, `center`, `justified`), `first-indent`,
 ///   `left-indent`, `right-indent`, `space-before`, `space-after`, `line-spacing`; `line-height` è un moltiplicatore.
 ///   `outline-level`, su `p` e sugli stili di paragrafo, registra il livello di paragrafazione (1, 2, 3…); 0 toglie
-///   esplicitamente il livello ereditato. Nei file precedenti (senza alcun `outline-level`) lo stile «Titolo N» ha il
-///   livello N; nei file nuovi il nome non conta.
+///   esplicitamente il livello ereditato. Il nome dello stile non conta.
 /// - Sul documento: `lang` è la lingua (per esempio `it`), usata per sillabare e per l'ortografia;
 ///   `hyphenation="off"` spegne la sillabazione, `trak="off"` la spaziatura dipendente dal corpo, `opbd="off"`
 ///   i margini ottici (accesi se mancano).
@@ -43,7 +41,7 @@ import Foundation
 ///   delle note. `in-list` su `p` (o su uno stile di paragrafo) mette il paragrafo in una Lista; `in-list=""`
 ///   lo toglie da quella che gli darebbe il suo stile.
 /// - `<styles>`, subito dopo `<document>`, contiene gli stili con un nome: `<style name="Citazione"
-///   target="paragraph" based-on="Testo" size="11" left-indent="24"/>`. `target` è `paragraph`, `word` o
+///   target="paragraph" based-on="Body" size="11" left-indent="24"/>`. `target` è `paragraph`, `word` o
 ///   `character`; uno stile può fissare `font` (faccia precisa) oppure `family`, `italic`, `bold`, e poi
 ///   `size`, `features`, `axes`, `small-caps`, `lang`, `hyphenation` e, per i paragrafi, le misure di paragrafo.
 /// - `style` su `p` dà al paragrafo uno stile di paragrafo; `word-style` e `char-style` su `t` danno al tratto
@@ -66,18 +64,13 @@ import Foundation
 ///   rule-length="100" space-above="7" space-below="4" split="off" content="Nota"/>`. `reference` è `superscript`
 ///   (sottinteso), `plain` o `none`; `content` è uno stile di paragrafo. `placement="end"` raccoglie le note alla fine
 ///   del documento (note di chiusura), con un titolo facoltativo (`heading`) e `new-page="on"` per cominciare su una
-///   pagina nuova. `placement="margin"` mette le note nel margine esterno, accanto alla riga del richiamo. Lo stile «Nota a piè di pagina» c'è sempre.
+///   pagina nuova. `placement="margin"` mette le note nel margine esterno, accanto alla riga del richiamo. Lo stile «Footnote» c'è sempre.
 ///   `style` su `note` la mette in una serie diversa da quella delle note a piè di pagina.
-/// - `<rules>`, dopo gli stili di flottante, contiene le regole: `<rule find="first-words" count="2" in="Testo"
-///   after="Titolo 1" style="Maiuscoletto"/>`. `find` è `first-letter`, `first-words` (con `count`), `first-sentence`,
-///   `first-lines` (con `count`), `last-line` o `words` (con `pattern`: `capitals`, `roman`, `numbers`, oppure `list` con le parole in `list`, separate da
-///   spazi). `in` limita la regola ai paragrafi di uno stile; `after` al primo paragrafo dopo uno stile;
-///   `position="sequence-start"` al primo paragrafo di una sequenza (del documento, o il titolo di una sezione che
-///   comincia su una pagina nuova), `position="page-start"` al primo di una pagina.
-///   `find="paragraph"` è il paragrafo intero, e può avere uno stile di paragrafo. Una condizione su una proprietà
-///   dinamica: `if="lines|words|last-line-fill|hyphens" compare="eq|lt|le|gt|ge" value="1"`.
-///   `style` è uno stile di carattere o di parola;
-///   `enabled="off"` spegne la regola senza toglierla.
+/// - `<rules>`, dopo gli stili di flottante, contiene le definizioni condivise dalle formule degli stili: le formule
+///   riutilizzabili (`<reusable-formulas encoding="json-v1" data="…"/>`) e le selezioni con un nome (`<selection id="…"
+///   name="Quinta parola" source="words" index="5"/>`, `source` è `words`, `capitals` o `numbers`). Le formule contestuali
+///   degli stili (`<formula>` dentro `style`, con `find`, `when`, `if`…) danno l'aspetto di uno stile ai pezzi di testo che
+///   si trovano componendo.
 /// - `img`, dentro `p`, è un'immagine nella riga, con `width` e `height` (in punti, o con l'unità): collegata a un
 ///   file esterno (`src="/percorso/foto.jpg"`, vuota), oppure inclusa, con i suoi byte in base64 come contenuto.
 /// - Le misure delle voci di elenco, in punti o con l'unità, dal rientro sinistro del paragrafo: `list-indent` (dove
@@ -103,100 +96,48 @@ import Foundation
 ///   documento: `<table-style name="Tre filetti" rules="three-rules" rule-width="0.75"/>`, con gli attributi di `table`.
 /// - `<page-types>`, dopo `page`, contiene i tipi di pagina con un nome: `<page-type name="Apertura" top="80mm"/>`, con gli
 ///   attributi di `page` (quelli che mancano vengono da `page`). Una sezione li sceglie con `page-type` (le sue pagine),
-///   `even-page-type` (le pari) e `first-page-type` (la sua prima pagina); `Predefinito` è il tipo di `page`.
+///   `even-page-type` (le pari) e `first-page-type` (la sua prima pagina); `Default` è il tipo di `page`.
 /// - `placement="head"` o `placement="bottom"` su `float-style`: intestazione o piè di pagina, ripetuti da dove sono ancorati
 ///   finché un altro dello stesso tipo non prende il loro posto; `pages="odd|even|first"` (le dispari, le pari, la sola prima
 ///   pagina della sezione in cui sono ancorati) e `edge` (la distanza dal bordo del foglio; senza, a metà del margine).
-/// - `<field kind="page"/>`, dentro `p` o `note`, è un campo storico del numero della pagina. `pages` dà quante pagine;
-///   `section-title` e `section-number` (con `role`) danno la sezione in corso di quel ruolo. La versione 9 introduce
-///   `<field kind="formula" expression="position.page-containing.number.write-here"/>`: la posizione del carattere
-///   ospite determina la pagina, il numero segue la numerazione del documento e il risultato usa lo stile del campo.
-///   Tutti i campi accettano gli attributi di `t`. `page-numbering`, su `document` e su `section`, nomina la Lista che
+/// - `<field kind="formula" expression="position.page-containing.number.write-here"/>`, dentro `p` o `note`, è un campo:
+///   una catena che parte dalla posizione del carattere ospite (o dal documento), sale agli oggetti che lo contengono,
+///   ne legge un risultato e lo scrive lì, con lo stile del campo. Le catene: `position.page-containing.number`,
+///   `document.page-count`, `position.section-containing.title` e `position.section-containing.number` (questi due con
+///   `role`), ciascuna seguita da `.write-here`. I campi accettano gli attributi di `t`. `page-numbering`, su `document` e su `section`, nomina la Lista che
 ///   numera le pagine (da una sezione in poi, ripartendo).
 /// - `opening-distance` (in punti, o con l'unità), su `style` di paragrafo e su `p`: la distanza d'apertura, dal margine
 ///   superiore, del paragrafo che apre una sequenza di pagine. `opens-section` su `style` di paragrafo: il ruolo della
 ///   sezione che lo stile apre quando lo si dà a un paragrafo (vuoto: nessuno).
 ///
-/// - La versione 18 aggiunge i filetti liberi dei paragrafi: l'attributo `rules` su `style` e `p` (`ParagraphRules.encoded`:
-///   aggancio, scarto, inizio, fine, spessore per ogni filetto, separati da «;»).
-/// - La versione 17 aggiunge alla tenuta delle righe `keep-next-lines` (quante righe del seguente restano con il paragrafo
-///   che lo tiene) e `keep-with-previous` (quante righe del precedente restano con questo; 0 nessuna), su `style` e `p`,
-///   e le proprietà di formula `nextLines` e `previousLines`.
-/// - La versione 16 aggiunge «Scrivi risultato» agli stili: alle testate la parte `result`, con una formula di campo
-///   (`expression` e, per le sezioni, `role`) calcolata nel punto del titolo.
-///   Agli stili di paragrafo `<writes encoding="json-v1" data="…"/>`, dopo la testata: i risultati che lo stile scrive
-///   prima o dopo il testo del paragrafo (`WrittenResult`).
-/// - La versione 15 aggiunge alle testate il numero accanto al titolo (`numberBeside`) e l'allineamento e l'altezza minima
-///   propri della parte «titolo». Una testata scritta in versione 14 si legge uguale.
-/// - La versione 14 introduce `<heading encoding="json-v1" data="…"/>` dentro `style` di paragrafo: la testata dello stile
-///   (`HeadingComposition`), con le sue parti in ordine.
-/// - La versione 13 aggiunge i campi formula `document.page-count.write-here`, `position.section-containing.title.write-here` e
-///   `position.section-containing.number.write-here` (questi due con `role`). I campi storici `page`, `pages`,
-///   `section-title` e `section-number` si leggono ancora e diventano le formule equivalenti.
-/// - La versione 12 introduce `<variable id="…" name="Distanza" expression="…"/>` dentro `style`, prima delle formule:
-///   un risultato con un nome che le formule dello stile richiamano per identità (`binding` con una variabile).
 ///
-/// La lettura è severa: elementi o attributi sconosciuti sono un errore con il numero di riga, non vengono
+/// - Filetti liberi dei paragrafi: l'attributo `rules` su `style` e `p` (`ParagraphRules.encoded`: aggancio, scarto,
+///   inizio, fine, spessore per ogni filetto, separati da «;»).
+/// - Tenuta delle righe: `keep-next-lines` (quante righe del seguente restano con il paragrafo che lo tiene) e
+///   `keep-with-previous` (quante righe del precedente restano con questo; 0 nessuna), su `style` e `p`.
+/// - Testate degli stili: `<heading encoding="json-v1" data="…"/>` dentro `style` di paragrafo (`HeadingComposition`), con
+///   le sue parti in ordine; poi `<writes encoding="json-v1" data="…"/>`, i risultati che lo stile scrive prima o dopo il
+///   testo del paragrafo (`WrittenResult`).
+/// - Variabili degli stili: `<variable id="…" name="Distanza" expression="…"/>` dentro `style`, prima delle formule: un
+///   risultato con un nome che le formule dello stile richiamano per identità (`binding` con una variabile).
+///
+/// Il programma scrive la versione `DocumentFormat.version` e legge le versioni da `oldestReadableVersion` in poi: la 18 è
+/// la prima dopo la pulizia dello sviluppo, e le successive la devono leggere. La lettura è severa: elementi o attributi sconosciuti sono un errore con il numero di riga, non vengono
 /// ignorati, così un refuso in un file corretto a mano non fa perdere contenuto in silenzio.
 public enum DocumentFormat {
     public static let version = 18
+    /// La versione più vecchia che il programma legge. Le versioni dello sviluppo, prima della 18, non si leggono più.
+    public static let oldestReadableVersion = 18
 
-    public static func writingVersion(for document: Document) -> Int {
-        let contextual = document.styles.styles.flatMap(\.formulas).contains {
-            $0.operation.property.isDirective || $0.operation.property == .applyStyle || !$0.when.isAlways || $0.target != .paragraph
-        } || document.styles.styles.contains { $0.values.nextStyle != nil }
-        let preciseFace = document.styles.styles.flatMap(\.formulas).contains { $0.operation.property == .face }
-        let subtracts = document.styles.styles.flatMap(\.formulas).contains { $0.operation.predicate == .subtract }
-        let extended = document.styles.styles.flatMap(\.formulas).contains {
-            [.family, .color, .smallCaps, .hyphenates].contains($0.operation.property)
-        }
-        // Ogni campo si scrive come formula: conta la versione che ha introdotto la sua.
-        let fieldVersion = document.flatParagraphs.flatMap { item -> [Int] in
-            item.paragraph.inlines.flatMap { inline -> [Int] in
-                switch inline {
-                case .text(let run): return run.field.map { [$0.asFormula.formatVersion] } ?? []
-                case .floating(let object): return object.paragraphs.flatMap { $0.compactMap { $0.field?.asFormula.formatVersion } }
-                case .image: return []
-                }
-            }
-        }.max() ?? 1
-        let styles = document.styles.styles
-        // La versione più bassa che sa leggere tutto ciò che il documento usa: ogni costrutto con la versione che l'ha
-        // introdotto. Un documento aperto da una versione più nuova non scende sotto di essa.
-        let needs: [(version: Int, used: Bool)] = [
-            (2, styles.contains { $0.values.pageStartSpacing != nil }),
-            (3, !document.styles.selections.isEmpty),
-            (4, styles.contains { !$0.formulas.isEmpty }),
-            (5, extended),
-            (6, subtracts),
-            (7, preciseFace),
-            (8, contextual),
-            (fieldVersion, fieldVersion > 1),
-            (10, !document.styles.reusableFormulas.isEmpty),
-            (11, styles.contains { $0.formulas.contains { $0.binding != nil } }),
-            (12, styles.contains { !$0.variables.isEmpty }),
-            (14, styles.contains { $0.heading != nil }),
-            (15, styles.contains { $0.heading?.needsVersion15 == true }),
-            (16, styles.contains { $0.heading?.needsVersion16 == true || !$0.writes.isEmpty }),
-            (17, styles.contains { style in
-                style.values.keeping.nextLines != nil || style.values.keeping.previousLines != nil
-                    || style.formulas.contains { [.nextLines, .previousLines].contains($0.operation.property) }
-            } || document.flatParagraphs.contains { $0.paragraph.keeping.nextLines != nil || $0.paragraph.keeping.previousLines != nil }),
-            (18, styles.contains { $0.values.rules != nil } || document.flatParagraphs.contains { $0.paragraph.rules != nil }),
-        ]
-        return needs.filter(\.used).map(\.version).reduce(max(1, document.sourceVersion), max)
-    }
     public static let fileExtension = "grx"
-    /// Le estensioni che si aprono: quella d'ora in poi e `.wpx`, quella dei file scritti prima.
-    public static let readableExtensions: Set<String> = [fileExtension, "wpx"]
 
     // MARK: Scrittura
 
-    public static func data(for document: Document, minimumVersion: Int = 1) -> Data {
-        Data(string(for: document, minimumVersion: minimumVersion).utf8)
+    public static func data(for document: Document) -> Data {
+        Data(string(for: document).utf8)
     }
 
-    public static func string(for document: Document, minimumVersion: Int = 1) -> String {
+    public static func string(for document: Document) -> String {
         let paragraphs = document.flatParagraphs.map(\.paragraph)
         // Lo stile più usato diventa quello del documento, così la maggior parte dei paragrafi non lo ripete.
         var base = dominantStyle(paragraphs.flatMap { paragraph in runs(of: paragraph).map { ($0.style, $0.text.utf16.count + 1) } })
@@ -209,7 +150,7 @@ public enum DocumentFormat {
         base?.hyphenates = true
         let sheet = document.styles
 
-        var out = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<document version=\"\(max(writingVersion(for: document), minimumVersion))\""
+        var out = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<document version=\"\(version)\""
         if let base { out += styleAttributes(base, relativeTo: nil) }
         if let language = document.language { out += " lang=\"\(escapedAttribute(language))\"" }
         if !document.hyphenates { out += " hyphenation=\"off\"" }
@@ -275,9 +216,7 @@ public enum DocumentFormat {
         }
         let tableStyleNames = Set(document.tableStyles.map(\.name))
 
-        // Le regole che rimandano a stili che non ci sono più non si scrivono: il file non si potrebbe riaprire.
-        let rules = document.rules.filter { ruleIsWritable($0, sheet: sheet) }
-        if !rules.isEmpty || !sheet.selections.isEmpty || !sheet.reusableFormulas.isEmpty {
+        if !sheet.selections.isEmpty || !sheet.reusableFormulas.isEmpty {
             out += "<rules>\n"
             if !sheet.reusableFormulas.isEmpty {
                 let encoder = JSONEncoder()
@@ -289,7 +228,6 @@ public enum DocumentFormat {
             for selection in sheet.selections {
                 out += "<selection id=\"\(selection.id.uuidString)\" name=\"\(escapedAttribute(selection.name))\" source=\"\(selection.source.rawValue)\" index=\"\(selection.index)\"/>\n"
             }
-            for rule in rules { out += ruleElement(rule) }
             out += "</rules>\n"
         }
 
@@ -595,45 +533,6 @@ public enum DocumentFormat {
         }
     }
 
-    private static func ruleIsWritable(_ rule: TextRule, sheet: StyleSheet) -> Bool {
-        guard let style = sheet.style(named: rule.styleName), style.target != .paragraph || rule.target == .paragraph else { return false }
-        if case .selection(let id) = rule.target, !sheet.selections.contains(where: { $0.id == id }) { return false }
-        if let name = rule.paragraphStyle, sheet.style(named: name)?.target != .paragraph { return false }
-        if case .firstAfter(let name) = rule.position, sheet.style(named: name)?.target != .paragraph { return false }
-        return true
-    }
-
-    /// Un elemento `rule`.
-    private static func ruleElement(_ rule: TextRule) -> String {
-        var out = "<rule"
-        switch rule.target {
-        case .selection(let id): out += " find=\"selection\" ref=\"\(id.uuidString)\""
-        case .firstLetter: out += " find=\"first-letter\""
-        case .firstWords(let count): out += " find=\"first-words\" count=\"\(count)\""
-        case .firstSentence: out += " find=\"first-sentence\""
-        case .words(.capitals): out += " find=\"words\" pattern=\"capitals\""
-        case .words(.romanNumerals): out += " find=\"words\" pattern=\"roman\""
-        case .words(.numbers): out += " find=\"words\" pattern=\"numbers\""
-        case .words(.listed(let words)): out += " find=\"words\" pattern=\"list\" list=\"\(escapedAttribute(words.joined(separator: " ")))\""
-        case .firstLines(let count): out += " find=\"first-lines\" count=\"\(count)\""
-        case .lastLine: out += " find=\"last-line\""
-        case .paragraph: out += " find=\"paragraph\""
-        }
-        if let style = rule.paragraphStyle { out += " in=\"\(escapedAttribute(style))\"" }
-        switch rule.position {
-        case .any: break
-        case .firstAfter(let style): out += " after=\"\(escapedAttribute(style))\""
-        case .sequenceStart: out += " position=\"sequence-start\""
-        case .firstOnPage: out += " position=\"page-start\""
-        }
-        if let condition = rule.condition {
-            out += " if=\"\(condition.property.rawValue)\" compare=\"\(condition.comparison.rawValue)\" value=\"\(number(condition.value))\""
-        }
-        out += " style=\"\(escapedAttribute(rule.styleName))\""
-        if !rule.isEnabled { out += " enabled=\"off\"" }
-        return out + "/>\n"
-    }
-
     /// Gli attributi dell'aspetto di uno stile di tabella o di una tabella: solo quelli detti.
     static func tableValueAttributes(_ values: TableValues) -> String {
         var out = ""
@@ -880,8 +779,6 @@ public enum DocumentFormat {
 
     public static func document(from data: Data) throws -> Document {
         let reader = Reader()
-        // Un file scritto prima del livello di paragrafazione non ne contiene nessuno: solo lì il nome «Titolo N» lo dice.
-        reader.levelsFromNames = data.range(of: Data("outline-level=".utf8)) == nil && data.range(of: Data("property=\"outlineLevel\"".utf8)) == nil
         let parser = XMLParser(data: data)
         parser.delegate = reader
         let succeeded = parser.parse()
@@ -894,7 +791,8 @@ public enum DocumentFormat {
         if let problem = document.styles.formulaReferenceProblem() { throw DocumentFormatError.malformed(line: 1, detail: problem) }
         do { try ReusableFormulaLibrary(definitions: document.styles.reusableFormulas).validate() }
         catch { throw DocumentFormatError.malformed(line: 1, detail: "Invalid reusable formulas: \(error)") }
-        if document.sourceVersion >= 4, reader.documentStyle.fontName != nil, reader.documentStyle.size != nil {
+        // La base delle formule relative (corpo + 2 pt…): conta solo se qualche stile ha formule.
+        if document.styles.styles.contains(where: { !$0.formulas.isEmpty }), reader.documentStyle.fontName != nil, reader.documentStyle.size != nil {
             document.formulaBase = try reader.documentStyle.resolved(line: 1)
         }
         document.setFlatParagraphs(reader.flatParagraphs)
@@ -1005,10 +903,6 @@ public enum DocumentFormat {
                     }
                     return setting
                 }
-                // Nei file di prima il maiuscoletto stava fra le funzioni: diventa la scelta tipografica.
-                let split = SmallCaps.split(result.features)
-                result.features = split.rest
-                result.smallCaps = split.smallCaps
             }
             if let smallCaps = attributes["small-caps"] {
                 guard let value = SmallCaps(rawValue: smallCaps) else { throw DocumentFormatError.invalidValue(line: line, attribute: "small-caps", value: smallCaps) }
@@ -1089,8 +983,6 @@ public enum DocumentFormat {
     }
 
     private final class Reader: NSObject, XMLParserDelegate {
-        /// Vero per i file precedenti al livello di paragrafazione: gli stili «Titolo N» ricevono il livello N.
-        var levelsFromNames = false
         var error: DocumentFormatError?
         var sawDocument = false
         var settings = Document()
@@ -1282,8 +1174,7 @@ public enum DocumentFormat {
                     settings.language = attributes["lang"].flatMap { $0.isEmpty ? nil : $0 }
                     guard let version = attributes["version"].flatMap(Int.init) else { throw DocumentFormatError.missingAttribute(line: line, attribute: "version") }
                     guard version <= DocumentFormat.version else { throw DocumentFormatError.newerVersion(version) }
-                    settings.sourceVersion = version
-                    if version >= 8 { levelsFromNames = false }
+                    guard version >= DocumentFormat.oldestReadableVersion else { throw DocumentFormatError.olderVersion(version) }
                     sawDocument = true
                     documentStyle = try PartialStyle().applying(attributes, line: line)
                     // La lingua del documento è un'impostazione, non uno stile: il testo che non ne dichiara una resta senza.
@@ -1343,10 +1234,10 @@ public enum DocumentFormat {
                 case ("float-style", "float-styles"):
                     try readFloatStyle(attributes, line: line, parser)
 
-                case ("formula", "style") where settings.sourceVersion >= 4:
+                case ("formula", "style"):
                     try readFormula(attributes, line: line, parser)
 
-                case ("heading", "style") where settings.sourceVersion >= 14:
+                case ("heading", "style"):
                     guard check(attributes, allowed: ["encoding", "data"], element: name, parser) else { return }
                     guard let index = settings.styles.styles.indices.last, settings.styles.styles[index].heading == nil,
                           settings.styles.styles[index].target == .paragraph, attributes["encoding"] == "json-v1",
@@ -1356,7 +1247,7 @@ public enum DocumentFormat {
                     }
                     settings.styles.styles[index].heading = heading
 
-                case ("writes", "style") where settings.sourceVersion >= 16:
+                case ("writes", "style"):
                     guard check(attributes, allowed: ["encoding", "data"], element: name, parser) else { return }
                     guard let index = settings.styles.styles.indices.last, settings.styles.styles[index].writes.isEmpty,
                           settings.styles.styles[index].target == .paragraph, attributes["encoding"] == "json-v1",
@@ -1366,7 +1257,7 @@ public enum DocumentFormat {
                     }
                     settings.styles.styles[index].writes = writes
 
-                case ("variable", "style") where settings.sourceVersion >= 12:
+                case ("variable", "style"):
                     guard check(attributes, allowed: ["id", "name", "expression"], element: name, parser) else { return }
                     guard let index = settings.styles.styles.indices.last,
                           let id = attributes["id"].flatMap(UUID.init(uuidString:)),
@@ -1385,7 +1276,7 @@ public enum DocumentFormat {
                     }
                     sawRules = true
 
-                case ("selection", "rules") where settings.sourceVersion >= 3:
+                case ("selection", "rules"):
                     guard check(attributes, allowed: ["id", "name", "source", "index"], element: name, parser) else { return }
                     guard let id = attributes["id"].flatMap(UUID.init(uuidString:)),
                           let label = attributes["name"], !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -1396,7 +1287,7 @@ public enum DocumentFormat {
                     }
                     settings.styles.selections.append(WordSelection(id: id, name: label, source: source, index: index))
 
-                case ("reusable-formulas", "rules") where settings.sourceVersion >= 10:
+                case ("reusable-formulas", "rules"):
                     guard check(attributes, allowed: ["encoding", "data"], element: name, parser) else { return }
                     guard !sawReusableFormulas, attributes["encoding"] == "json-v1", let encoded = attributes["data"],
                           let data = Data(base64Encoded: encoded) else {
@@ -1407,9 +1298,6 @@ public enum DocumentFormat {
                     do { settings.styles.reusableFormulas = try decoder.decode([ReusableFormula].self, from: data) }
                     catch { throw DocumentFormatError.malformed(line: line, detail: "Unreadable reusable formula definitions") }
                     sawReusableFormulas = true
-
-                case ("rule", "rules"):
-                    try readRule(attributes, line: line, parser)
 
                 case ("section", "document"), ("section", "section"):
                     guard check(attributes, allowed: ["id", "role", "start", "page-type", "even-page-type", "first-page-type", "page-numbering"], element: name, parser) else { return }
@@ -1662,29 +1550,13 @@ public enum DocumentFormat {
                 case ("field", "p"), ("field", "note"):
                     guard check(attributes, allowed: ["kind", "role", "font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines",
                                                       "graphite", "word-style", "char-style", "rules-off", "expression"], element: name, parser) else { return }
-                    let field: Field
-                    // I campi storici si leggono e diventano le formule equivalenti.
-                    switch (attributes["kind"], attributes["role"]) {
-                    case ("page"?, nil): field = Field.page.formula
-                    case ("pages"?, nil): field = Field.pageCount.formula
-                    case ("section-title"?, let role?) where !role.isEmpty: field = Field.sectionTitle(role: role).formula
-                    case ("section-number"?, let role?) where !role.isEmpty: field = Field.sectionNumber(role: role).formula
-                    case ("formula"?, let role):
-                        guard settings.sourceVersion >= 9 else {
-                            throw DocumentFormatError.malformed(line: line, detail: "This formula in the text needs format 9")
-                        }
-                        guard let expression = attributes["expression"], let formula = FieldFormula(expression: expression, role: role) else {
-                            throw DocumentFormatError.invalidValue(line: line, attribute: "expression", value: attributes["expression"] ?? "")
-                        }
-                        guard settings.sourceVersion >= formula.formatVersion else {
-                            throw DocumentFormatError.malformed(line: line, detail: "This formula in the text needs format \(formula.formatVersion)")
-                        }
-                        field = .formula(formula)
-                    default: throw DocumentFormatError.invalidValue(line: line, attribute: "kind", value: attributes["kind"] ?? "")
+                    guard attributes["kind"] == "formula" else {
+                        throw DocumentFormatError.invalidValue(line: line, attribute: "kind", value: attributes["kind"] ?? "")
                     }
-                    if attributes["kind"] != "formula", attributes["expression"] != nil {
+                    guard let expression = attributes["expression"], let formula = FieldFormula(expression: expression, role: attributes["role"]) else {
                         throw DocumentFormatError.invalidValue(line: line, attribute: "expression", value: attributes["expression"] ?? "")
                     }
+                    let field = Field.formula(formula)
                     var runAttributes = attributes
                     runAttributes["kind"] = nil
                     runAttributes["role"] = nil
@@ -1704,7 +1576,7 @@ public enum DocumentFormat {
                 case ("note", "p"):
                     guard check(attributes, allowed: ["font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "style"], element: name, parser) else { return }
                     var noteAttributes = attributes
-                    let floatStyle = noteAttributes.removeValue(forKey: "style").map { $0 == FloatStyle.legacyFootnoteName ? FloatStyle.footnoteName : $0 } ?? FloatStyle.footnoteName
+                    let floatStyle = noteAttributes.removeValue(forKey: "style") ?? FloatStyle.footnoteName
                     guard settings.floatStyles.contains(where: { $0.name == floatStyle }) else {
                         throw DocumentFormatError.invalidValue(line: line, attribute: "style", value: floatStyle)
                     }
@@ -1913,9 +1785,7 @@ public enum DocumentFormat {
 
         /// Un riferimento a un tipo di pagina: deve esistere (o essere il predefinito).
         private func pageTypeName(_ name: String?, attribute: String, line: Int) throws -> String? {
-            guard var name else { return nil }
-            // Il tipo predefinito, con il nome che aveva quando l'interfaccia era in italiano.
-            if name == PageType.legacyDefaultName, !settings.pageTypes.contains(where: { $0.name == name }) { name = PageType.defaultName }
+            guard let name else { return nil }
             guard name == PageType.defaultName || settings.pageTypes.contains(where: { $0.name == name }) else {
                 throw DocumentFormatError.invalidValue(line: line, attribute: attribute, value: name)
             }
@@ -1955,17 +1825,6 @@ public enum DocumentFormat {
                   let property = attributes["property"].flatMap(StyleProperty.init(rawValue:)),
                   let value = attributes["value"] else {
                 throw DocumentFormatError.malformed(line: line, detail: "Formula incomplete, unknown or with a duplicated identity")
-            }
-            let modern = property.isDirective || property == .applyStyle || ["when", "after-style", "if", "compare", "threshold", "find", "count", "selection", "pattern", "words"].contains { attributes[$0] != nil }
-            if settings.sourceVersion < 8, modern { throw DocumentFormatError.malformed(line: line, detail: "This formula needs format 8") }
-            if settings.sourceVersion < 7, attributes["kind"] == "face" {
-                throw DocumentFormatError.malformed(line: line, detail: "The exact face needs format 7")
-            }
-            if settings.sourceVersion < 6, predicate == .subtract {
-                throw DocumentFormatError.malformed(line: line, detail: "Subtract needs format 6")
-            }
-            if settings.sourceVersion < 5, ["family", "color", "smallCaps", "hyphenates"].contains(attributes["kind"] ?? "") {
-                throw DocumentFormatError.malformed(line: line, detail: "This argument needs format 5")
             }
             let argument: StyleArgument
             switch attributes["kind"] {
@@ -2055,7 +1914,6 @@ public enum DocumentFormat {
             if attributes["pattern"] != "list", attributes["words"] != nil { throw DocumentFormatError.malformed(line: line, detail: "Word list without its pattern") }
             var formula = StyleFormula(id: id, operation: StylePropertyOperation(predicate, property, argument), when: StyleCondition(position: position, measurement: measurement), target: target)
             if let encoded = attributes["binding"] {
-                guard settings.sourceVersion >= 11 else { throw DocumentFormatError.malformed(line: line, detail: "Links need format 11") }
                 do { formula.binding = try FormulaCodec.decode(FormulaExpression.self, encoded) }
                 catch { throw DocumentFormatError.malformed(line: line, detail: "Invalid formula link") }
             }
@@ -2067,8 +1925,7 @@ public enum DocumentFormat {
         /// Legge un elemento `style` della sezione degli stili.
         private func readStyle(_ attributes: [String: String], line: Int, _ parser: XMLParser) throws {
             let measures = ["first-indent", "left-indent", "right-indent", "space-before", "space-after", "line-spacing", "line-height"]
-            let contextual = (settings.sourceVersion >= 2 ? ["page-start-spacing"] : []) + (settings.sourceVersion >= 8 ? ["next-style"] : [])
-            guard check(attributes, allowed: Set(contextual + measures + ["name", "target", "based-on", "font", "family", "italic", "bold", "size", "features", "axes", "optical",
+            guard check(attributes, allowed: Set(["page-start-spacing", "next-style"] + measures + ["name", "target", "based-on", "font", "family", "italic", "bold", "size", "features", "axes", "optical",
                                                              "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "align", "in-list", "opens-section", "opening-distance", "outline-level", "rules"] + LineKeeping.attributeNames), element: "style", parser) else { return }
             guard let name = attributes["name"], !name.isEmpty else { throw DocumentFormatError.missingAttribute(line: line, attribute: "name") }
             guard settings.styles.style(named: name) == nil else { throw DocumentFormatError.invalidValue(line: line, attribute: "name", value: name) }
@@ -2121,15 +1978,6 @@ public enum DocumentFormat {
                 values.features = try features.split(whereSeparator: \.isWhitespace).map { token in
                     guard let setting = parseFeature(String(token)) else { throw DocumentFormatError.invalidValue(line: line, attribute: "features", value: String(token)) }
                     return setting
-                }
-                // Nei file di prima il maiuscoletto stava fra le funzioni (lo stile «Maiuscoletto» chiedeva le sue tre
-                // forme): diventa la scelta tipografica, e un elenco fatto solo di quello non fissa più funzioni.
-                if let given = values.features {
-                    let split = SmallCaps.split(given)
-                    if split.smallCaps != .off {
-                        values.smallCaps = split.smallCaps
-                        values.features = split.rest.isEmpty ? nil : split.rest
-                    }
                 }
             }
             if let smallCaps = attributes["small-caps"] {
@@ -2192,83 +2040,9 @@ public enum DocumentFormat {
                     throw DocumentFormatError.invalidValue(line: line, attribute: "outline-level", value: text)
                 }
                 values.outlineLevel = level
-            } else if levelsFromNames, target == .paragraph, let legacy = DocumentOutline.headingLevel(of: name) {
-                // Migrazione: nei file precedenti il livello era implicito nel nome «Titolo N».
-                values.outlineLevel = legacy
             }
             settings.styles.styles.append(NamedStyle(name: name, target: target, basedOn: attributes["based-on"], values: values))
             styleLines[name] = line
-        }
-
-        /// Legge un elemento `rule`. Gli stili a cui rimanda devono essere già stati letti.
-        private func readRule(_ attributes: [String: String], line: Int, _ parser: XMLParser) throws {
-            let refs: Set<String> = settings.sourceVersion >= 3 && attributes["find"] == "selection" ? ["ref"] : []
-            guard check(attributes, allowed: refs.union(["find", "count", "pattern", "list", "in", "after", "position", "if", "compare", "value", "style", "enabled"]),
-                        element: "rule", parser) else { return }
-            func paragraphStyle(_ attribute: String) throws -> String? {
-                guard let name = attributes[attribute] else { return nil }
-                guard settings.styles.style(named: name)?.target == .paragraph else { throw DocumentFormatError.invalidValue(line: line, attribute: attribute, value: name) }
-                return name
-            }
-            guard let find = attributes["find"] else { throw DocumentFormatError.missingAttribute(line: line, attribute: "find") }
-            let target: TextRule.Target
-            switch find {
-            case "selection" where settings.sourceVersion >= 3:
-                guard let id = attributes["ref"].flatMap(UUID.init(uuidString:)), settings.styles.selections.contains(where: { $0.id == id }) else {
-                    throw DocumentFormatError.invalidValue(line: line, attribute: "ref", value: attributes["ref"] ?? "")
-                }
-                target = .selection(id)
-            case "first-letter": target = .firstLetter
-            case "first-sentence": target = .firstSentence
-            case "first-words", "first-lines":
-                guard let text = attributes["count"] else { throw DocumentFormatError.missingAttribute(line: line, attribute: "count") }
-                guard let count = Int(text), count >= 1 else { throw DocumentFormatError.invalidValue(line: line, attribute: "count", value: text) }
-                target = find == "first-words" ? .firstWords(count) : .firstLines(count)
-            case "last-line": target = .lastLine
-            case "paragraph": target = .paragraph
-            case "words":
-                guard let pattern = attributes["pattern"] else { throw DocumentFormatError.missingAttribute(line: line, attribute: "pattern") }
-                switch pattern {
-                case "capitals": target = .words(.capitals)
-                case "roman": target = .words(.romanNumerals)
-                case "numbers": target = .words(.numbers)
-                case "list": target = .words(.listed((attributes["list"] ?? "").split(whereSeparator: \.isWhitespace).map(String.init)))
-                default: throw DocumentFormatError.invalidValue(line: line, attribute: "pattern", value: pattern)
-                }
-            default: throw DocumentFormatError.invalidValue(line: line, attribute: "find", value: find)
-            }
-            var position = TextRule.Position.any
-            if let after = try paragraphStyle("after") { position = .firstAfter(after) }
-            if let value = attributes["position"] {
-                guard ["sequence-start", "page-start"].contains(value), attributes["after"] == nil else {
-                    throw DocumentFormatError.invalidValue(line: line, attribute: "position", value: value)
-                }
-                position = value == "sequence-start" ? .sequenceStart : .firstOnPage
-            }
-            var condition: TextRule.Condition?
-            if let name = attributes["if"] {
-                guard let property = TextRule.Condition.Property(rawValue: name) else { throw DocumentFormatError.invalidValue(line: line, attribute: "if", value: name) }
-                let compareText = attributes["compare"] ?? "eq"
-                guard let comparison = TextRule.Condition.Comparison(rawValue: compareText) else {
-                    throw DocumentFormatError.invalidValue(line: line, attribute: "compare", value: compareText)
-                }
-                guard let valueText = attributes["value"] else { throw DocumentFormatError.missingAttribute(line: line, attribute: "value") }
-                guard let value = DocumentFormat.finiteNumber(valueText) else { throw DocumentFormatError.invalidValue(line: line, attribute: "value", value: valueText) }
-                condition = TextRule.Condition(property, comparison, value)
-            } else if let stray = ["compare", "value"].first(where: { attributes[$0] != nil }) {
-                throw DocumentFormatError.invalidValue(line: line, attribute: stray, value: attributes[stray]!)
-            }
-            guard let styleName = attributes["style"] else { throw DocumentFormatError.missingAttribute(line: line, attribute: "style") }
-            guard let style = settings.styles.style(named: styleName), style.target != .paragraph || target == .paragraph else {
-                throw DocumentFormatError.invalidValue(line: line, attribute: "style", value: styleName)
-            }
-            var enabled = true
-            if let value = attributes["enabled"] {
-                guard ["on", "off"].contains(value) else { throw DocumentFormatError.invalidValue(line: line, attribute: "enabled", value: value) }
-                enabled = value == "on"
-            }
-            settings.rules.append(TextRule(target: target, paragraphStyle: try paragraphStyle("in"), position: position, condition: condition,
-                                           styleName: styleName, isEnabled: enabled))
         }
 
         /// Legge un elemento `float-style`. Le Liste e gli stili a cui rimanda devono essere già stati letti.
@@ -2276,9 +2050,7 @@ public enum DocumentFormat {
             guard check(attributes, allowed: ["name", "placement", "positions", "caption", "heading", "new-page", "list", "reference", "rule", "rule-length", "space-above",
                                               "space-below", "split", "content", "pages", "edge"],
                         element: "float-style", parser) else { return }
-            guard var name = attributes["name"], !name.isEmpty else { throw DocumentFormatError.missingAttribute(line: line, attribute: "name") }
-            // Lo stile delle note a piè di pagina, con il nome che aveva quando l'interfaccia era in italiano.
-            if name == FloatStyle.legacyFootnoteName { name = FloatStyle.footnoteName }
+            guard let name = attributes["name"], !name.isEmpty else { throw DocumentFormatError.missingAttribute(line: line, attribute: "name") }
             var style = FloatStyle(name: name)
             if let list = attributes["list"] {
                 guard settings.lists.contains(where: { $0.name == list }) else { throw DocumentFormatError.invalidValue(line: line, attribute: "list", value: list) }
@@ -2496,6 +2268,7 @@ public enum DocumentFormatError: Error, Equatable, LocalizedError {
     case missingAttribute(line: Int, attribute: String)
     case invalidValue(line: Int, attribute: String, value: String)
     case newerVersion(Int)
+    case olderVersion(Int)
 
     public var errorDescription: String? {
         switch self {
@@ -2506,6 +2279,8 @@ public enum DocumentFormatError: Error, Equatable, LocalizedError {
         case .missingAttribute(let line, let attribute): "Line \(line): “\(attribute)” is missing (neither here nor in the outer levels)"
         case .invalidValue(let line, let attribute, let value): "Line \(line): value “\(value)” is not valid for “\(attribute)”"
         case .newerVersion(let version): "The file is in version \(version) of the format, newer than the one this app knows (\(DocumentFormat.version))"
+        case .olderVersion(let version):
+            "The file is in version \(version) of the format, written by a development version of GRIFFR: this app reads version \(DocumentFormat.oldestReadableVersion) and later"
         }
     }
 }

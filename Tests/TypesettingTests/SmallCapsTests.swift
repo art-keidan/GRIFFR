@@ -14,34 +14,6 @@ extension TypesettingSuite {
             return FontFeatures.settings(of: font as CTFont)
         }
 
-        @Test("Un file di prima: le forme del maiuscoletto fra le funzioni diventano la proprietà, e si riscrivono così")
-        func oldFile() throws {
-            let document = try DocumentFormat.document(from: """
-            <document version="1" font="HoeflerText-Regular" size="12">
-            <styles>
-            <style name="Maiuscoletto" target="character" features="3/3 37/1 smcp=1"/>
-            <style name="Sigle e legature" target="character" features="38/1 c2sc=1 1/4"/>
-            </styles>
-            <p>Testo con <t features="3/3">maiuscoletto</t> e <t char-style="Maiuscoletto">stile</t>.</p>
-            </document>
-            """)
-            let caps = try #require(document.styles.style(named: "Maiuscoletto")?.values)
-            #expect(caps.smallCaps == .lowercase)
-            #expect(caps.features == nil, "lo stile non fissa più funzioni")
-            let mixed = try #require(document.styles.style(named: "Sigle e legature")?.values)
-            #expect(mixed.smallCaps == .uppercase)
-            #expect(mixed.features == [.aat(type: 1, selector: 4)], "le altre funzioni restano")
-            guard case .paragraph(let paragraph) = document.blocks[0], case .text(let run) = paragraph.inlines[1] else {
-                Issue.record("il paragrafo manca"); return
-            }
-            #expect(run.style.smallCaps == .lowercase && run.style.features == [])
-            let written = DocumentFormat.string(for: document)
-            #expect(written.contains("<t small-caps=\"lowercase\">maiuscoletto</t>"))
-            #expect(written.contains("<style name=\"Maiuscoletto\" target=\"character\" small-caps=\"lowercase\"/>"))
-            #expect(!written.contains("3/3"))
-            #expect(try DocumentFormat.document(from: written) == document)
-        }
-
         @Test("Nel file il maiuscoletto si eredita, ma si ripete dove cambiano font o funzioni: la rilettura è identica")
         func inheritanceRoundTrip() throws {
             let caps = CharacterStyle(fontName: "HoeflerText-Regular", size: 12, smallCaps: .lowercase)

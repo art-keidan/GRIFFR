@@ -76,7 +76,7 @@ extension TypesettingSuite {
         func fileErrors() {
             func error(_ paragraph: String) -> DocumentFormatError? {
                 do {
-                    _ = try DocumentFormat.document(from: "<document version=\"1\" font=\"X\" size=\"12\">\n\(paragraph)\n</document>")
+                    _ = try DocumentFormat.document(from: "<document version=\"18\" font=\"X\" size=\"12\">\n\(paragraph)\n</document>")
                     return nil
                 } catch { return error as? DocumentFormatError }
             }

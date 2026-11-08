@@ -88,11 +88,11 @@ struct WrittenResultTests {
         let writes = [WrittenResult(formula: .sectionContainingNumber(role: "chapter"), place: .before, prefix: "§ ", suffix: " ", style: "Emphasis"),
                       WrittenResult(formula: .documentPageCount, place: .after, prefix: " / ")]
         let xml = DocumentFormat.string(for: document(writes))
-        #expect(xml.contains("version=\"16\"") && xml.contains("<writes encoding=\"json-v1\""))
+        #expect(xml.contains("version=\"18\"") && xml.contains("<writes encoding=\"json-v1\""))
         let read = try DocumentFormat.document(from: xml)
         #expect(read.styles.style(named: "Rimando")?.writes == writes)
         #expect(DocumentFormat.string(for: read) == xml)
-        #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"16\"", with: "version=\"15\"")) }
+        #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"18\"", with: "version=\"15\"")) }
         #expect(WrittenResult(formula: .pageContainingNumber, place: .after, prefix: "a\nb").problem != nil)
     }
 }

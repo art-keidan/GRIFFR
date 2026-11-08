@@ -34,14 +34,6 @@ public enum DocumentOutline {
     /// Le parole iniziali mostrate per un oggetto.
     static let titleLength = 48
 
-    /// Compatibilità con i documenti precedenti: il livello dal nome «Titolo N» si usa soltanto quando il testo non
-    /// porta ancora la proprietà esplicita `.outlineLevel`.
-    public static func headingLevel(of styleName: String?) -> Int? {
-        guard let styleName, styleName.hasPrefix("Titolo") else { return nil }
-        let rest = styleName.dropFirst("Titolo".count).trimmingCharacters(in: .whitespaces)
-        return rest.isEmpty ? 1 : Int(rest)
-    }
-
     /// L'albero del testo: i titoli fanno da rami, il resto sta sotto il titolo che lo precede. Con almeno una sezione i
     /// rami sono le sezioni, secondo la loro profondità; senza sezioni, si usa il livello di paragrafazione registrato.
     public static func build(text: NSAttributedString, layout: DocumentLayout?, floatStyles: [FloatStyle]) -> [OutlineItem] {
@@ -88,7 +80,7 @@ public enum DocumentOutline {
             // Il paragrafo vuoto in fondo al testo non è un oggetto da mostrare.
             if words.isEmpty, !hasNotes, NSMaxRange(paragraph) >= text.length, sectionAt[paragraph.location] == nil { continue }
             let recordedLevel = (text.attribute(.outlineLevel, at: paragraph.location, effectiveRange: nil) as? NSNumber)?.intValue
-            let level = recordedLevel.map { $0 > 0 ? $0 : nil } ?? (recordedLevel == nil ? headingLevel(of: style) : nil)
+            let level = recordedLevel.flatMap { $0 > 0 ? $0 : nil }
             if let section = sectionAt[paragraph.location], paragraph.length > 0 {
                 flat.append(sectionItem(section, words: words, style: style, number: layout?.listMarks[paragraph.location]))
             } else if sections.isEmpty, let level {

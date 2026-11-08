@@ -54,11 +54,11 @@ cat > $app/Contents/Info.plist <<'PLIST'
     <array>
         <dict>
             <key>UTTypeIdentifier</key><string>local.wordprocessor.document</string>
-            <key>UTTypeDescription</key><string>Documento GRIFFR</string>
+            <key>UTTypeDescription</key><string>GRIFFR Document</string>
             <key>UTTypeIconFile</key><string>GRIFFR-documento</string>
             <key>UTTypeConformsTo</key><array><string>public.xml</string></array>
             <key>UTTypeTagSpecification</key>
-            <dict><key>public.filename-extension</key><array><string>grx</string><string>wpx</string></array></dict>
+            <dict><key>public.filename-extension</key><array><string>grx</string></array></dict>
         </dict>
     </array>
 </dict>

@@ -1,36 +1,35 @@
 import Foundation
 
 extension StyleSheet {
-    /// Compila le formule di resa nel motore di regole esistente. La definizione
-    /// resta nello stile; gli stili tecnici prodotti qui vivono solo nella composizione.
-    public func compilingStyleRules(_ historical: [TextRule]) -> (sheet: StyleSheet, rules: [TextRule]) {
+    /// Compila le formule contestuali degli stili nelle regole del motore. La definizione resta nello stile; le regole e
+    /// gli stili tecnici prodotti qui vivono solo nella composizione.
+    public func compilingStyleRules() -> (sheet: StyleSheet, rules: [TextRule]) {
         // A ogni modifica la compilazione si chiede da più parti (impaginazione, regole, ispettore, fatti) con lo stesso
         // foglio: l'ultima si ricorda. Il confronto costa meno di un microsecondo, la compilazione millisecondi.
         CompilationCache.lock.lock()
         if let cached = CompilationCache.last {
             // Il foglio di partenza, o quello già compilato che l'impaginazione passa alle regole: compilarlo di nuovo
             // darebbe lo stesso risultato.
-            if (cached.sheet == self && cached.historical == historical) ||
-                (cached.result.sheet == self && cached.result.rules == historical) {
+            if cached.sheet == self || cached.result.sheet == self {
                 CompilationCache.lock.unlock()
                 return cached.result
             }
         }
         CompilationCache.lock.unlock()
-        let result = compilingStyleRulesUncached(historical)
+        let result = compilingStyleRulesUncached()
         CompilationCache.lock.lock()
-        CompilationCache.last = (self, historical, result)
+        CompilationCache.last = (self, result)
         CompilationCache.lock.unlock()
         return result
     }
 
-    private func compilingStyleRulesUncached(_ historical: [TextRule]) -> (sheet: StyleSheet, rules: [TextRule]) {
+    private func compilingStyleRulesUncached() -> (sheet: StyleSheet, rules: [TextRule]) {
         // Le formule riutilizzabili si espandono prima. Se non si possono risolvere (un riferimento rotto: il file e il
         // compositore non lo lasciano entrare, ma un foglio costruito altrove sì), si compone senza espanderle; l'editor
         // lo segnala fra gli avvisi con `formulaReferenceProblem`.
         do {
             let resolved = try resolvingReusable()
-            if resolved != self { return resolved.compilingStyleRulesUncached(historical) }
+            if resolved != self { return resolved.compilingStyleRulesUncached() }
         } catch {}
         var compiled = self
         var generated: [TextRule] = []
@@ -61,7 +60,7 @@ extension StyleSheet {
                 }
             }
         }
-        return (compiled, historical.filter { $0.formulaOwner == nil } + generated)
+        return (compiled, generated)
     }
 
     /// Riferimenti che il file e il compositore possono verificare dopo avere letto tutti gli stili.
@@ -111,7 +110,7 @@ extension StyleSheet {
 /// L'ultima compilazione delle formule (vedi `compilingStyleRules`).
 private enum CompilationCache {
     static let lock = NSLock()
-    nonisolated(unsafe) static var last: (sheet: StyleSheet, historical: [TextRule], result: (sheet: StyleSheet, rules: [TextRule]))?
+    nonisolated(unsafe) static var last: (sheet: StyleSheet, result: (sheet: StyleSheet, rules: [TextRule]))?
 }
 
 /// Gli stili tecnici che la compilazione delle formule aggiunge al foglio: vivono solo nella composizione, mai nel file

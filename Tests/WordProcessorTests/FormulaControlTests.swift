@@ -113,7 +113,7 @@ struct FormulaControlTests {
         let h = EditorHarness()
         defer { h.close() }
         let xml = """
-        <document version="6" font="HoeflerText-Regular" size="14"><styles><style name="P" target="paragraph">
+        <document version="18" font="HoeflerText-Regular" size="14"><styles><style name="P" target="paragraph">
         <formula id="7F6DC1BB-29CF-4AF2-A253-00F000000001" predicate="subtract" property="size" kind="length" value="2" unit="pt"/>
         </style></styles><p style="P">Prova</p></document>
         """

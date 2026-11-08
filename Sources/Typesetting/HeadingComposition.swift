@@ -55,23 +55,6 @@ public struct HeadingComposition: Hashable, Sendable, Codable {
         return nil
     }
 
-    /// Vero se la testata usa ciò che il formato 14 non sapeva scrivere: il numero accanto al titolo, o allineamento e
-    /// altezza propri del titolo (formato 15).
-    public var needsVersion15: Bool {
-        parts.contains { part in
-            switch part {
-            case .numberBeside: true
-            case .title(let alignment, let minHeight): alignment != nil || minHeight != nil
-            default: false
-            }
-        }
-    }
-
-    /// Vero se la testata scrive il risultato di una formula (formato 16).
-    public var needsVersion16: Bool {
-        parts.contains { if case .result = $0 { true } else { false } }
-    }
-
     /// Vero se una parte «risultato» legge il numero delle pagine, che si sa solo a composizione finita.
     var readsPageCount: Bool {
         parts.contains { if case .result(let formula, _, _, _, _) = $0 { formula.reading == .pageCount } else { false } }

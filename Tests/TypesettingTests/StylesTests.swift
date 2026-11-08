@@ -108,7 +108,7 @@ extension TypesettingSuite {
         @Test("Il livello di paragrafazione si salva sullo stile e sul paragrafo; zero toglie quello ereditato")
         func outlineLevelInFile() throws {
             let document = try DocumentFormat.document(from: """
-            <document version="1" font="HoeflerText-Regular" size="12">
+            <document version="18" font="HoeflerText-Regular" size="12">
             <styles>
             <style name="Testo" target="paragraph"/>
             <style name="Titolo 1" target="paragraph" based-on="Testo" outline-level="1"/>
@@ -135,30 +135,10 @@ extension TypesettingSuite {
             #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: characterStyle) }
         }
 
-        @Test("I vecchi stili «Titolo N» senza proprietà ricevono il livello una volta sola")
-        func migratesOutlineLevel() throws {
-            let document = try DocumentFormat.document(from: """
-            <document version="1" font="HoeflerText-Regular" size="12">
-            <styles>
-            <style name="Testo" target="paragraph"/>
-            <style name="Titolo 1" target="paragraph" based-on="Testo"/>
-            <style name="Titolo 2" target="paragraph" based-on="Testo"/>
-            </styles>
-            <p style="Titolo 1">Primo</p>
-            <p style="Titolo 2">Secondo</p>
-            </document>
-            """)
-            #expect(document.styles.style(named: "Titolo 1")?.values.outlineLevel == 1)
-            #expect(document.styles.style(named: "Titolo 2")?.values.outlineLevel == 2)
-            let written = DocumentFormat.string(for: document)
-            #expect(written.contains("<style name=\"Titolo 1\" target=\"paragraph\" based-on=\"Testo\" outline-level=\"1\"/>"))
-            #expect(written.contains("<style name=\"Titolo 2\" target=\"paragraph\" based-on=\"Testo\" outline-level=\"2\"/>"))
-        }
-
         @Test("In un file che conosce già il livello, il nome «Titolo N» non lo dà; salvato e riaperto, resta senza")
         func nameDoesNotGiveLevelInNewFiles() throws {
             let document = try DocumentFormat.document(from: """
-            <document version="1" font="HoeflerText-Regular" size="12">
+            <document version="18" font="HoeflerText-Regular" size="12">
             <styles>
             <style name="Capitolo" target="paragraph" outline-level="1"/>
             <style name="Titolo 2" target="paragraph"/>
@@ -177,13 +157,13 @@ extension TypesettingSuite {
             let document = Document(blocks: [.paragraph(Paragraph(inlines: [.text(TextRun("Testo", style: plain))]))])
             let written = DocumentFormat.string(for: document)
             #expect(!written.contains("<styles>") && !written.contains("style="))
-            #expect(written.contains("<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\">"))
+            #expect(written.contains("<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\">"))
         }
 
         @Test("Errori nel file: stile inesistente, della specie sbagliata, catena circolare, stili dopo i paragrafi, nome ripetuto")
         func errors() {
             func error(_ body: String) -> DocumentFormatError? {
-                do { _ = try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\">\n\(body)\n</document>"); return nil }
+                do { _ = try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\">\n\(body)\n</document>"); return nil }
                 catch { return error as? DocumentFormatError }
             }
             let styles = "<styles>\n<style name=\"Testo\" target=\"paragraph\"/>\n<style name=\"Enfasi\" target=\"character\" italic=\"on\"/>\n</styles>"

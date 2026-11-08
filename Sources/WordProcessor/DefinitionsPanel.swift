@@ -3,13 +3,13 @@ import Combine
 import SwiftUI
 import Typesetting
 
-/// Il pannello dell'interfaccia avanzata: le schede Ispettore, Liste, Flottanti, Regole. Nelle schede delle
+/// Il pannello dell'interfaccia avanzata: la selezione e le schede delle definizioni (stili, liste, flottanti, pagine, tabelle). Nelle schede delle
 /// definizioni ogni modifica passa al documento da sola, dopo una breve pausa (così scrivere un nome non fa un passo di
 /// «Annulla» per lettera); se il documento cambia per altre vie (Annulla, Ripeti, Incolla), le schede si ricaricano.
 @MainActor
 final class DefinitionsPanel {
     enum Tab: Int, CaseIterable {
-        case selection, styles, lists, floats, rules, pages, tables
+        case selection, styles, lists, floats, pages, tables
 
         var title: String {
             switch self {
@@ -17,7 +17,6 @@ final class DefinitionsPanel {
             case .styles: "Styles"
             case .lists: "Lists"
             case .floats: "Floats"
-            case .rules: "Rules"
             case .pages: "Pages"
             case .tables: "Tables"
             }
@@ -28,7 +27,7 @@ final class DefinitionsPanel {
     /// Le due viste del pannello: la selezione e le definizioni del documento.
     private let mode = BandSegments([
         .init(label: "Selection", image: nil, help: "The paragraph of the cursor: design it on the page"),
-        .init(label: "Definitions", image: nil, help: "Styles, lists, floats, rules, pages and tables of the document"),
+        .init(label: "Definitions", image: nil, help: "Styles, lists, floats, pages and tables of the document"),
     ], help: "Detailed tools section")
     /// Le definizioni, una per tipo: si vedono solo nella vista Definitions.
     private let kinds = BandSegments(Tab.allCases.dropFirst().map { .init(label: $0.title, image: nil, help: $0.title) },
@@ -42,7 +41,6 @@ final class DefinitionsPanel {
 
     private(set) var lists: ListsSheetModel?
     private(set) var floats: FloatStylesSheetModel?
-    private(set) var rules: RulesSheetModel?
     private(set) var pageTypes: PageTypesSheetModel?
     private(set) var tableStyles: TableStylesSheetModel?
     private var watchers: [Tab: AnyCancellable] = [:]
@@ -53,7 +51,6 @@ final class DefinitionsPanel {
     /// Applicano al documento ciò che dice una scheda; vero se il documento è cambiato.
     var applyLists: ((ListsSheetModel.Result) -> Bool)?
     var applyFloats: ((FloatStylesSheetModel.Result) -> Bool)?
-    var applyRules: ((RulesSheetModel.Result) -> Bool)?
     var applyPageTypes: ((PageTypesSheetModel.Result) -> Bool)?
     var applyTableStyles: ((TableStylesSheetModel.Result) -> Bool)?
     /// La scheda Stili: il modello lo prepara l'editor, che lo tiene in pari (`refreshStyles`).
@@ -134,15 +131,6 @@ final class DefinitionsPanel {
         if let host = hosts[tab] { place(host) }
     }
 
-    /// Mostra la scheda Regole con la regola `index` scelta.
-    func showRule(at index: Int) {
-        show(.rules)
-        guard let rules, rules.rows.indices.contains(index) else { return }
-        isAdjusting = true
-        rules.selection = rules.rows[index].id
-        isAdjusting = false
-    }
-
     /// Applica subito le modifiche in attesa della pausa.
     func flushPending() {
         onFlush?()
@@ -166,7 +154,7 @@ final class DefinitionsPanel {
     /// Il documento è cambiato: le schede già costruite che non dicono più ciò che dice il documento si ricaricano.
     /// Non durante una modifica in attesa di essere applicata: sarà lei a portare il documento in pari.
     func documentChanged() {
-        for tab in [Tab.lists, .floats, .rules, .pages, .tables] where hosts[tab] != nil && pending[tab] == nil { reload(tab, force: false) }
+        for tab in [Tab.lists, .floats, .pages, .tables] where hosts[tab] != nil && pending[tab] == nil { reload(tab, force: false) }
         if hosts[.styles] != nil { refreshStyles?() }
     }
 
@@ -197,13 +185,6 @@ final class DefinitionsPanel {
             if let selected, let row = model.rows.first(where: { $0.style.name == selected }) { model.selection = row.id }
             floats = model
             install(tab, model, FloatStylesSheetView(model: model))
-        case .rules:
-            if !force, let rules, rules.result().rules == document.rules, rules.selections == document.styles.selections { return }
-            let selected = rules?.selectedIndex
-            let model = RulesSheetModel(rules: document.rules, styles: document.styles)
-            if let selected, model.rows.indices.contains(selected) { model.selection = model.rows[selected].id }
-            rules = model
-            install(tab, model, RulesSheetView(model: model))
         case .pages:
             if !force, let pageTypes, pageTypes.result().types == document.pageTypes { return }
             let selected = pageTypes?.selectedIndex.flatMap { pageTypes?.rows[$0].type.name }
@@ -260,11 +241,6 @@ final class DefinitionsPanel {
         case .floats:
             guard let floats, floats.problem == nil else { return }
             if applyFloats?(floats.result()) == true { floats.markApplied() }
-        case .rules:
-            guard let rules, rules.problem == nil else { return }
-            let result = rules.result()
-            // Gli stili predefiniti aggiunti ora fanno parte del documento: la scheda li deve conoscere come tali.
-            if applyRules?(result) == true, !result.addedStyles.isEmpty { reload(.rules, force: true) }
         case .pages:
             guard let pageTypes, pageTypes.problem == nil else { return }
             if applyPageTypes?(pageTypes.result()) == true { pageTypes.markApplied() }

@@ -220,13 +220,13 @@ extension TypesettingSuite {
             #expect(Document(attributedString: text, settings: document.settingsOnly) == document)
 
             #expect(throws: DocumentFormatError.invalidValue(line: 1, attribute: "axes", value: "pesante=2")) {
-                try DocumentFormat.document(from: "<document version=\"1\" font=\"Skia-Regular\" size=\"12\" axes=\"pesante=2\"></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" font=\"Skia-Regular\" size=\"12\" axes=\"pesante=2\"></document>")
             }
         }
 
         @Test("Un file che nomina una faccia (Skia Bold) si apre, e al salvataggio diventa base più assi")
         func namedInstanceInFile() throws {
-            let document = try DocumentFormat.document(from: "<document version=\"1\" font=\"Skia-Regular_Bold\" size=\"12\"><p>Nero</p></document>")
+            let document = try DocumentFormat.document(from: "<document version=\"18\" font=\"Skia-Regular_Bold\" size=\"12\"><p>Nero</p></document>")
             let normalized = Document(attributedString: document.attributedString().text, settings: document.settingsOnly)
             #expect(DocumentFormat.string(for: normalized).contains("font=\"Skia-Regular\" size=\"12\" axes=\"wght=1.9499\""))
         }

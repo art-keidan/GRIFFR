@@ -117,8 +117,8 @@ enum MainMenu {
         lists.addItem(withTitle: "Increase Level (Tab)", action: #selector(EditorWindowController.increaseListLevel(_:)), keyEquivalent: "")
         lists.addItem(withTitle: "Decrease Level (Shift-Tab)", action: #selector(EditorWindowController.decreaseListLevel(_:)), keyEquivalent: "")
         format.addItem(withTitle: "List", action: nil, keyEquivalent: "").submenu = lists
-        // Gli stili si scelgono nel righello (paragrafo) e nel Ribbon (parola e carattere); Liste, stili di flottante e
-        // regole si definiscono nelle schede dell'avanzata; le misure di un'immagine con un doppio clic su di lei.
+        // Gli stili si scelgono nel righello (paragrafo) e nel Ribbon (parola e carattere); Liste e stili di flottante si
+        // definiscono nelle schede dell'avanzata, le formule contestuali nel compositore degli stili; le misure di un'immagine con un doppio clic su di lei.
         format.addItem(.separator())
         format.addItem(withTitle: "Style Composer…", action: #selector(EditorWindowController.openStyleComposer(_:)), keyEquivalent: "")
         format.addItem(withTitle: "New Style from Selection…", action: #selector(EditorWindowController.newStyleFromSelection(_:)), keyEquivalent: "")

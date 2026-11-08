@@ -28,7 +28,7 @@ extension TypesettingSuite {
         func written() {
             #expect(DocumentFormat.string(for: sample()) == """
             <?xml version="1.0" encoding="UTF-8"?>
-            <document version="1" font="HoeflerText-Regular" size="12">
+            <document version="18" font="HoeflerText-Regular" size="12">
             <page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
             <p font="Vulcanius" size="36" features="17/3">\u{10339}\u{10343} \u{10332}\u{10342}</p>
             <p>Testo con <t small-caps="lowercase">maiuscoletto</t> e fine.</p>
@@ -49,7 +49,7 @@ extension TypesettingSuite {
                 .paragraph(Paragraph(inlines: [.text(TextRun("asdf", style: caps))])),
             ])
             let written = DocumentFormat.string(for: document)
-            #expect(written.contains("<document version=\"1\" font=\"HoeflerText-Regular\" size=\"24\">"))
+            #expect(written.contains("<document version=\"18\" font=\"HoeflerText-Regular\" size=\"24\">"))
             #expect(written.contains("<p>ct st <t small-caps=\"lowercase\">Small Caps</t></p>"))
             #expect(written.contains("<p small-caps=\"lowercase\">asdf</p>"))
             #expect(try DocumentFormat.document(from: written) == document)
@@ -69,7 +69,7 @@ extension TypesettingSuite {
                 .paragraph(Paragraph(inlines: [.text(TextRun("", style: latin))])),
             ])
             let written = DocumentFormat.string(for: document)
-            #expect(written.contains("<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\" lang=\"it\">"))
+            #expect(written.contains("<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\" lang=\"it\">"))
             #expect(written.contains("<p>Disse: <t lang=\"la\">veni, vidi, vici</t>.</p>"))
             #expect(written.contains("<p lang=\"la\">Gallia est omnis divisa<note lang=\"\">Nota in italiano con <t lang=\"grc\">λόγος</t></note> in partes tres.</p>"))
             #expect(written.contains("<p lang=\"la\"/>"))
@@ -105,7 +105,7 @@ extension TypesettingSuite {
         @Test("Chi cambia font non eredita le funzioni; features vuoto le azzera")
         func inheritance() throws {
             let document = try DocumentFormat.document(from: """
-            <document version="1" font="HoeflerText-Regular" size="12" features="21/1">
+            <document version="18" font="HoeflerText-Regular" size="12" features="21/1">
             <p>a<t features="">b</t><t font="Vulcanius">c</t><t size="9">d</t></p>
             <p font="Brill-Roman" features="cv01=2 smcp=1">e</p>
             </document>
@@ -118,9 +118,9 @@ extension TypesettingSuite {
                 .text(TextRun("c", style: CharacterStyle(fontName: "Vulcanius", size: 12))),
                 .text(TextRun("d", style: CharacterStyle(fontName: "HoeflerText-Regular", size: 9, features: [.aat(type: 21, selector: 1)]))),
             ])
-            // `smcp` fra le funzioni è il maiuscoletto dei file di prima: diventa la scelta tipografica.
+            // Il maiuscoletto si chiede con `small-caps`: `smcp` fra le funzioni resta una funzione come le altre.
             #expect(second.inlines == [.text(TextRun("e", style: CharacterStyle(
-                fontName: "Brill-Roman", size: 12, features: [.openType(tag: "cv01", value: 2)], smallCaps: .lowercase)))])
+                fontName: "Brill-Roman", size: 12, features: [.openType(tag: "cv01", value: 2), .openType(tag: "smcp", value: 1)])))])
         }
 
         @Test("L'interruttore di trak si salva solo quando è spento")
@@ -129,10 +129,10 @@ extension TypesettingSuite {
             #expect(!DocumentFormat.string(for: document).contains("trak="))
             document.appliesFontTracking = false
             let written = DocumentFormat.string(for: document)
-            #expect(written.contains("<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\" trak=\"off\">"))
+            #expect(written.contains("<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\" trak=\"off\">"))
             #expect(try DocumentFormat.document(from: written) == document)
             #expect(throws: DocumentFormatError.invalidValue(line: 1, attribute: "trak", value: "forse")) {
-                try DocumentFormat.document(from: "<document version=\"1\" trak=\"forse\"></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" trak=\"forse\"></document>")
             }
         }
 
@@ -145,12 +145,12 @@ extension TypesettingSuite {
             #expect(written.contains("expansion=\"2.5\""))
             #expect(try DocumentFormat.document(from: written) == document)
             #expect(document.layoutOptions.glyphExpansionLimit == 0.025)
-            #expect(try DocumentFormat.document(from: "<document version=\"1\" expansion=\"0\"></document>").glyphExpansionLimit == 0)
+            #expect(try DocumentFormat.document(from: "<document version=\"18\" expansion=\"0\"></document>").glyphExpansionLimit == 0)
             #expect(throws: DocumentFormatError.invalidValue(line: 1, attribute: "expansion", value: "4")) {
-                try DocumentFormat.document(from: "<document version=\"1\" expansion=\"4\"></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" expansion=\"4\"></document>")
             }
             #expect(throws: DocumentFormatError.invalidValue(line: 1, attribute: "expansion", value: "molta")) {
-                try DocumentFormat.document(from: "<document version=\"1\" expansion=\"molta\"></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" expansion=\"molta\"></document>")
             }
         }
 
@@ -161,13 +161,13 @@ extension TypesettingSuite {
             document.hyphenates = false
             document.usesOpticalMargins = false
             let written = DocumentFormat.string(for: document)
-            #expect(written.contains("<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\" lang=\"it\" hyphenation=\"off\" opbd=\"off\">"))
+            #expect(written.contains("<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\" lang=\"it\" hyphenation=\"off\" opbd=\"off\">"))
             #expect(try DocumentFormat.document(from: written) == document)
             #expect(document.layoutOptions == LayoutOptions(appliesFontTracking: true, usesOpticalMargins: false, hyphenationLanguage: "it", hyphenates: false, lineBreaking: .optimal))
             document.hyphenates = true
             #expect(document.layoutOptions.hyphenates && document.layoutOptions.hyphenationLanguage == "it")
             // Un file senza queste indicazioni: nessuna lingua, tutto il resto acceso.
-            let bare = try DocumentFormat.document(from: "<document version=\"1\"></document>")
+            let bare = try DocumentFormat.document(from: "<document version=\"18\"></document>")
             #expect(bare.language == nil)
             #expect(bare.hyphenates && bare.usesOpticalMargins && bare.appliesFontTracking)
         }
@@ -175,7 +175,7 @@ extension TypesettingSuite {
         @Test("Le misure della pagina accettano mm, cm, in e pt")
         func pageUnits() throws {
             let document = try DocumentFormat.document(from: """
-            <document version="1"><page width="21cm" height="11in" top="72" bottom="36pt" left="20mm" right="20mm"/></document>
+            <document version="18"><page width="21cm" height="11in" top="72" bottom="36pt" left="20mm" right="20mm"/></document>
             """)
             #expect(abs(document.pageSetup.paperSize.width - PageSetup.a4.paperSize.width) < 1e-9)
             #expect(document.pageSetup.paperSize.height == 792)
@@ -185,16 +185,16 @@ extension TypesettingSuite {
         }
 
         @Test("Gli errori indicano la riga", arguments: [
-            ("<document version=\"1\" font=\"X\" size=\"12\">\n<p>a</p>\n<tabella/>\n</document>",
+            ("<document version=\"18\" font=\"X\" size=\"12\">\n<p>a</p>\n<tabella/>\n</document>",
              DocumentFormatError.unexpectedElement(line: 3, element: "tabella", parent: "document")),
-            ("<document version=\"1\" font=\"X\" size=\"12\">\n<p>a</p>\n<table/>\n</document>",
+            ("<document version=\"18\" font=\"X\" size=\"12\">\n<p>a</p>\n<table/>\n</document>",
              .malformed(line: 3, detail: "a table has at least one row")),
-            ("<document version=\"1\" font=\"X\" size=\"12\">\n<p colour=\"red\">a</p>\n</document>",
+            ("<document version=\"18\" font=\"X\" size=\"12\">\n<p colour=\"red\">a</p>\n</document>",
              .unknownAttribute(line: 2, element: "p", attribute: "colour")),
-            ("<document version=\"1\" size=\"12\">\n<p>a</p>\n</document>", .missingAttribute(line: 2, attribute: "font")),
-            ("<document version=\"1\" font=\"X\" size=\"12\">\n<p features=\"17-3\">a</p>\n</document>",
+            ("<document version=\"18\" size=\"12\">\n<p>a</p>\n</document>", .missingAttribute(line: 2, attribute: "font")),
+            ("<document version=\"18\" font=\"X\" size=\"12\">\n<p features=\"17-3\">a</p>\n</document>",
              .invalidValue(line: 2, attribute: "features", value: "17-3")),
-            ("<document version=\"1\" font=\"X\" size=\"12\">\n<p align=\"middle\">a</p>\n</document>", .invalidValue(line: 2, attribute: "align", value: "middle")),
+            ("<document version=\"18\" font=\"X\" size=\"12\">\n<p align=\"middle\">a</p>\n</document>", .invalidValue(line: 2, attribute: "align", value: "middle")),
             ("<document version=\"99\"></document>", .newerVersion(99)),
         ])
         func errors(source: String, expected: DocumentFormatError) {
@@ -203,8 +203,8 @@ extension TypesettingSuite {
 
         @Test("XML mal formato e testo fuori dai paragrafi sono rifiutati")
         func malformed() {
-            #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: "<document version=\"1\"><p>a</document>") }
-            #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: "<document version=\"1\">testo sciolto</document>") }
+            #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: "<document version=\"18\"><p>a</document>") }
+            #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: "<document version=\"18\">testo sciolto</document>") }
             #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: "non è XML") }
         }
 
@@ -212,7 +212,7 @@ extension TypesettingSuite {
         func handWritten() throws {
             let source = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <document version="1" font="HoeflerText-Regular" size="14">
+            <document version="18" font="HoeflerText-Regular" size="14">
             <page width="210mm" height="297mm" top="25mm" bottom="25mm" left="25mm" right="25mm"/>
             <p font="Vulcanius" size="36" features="17/3">\u{10339}\u{10343} \u{10332}\u{10342}</p>
             <p size="24">ct st <t features="1/4">ct st</t> ffi <t small-caps="lowercase">Small Caps</t></p>
@@ -304,7 +304,7 @@ extension TypesettingSuite {
         @Test("Misure infinite o non numeriche e fogli senza specchio si rifiutano")
         func impossibleMeasuresAreRejected() {
             func read(_ inner: String) throws -> Document {
-                try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\">\(inner)<p>Testo</p></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\">\(inner)<p>Testo</p></document>")
             }
             #expect(DocumentFormat.parseLength("inf") == nil)
             #expect(DocumentFormat.parseLength("nan mm") == nil)
@@ -314,7 +314,7 @@ extension TypesettingSuite {
             #expect(throws: DocumentFormatError.self) { try read("<page width=\"0\"/>") }
             #expect(throws: DocumentFormatError.self) { try read("<page width=\"100mm\" left=\"60mm\" right=\"40mm\"/>") }
             #expect(throws: DocumentFormatError.self) {
-                try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"inf\"><p>Testo</p></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"inf\"><p>Testo</p></document>")
             }
             #expect((try? read("<page width=\"100mm\" left=\"30mm\" right=\"30mm\"/>")) != nil)
         }

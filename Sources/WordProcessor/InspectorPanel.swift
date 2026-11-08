@@ -1186,7 +1186,7 @@ struct InspectorView: View {
                 }
                 .labelsHidden()
             }
-            Text("The document's styles, lists, float styles and rules are changed in the tabs above.").font(.caption).foregroundStyle(.secondary)
+            Text("The document's styles, lists, float styles, pages and tables are changed in the tabs above.").font(.caption).foregroundStyle(.secondary)
         }
     }
 }

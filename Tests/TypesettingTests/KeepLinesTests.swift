@@ -75,13 +75,10 @@ extension TypesettingSuite {
             var document = Document(styles: sheet, blocks: [lines(2, word: "Uno", keeping: keeping)])
             document.styles = sheet
             let xml = DocumentFormat.string(for: document)
-            #expect(xml.contains("version=\"17\"") && xml.contains("keep-next-lines=\"3\"") && xml.contains("keep-with-previous=\"2\""))
+            #expect(xml.contains("version=\"18\"") && xml.contains("keep-next-lines=\"3\"") && xml.contains("keep-with-previous=\"2\""))
             let reread = try DocumentFormat.document(from: Data(xml.utf8))
             #expect(reread.flatParagraphs.first?.paragraph.keeping == keeping)
             #expect(reread.styles.lineKeeping(styleName: "Tenuto").previousLines == 1)
-            // Un documento senza i valori nuovi resta alla sua versione.
-            let plain = DocumentFormat.string(for: Document(blocks: [lines(2, word: "Uno", keeping: LineKeeping(withNext: true))]))
-            #expect(!plain.contains("version=\"17\""))
         }
     }
 }

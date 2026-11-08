@@ -122,7 +122,7 @@ extension EditorWindowController {
         layoutPages()
         definitionsPanel?.documentChanged()
         refreshStylesTab()
-        composerModel?.documentChanged(sheet: settings.styles, rules: settings.rules)
+        composerModel?.documentChanged(sheet: settings.styles)
     }
 
     /// Crea uno stile con ciò che la selezione ha di diverso dallo stile su cui si basa, e lo dà alla selezione.
@@ -214,45 +214,6 @@ extension EditorWindowController {
         window?.makeFirstResponder(pagesView)
     }
 
-    /// Ispettore › «Crea una regola da qui…»: indovina che cosa è il pezzo selezionato nel suo paragrafo (la prima
-    /// lettera, le prime parole, la prima frase, il paragrafo intero, o una parola che si ripete) e crea una regola che
-    /// dia quell'aspetto allo stesso pezzo nei paragrafi dello stesso stile. Lo stile è quello che il pezzo ha già, o
-    /// uno nuovo con il suo aspetto. Poi si apre la scheda Regole, per aggiustarla.
-    func createRuleFromInspector() {
-        guard let storage = textStorage, storage.length > 0 else { return }
-        let range = selection.range
-        guard range.length > 0, let target = Rules.guessTarget(for: range, in: storage) else {
-            explain("Select the piece of text the rule should find",
-                    "The first letter, the first words, the first sentence or the whole paragraph; or a single word, which the rule will find everywhere.")
-            return
-        }
-        let paragraphStyle = selectionStyleName(.paragraph)
-        let at = range.location
-        let existing = (storage.attribute(.characterStyleName, at: at, effectiveRange: nil) as? String)
-            ?? (storage.attribute(.wordStyleName, at: at, effectiveRange: nil) as? String)
-        if let existing {
-            addRule(TextRule(target: target, paragraphStyle: paragraphStyle, styleName: existing), styles: settings.styles, clearing: nil)
-            return
-        }
-        // Uno stile nuovo con l'aspetto del pezzo: di parola se ha una lingua o una sillabazione sue, se no di carattere.
-        let wordValues = TextStyling.styleValues(from: storage, at: at, target: .word, sheet: settings.styles, basedOn: nil)
-        let styleTarget: StyleTarget = wordValues.language != nil || wordValues.hyphenates != nil ? .word : .character
-        let values = styleTarget == .word ? wordValues : TextStyling.styleValues(from: storage, at: at, target: .character, sheet: settings.styles, basedOn: nil)
-        let rule = TextRule(target: target, paragraphStyle: paragraphStyle, styleName: "")
-        let what = rule.summary.components(separatedBy: " → ").first ?? ""
-        askStyleName(title: "New Rule",
-                     message: "The rule will find: \(what). It will give it a new style, with the look the selected text has here. What is the style called?",
-                     suggestion: nil) { [weak self] name in
-            guard let self else { return }
-            var sheet = self.settings.styles
-            sheet.styles.append(NamedStyle(name: name, target: styleTarget, basedOn: nil, values: values))
-            sheet.styles[sheet.styles.count - 1] = sheet.materializingFormulas(of: name) ?? sheet.styles[sheet.styles.count - 1]
-            var named = rule
-            named.styleName = name
-            self.addRule(named, styles: sheet, clearing: range)
-        }
-    }
-
     /// Un avviso in un foglio sulla finestra, con il solo «OK».
     func explain(_ title: String, _ message: String) {
         guard let window else { return }
@@ -260,31 +221,6 @@ extension EditorWindowController {
         alert.messageText = title
         alert.informativeText = message
         alert.beginSheetModal(for: window)
-    }
-
-    /// Aggiunge una regola (con gli stili nuovi) in un passo annullabile e la mostra nella scheda Regole. Con `clearing`,
-    /// il pezzo da cui è nata perde i valori dati a mano che ora gli dà la regola.
-    func addRule(_ rule: TextRule, styles: StyleSheet, clearing range: NSRange?) {
-        endUndoStep(next: .none)
-        document?.undoManager?.beginUndoGrouping()
-        changeRules(settings.rules + [rule], styles: styles)
-        if let range, let style = styles.style(named: rule.styleName), store.length > 0 {
-            let fixed = StyleSheet.properties(for: style.target).filter {
-                $0.isFixed(in: style.values) || styles.formulaDefinition(for: $0, inStyle: style.name) != nil
-            }
-            let sheet = settings.styles
-            if !fixed.isEmpty {
-                writeStore(actionName: nil) { text in
-                    for property in fixed { TextStyling.resetValue(of: property, in: text, range: range, sheet: sheet, resolver: self.fontRoleResolver) }
-                }
-            }
-        }
-        document?.undoManager?.endUndoGrouping()
-        document?.undoManager?.setActionName("New Rule")
-        refreshFromSelection()
-        if interfaceMode == .simple { setInterfaceMode(.advanced) }
-        definitionsPanel.showRule(at: settings.rules.count - 1)
-        window?.makeFirstResponder(nil)
     }
 
     /// Ridefinisce lo stile della selezione (di paragrafo, di parola o di carattere) con l'aspetto che ha lì:
@@ -418,10 +354,7 @@ extension EditorWindowController {
     /// Il pulsante «Stili di flottante…»: le serie di note, il loro aspetto e la loro numerazione.
     @objc func editFloatStyles(_ sender: Any?) { showDefinitions(.floats) }
 
-    /// Il pulsante «Regole…»: i pezzi di testo che prendono uno stile da soli (prima lettera, prime parole, sigle…).
-    @objc func editRules(_ sender: Any?) { showDefinitions(.rules) }
-
-    /// Le Liste, gli stili di flottante e le regole si modificano nelle schede del pannello: dall'interfaccia semplice
+    /// Le Liste, gli stili di flottante e le altre definizioni si modificano nelle schede del pannello: dall'interfaccia semplice
     /// si passa all'avanzata.
     func showDefinitions(_ tab: DefinitionsPanel.Tab) {
         if interfaceMode == .simple { setInterfaceMode(.advanced) }
@@ -460,7 +393,6 @@ extension EditorWindowController {
         }
         definitionsPanel.applyLists = { [unowned self] result in self.applyListChanges(result) }
         definitionsPanel.applyFloats = { [unowned self] result in self.applyFloatStyleChanges(result) }
-        definitionsPanel.applyRules = { [unowned self] result in self.applyRuleChanges(result) }
         definitionsPanel.applyPageTypes = { [unowned self] result in self.applyPageTypeChanges(result) }
         definitionsPanel.applyTableStyles = { [unowned self] result in self.applyTableStyleChanges(result) }
     }
@@ -582,7 +514,7 @@ extension EditorWindowController {
         stylesTab.selection = copy.name
     }
 
-    /// Un nome nuovo: il testo, gli stili che si basano su di lui, le regole e gli stili di flottante lo seguono.
+    /// Un nome nuovo: il testo, gli stili che si basano su di lui, le formule e gli stili di flottante lo seguono.
     func renameStyle(_ old: String, to new: String) {
         flushStyleChanges()
         let updated = settings.renamingStyle(old, to: new)
@@ -591,7 +523,7 @@ extension EditorWindowController {
         stylesTab.selection = new
     }
 
-    /// Toglie uno stile: il testo, gli stili, le regole e gli stili di flottante passano allo stile su cui si basava.
+    /// Toglie uno stile: il testo, gli stili, le formule e gli stili di flottante passano allo stile su cui si basava.
     func removeStyle(_ name: String) {
         flushStyleChanges()
         let (updated, replacement) = settings.removingStyle(name)
@@ -622,7 +554,7 @@ extension EditorWindowController {
         }
         refreshFromSelection()
         refreshStylesTab()
-        composerModel?.documentChanged(sheet: settings.styles, rules: settings.rules)
+        composerModel?.documentChanged(sheet: settings.styles)
         layoutPages()
     }
 
@@ -636,7 +568,7 @@ extension EditorWindowController {
         changeStyles(to: sheet, restyle: true, actionName: "Style “\(name)”: based on")
     }
 
-    /// Cambia insieme stili, regole e stili di flottante, e porta il testo dai nomi vecchi ai nuovi (`nil`: nessuno
+    /// Cambia insieme stili e stili di flottante, e porta il testo dai nomi vecchi ai nuovi (`nil`: nessuno
     /// stile), in un passo solo di «Annulla».
     func changeDefinitions(_ updated: Document, renames: [String: String?], actionName: String) {
         endUndoStep(next: .none)
@@ -657,45 +589,11 @@ extension EditorWindowController {
             }
         }
         changeStyles(to: newSheet, restyle: false, actionName: actionName)
-        if updated.rules != settings.rules { changeRules(updated.rules, styles: settings.styles) }
         if updated.floatStyles != settings.floatStyles {
             changeListSettings(lists: settings.lists, noteList: nil, styles: settings.styles, floatStyles: updated.floatStyles, actionName: actionName)
         }
         document?.undoManager?.endUndoGrouping()
         document?.undoManager?.setActionName(actionName)
-    }
-
-    /// Applica le regole uscite dalla scheda; gli stili predefiniti che una regola usa entrano nel documento, una volta
-    /// sola. Vero se il documento è cambiato.
-    @discardableResult
-    func applyRuleChanges(_ result: RulesSheetModel.Result) -> Bool {
-        var styles = settings.styles
-        styles.styles += result.addedStyles.filter { styles.style(named: $0.name) == nil }
-        guard result.rules != settings.rules || styles != settings.styles else { return false }
-        endUndoStep(next: .none)
-        changeRules(result.rules, styles: styles)
-        return true
-    }
-
-
-    /// Cambia le regole (e, se serve, gli stili) in un passo annullabile. Il testo non si tocca: le regole agiscono
-    /// solo nella composizione.
-    func changeRules(_ rules: [TextRule], styles: StyleSheet) {
-        let old = (rules: settings.rules, styles: settings.styles)
-        document?.undoManager?.registerUndo(withTarget: self) { controller in
-            MainActor.assumeIsolated { controller.changeRules(old.rules, styles: old.styles) }
-        }
-        document?.undoManager?.setActionName("Rules")
-        settings.rules = rules
-        if styles != settings.styles {
-            settings.styles = styles
-            reloadStylePopup()
-            refreshFromSelection()
-        }
-        layoutPages()
-        definitionsPanel?.documentChanged()
-        refreshStylesTab()
-        composerModel?.documentChanged(sheet: settings.styles, rules: settings.rules)
     }
 
     /// Applica gli stili di flottante usciti dalla finestra: le note seguono gli stili rinominati o tolti.
@@ -1242,7 +1140,7 @@ extension EditorWindowController {
         window?.makeFirstResponder(pagesView)
     }
 
-    /// Un documento nuovo è vuoto: il cursore scrive nello stile «Testo».
+    /// Un documento nuovo è vuoto: il cursore scrive nello stile «Body».
     func loadEmptyDocument() {
         let sheet = settings.styles
         let body = sheet.bodyStyleName

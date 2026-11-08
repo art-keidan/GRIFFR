@@ -3,18 +3,16 @@ import Testing
 @testable import Typesetting
 
 extension TypesettingSuite {
-    @Suite("Regole nell'ispettore: da dove viene un valore, valori che vincono, regole indovinate")
+    @Suite("Regole nell'ispettore: da dove viene un valore, valori che vincono")
     struct RuleProvenanceTests {
         private let body = CharacterStyle(fontName: "HoeflerText-Regular", size: 12)
         private let rule = TextRule(target: .firstWords(1), paragraphStyle: "Body", styleName: "Emphasis")
 
-        private func document(_ texts: [String] = ["Roma, città aperta.", "Seconda frase qui."]) -> Document {
-            var document = Document(styles: .builtIn, lists: ListDefinition.builtIn, blocks: texts.map { text in
+        private func document(_ texts: [String] = ["Roma, città aperta.", "Seconda frase qui."], rules: [TextRule]? = nil) -> Document {
+            Document(styles: RuleTests.sheet(.builtIn, with: rules ?? [rule]), lists: ListDefinition.builtIn, blocks: texts.map { text in
                 .paragraph(Paragraph(styleName: "Body", style: StyleSheet.builtIn.resolveParagraph(styleName: "Body"),
                                      inlines: [.text(TextRun(text, style: body))]))
             })
-            document.rules = [rule]
-            return document
         }
 
         private func isItalic(_ text: NSAttributedString, at index: Int) -> Bool {
@@ -27,15 +25,15 @@ extension TypesettingSuite {
             let document = document()
             let text = document.attributedString().text
             let layout = PageLayout.layout(text, options: document.layoutOptions)
-            let rules = layout.touchingRules(at: 1, rules: document.rules, sheet: document.styles)
-            #expect(rules == [rule])
-            #expect(layout.touchingRules(at: 8, rules: document.rules, sheet: document.styles).isEmpty, "«città» non è la prima parola")
+            let rules = layout.touchingRules(at: 1, sheet: document.styles)
+            #expect(rules.count == 1 && rules[0].target == rule.target && rules[0].formulaOwner == "Body")
+            #expect(layout.touchingRules(at: 8, sheet: document.styles).isEmpty, "«città» non è la prima parola")
             let plain = TextStyling.inspect(.character, in: text, range: NSRange(location: 1, length: 0), sheet: document.styles)
             let face = try #require(plain.first { $0.property == .face })
             #expect(face.source != .own)
             let given = TextStyling.withRuleSources(plain, rules: rules, in: text, at: 1, sheet: document.styles)
             let ruled = try #require(given.first { $0.property == .face })
-            #expect(ruled.source == .rule(rule.summary))
+            #expect(ruled.source == .rule(rules[0].summary))
             #expect(ruled.value.fontName != face.value.fontName, "il valore è quello della regola: il corsivo")
             #expect(given.first { $0.property == .size }?.source == plain.first { $0.property == .size }?.source, "il corpo la regola non lo tocca")
         }
@@ -45,10 +43,10 @@ extension TypesettingSuite {
             let document = document()
             let text = NSMutableAttributedString(attributedString: document.attributedString().text)
             let roma = NSRange(location: 0, length: 4)
-            #expect(isItalic(Rules.applied(document.rules, to: text, sheet: document.styles), at: 1))
+            #expect(isItalic(Rules.applied(to: text, sheet: document.styles), at: 1))
             TextStyling.setRuleException(.face, true, in: text, range: roma)
             #expect(TextStyling.ruleExceptions(in: text, at: 1) == [.family, .face], "famiglia e faccia vanno insieme")
-            #expect(!isItalic(Rules.applied(document.rules, to: text, sheet: document.styles), at: 1))
+            #expect(!isItalic(Rules.applied(to: text, sheet: document.styles), at: 1))
             #expect(TextStyling.inspect(.character, in: text, range: NSRange(location: 1, length: 0), sheet: document.styles)
                 .first { $0.property == .face }?.source == .own, "per l'ispettore è un valore dato qui")
             // Si salva e si rilegge.
@@ -60,14 +58,14 @@ extension TypesettingSuite {
             // Tornare al valore ereditato lascia di nuovo fare alla regola.
             TextStyling.resetValue(of: .face, in: text, range: roma, sheet: document.styles)
             #expect(TextStyling.ruleExceptions(in: text, at: 1).isEmpty)
-            #expect(isItalic(Rules.applied(document.rules, to: text, sheet: document.styles), at: 1))
+            #expect(isItalic(Rules.applied(to: text, sheet: document.styles), at: 1))
             #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: saved.replacingOccurrences(of: "family face", with: "colore")) }
         }
 
         @Test("I segni della provenienza: i tratti dati a mano e quelli a cui dà l'aspetto una regola")
         func marks() throws {
-            var document = document(["Roma, città aperta.", "Seconda frase qui."])
-            document.rules = [rule, TextRule(target: .lastLine, paragraphStyle: "Body", styleName: "Emphasis")]
+            let document = document(["Roma, città aperta.", "Seconda frase qui."],
+                                    rules: [rule, TextRule(target: .lastLine, paragraphStyle: "Body", styleName: "Emphasis")])
             let text = NSMutableAttributedString(attributedString: document.attributedString().text)
             let string = text.string as NSString
             let città = string.range(of: "città")
@@ -83,32 +81,11 @@ extension TypesettingSuite {
             #expect(TextStyling.manualRanges(in: text, sheet: document.styles) == [città, second])
 
             let layout = PageLayout.layout(text, options: document.layoutOptions)
-            let ruled = layout.ruleRanges(rules: document.rules, sheet: document.styles)
+            let ruled = layout.ruleRanges(sheet: document.styles)
             // L'ultima riga di ciascun paragrafo è qui l'unica: i due paragrafi interi, che si toccano e fanno un tratto solo.
             #expect(ruled == [NSRange(location: 0, length: string.length)])
-            #expect(layout.ruleRanges(rules: [rule], sheet: document.styles).map { string.substring(with: $0) } == ["Roma,", "Seconda"])
-        }
-
-        @Test("Indovinare che cosa deve cercare la regola dal pezzo selezionato")
-        func guess() {
-            let text = document(["«Roma, città aperta.", "Prima frase. Seconda frase.", "Uno"]).attributedString().text
-            let string = text.string as NSString
-            func guess(_ piece: String, from start: Int = 0) -> TextRule.Target? {
-                let range = string.range(of: piece, range: NSRange(location: start, length: string.length - start))
-                return Rules.guessTarget(for: range, in: text)
-            }
-            #expect(guess("R") == .firstLetter)
-            #expect(guess("«R") == .firstLetter, "la punteggiatura d'apertura non conta")
-            #expect(guess("Roma") == .firstWords(1))
-            #expect(guess("Roma,") == .firstWords(1))
-            #expect(guess("Roma, città") == .firstWords(2))
-            #expect(guess("«Roma, città aperta.\n") == .paragraph, "il paragrafo intero, con l'a capo")
-            #expect(guess("Prima frase.") == .firstSentence, "con il punto è una frase")
-            #expect(guess("Prima frase") == .firstWords(2))
-            #expect(guess("aperta") == .words(.listed(["aperta"])), "una parola in mezzo: quella parola ovunque")
-            #expect(guess("città aperta") == nil, "due parole in mezzo non sono nessun pezzo")
-            #expect(guess("Uno") == .paragraph, "una parola sola che è tutto il paragrafo")
-            #expect(Rules.guessTarget(for: NSRange(location: 0, length: 0), in: text) == nil)
+            let firstWords = PageLayout.layout(text, options: self.document().layoutOptions)
+            #expect(firstWords.ruleRanges(sheet: self.document().styles).map { string.substring(with: $0) } == ["Roma,", "Seconda"])
         }
 
         @Test("Le regole che toccano una proprietà: quella che conta, quelle scavalcate, il valore sospeso e quello che cede")
@@ -130,13 +107,9 @@ extension TypesettingSuite {
             #expect(size.rules?.winner == big.summary && size.rules?.outranked == [small.summary])
             #expect(size.rules?.suspended == nil && size.rules?.yielded == nil && size.rules?.owner == nil)
             #expect(both.first { $0.property == .alignment }?.rules == nil, "l'allineamento nessuna regola lo tocca")
-            // Un valore dato a mano vince su una regola storica: la regola cede, e si dice che cosa darebbe.
+            // Una regola (viene sempre da una formula) vince sul valore dato a mano, che resta sospeso.
             TextStyling.setValue({ var v = StyleValues(); v.fontName = "HoeflerText-Black"; return v }(), of: .face, in: text, range: roma)
             let own = TextStyling.inspect(.character, in: text, range: at, sheet: document.styles)
-            let held = try #require(TextStyling.withRuleSources(own, rules: [rule], in: text, at: 1, sheet: document.styles).first { $0.property == .face })
-            #expect(held.source == .own && held.value.fontName == "HoeflerText-Black")
-            #expect(held.rules?.winner == rule.summary && held.rules?.yielded?.fontName != nil && held.rules?.suspended == nil)
-            // Una regola che viene da una formula vince sul valore dato a mano, che resta sospeso.
             var contextual = rule
             contextual.formulaOwner = "Body"
             let over = try #require(TextStyling.withRuleSources(own, rules: [contextual], in: text, at: 1, sheet: document.styles).first { $0.property == .face })

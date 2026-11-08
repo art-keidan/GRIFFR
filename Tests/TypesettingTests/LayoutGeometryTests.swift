@@ -140,10 +140,9 @@ extension TypesettingSuite {
 
         private func factsDocument(paragraphs: [(String, String)], rules: [TextRule] = []) -> (DocumentLayout, Document) {
             let body = CharacterStyle(fontName: "HoeflerText-Regular", size: 12)
-            var document = Document(styles: .builtIn, lists: ListDefinition.builtIn, blocks: paragraphs.map { style, text in
+            let document = Document(styles: RuleTests.sheet(.builtIn, with: rules), lists: ListDefinition.builtIn, blocks: paragraphs.map { style, text in
                 .paragraph(Paragraph(styleName: style, style: StyleSheet.builtIn.resolveParagraph(styleName: style), inlines: [.text(TextRun(text, style: body))]))
             })
-            document.rules = rules
             return (PageLayout.layout(document.attributedString().text, setup: document.pageSetup, options: document.layoutOptions), document)
         }
 
@@ -153,17 +152,17 @@ extension TypesettingSuite {
             let rule = TextRule(target: .firstLines(1), paragraphStyle: "Body", position: .firstAfter("Heading 1"), styleName: "Small Caps")
             let (layout, document) = factsDocument(paragraphs: [("Heading 1", "Capitolo"), ("Body", long), ("Body", "Breve.")], rules: [rule])
             let start = ("Capitolo\n" as NSString).length
-            let facts = try #require(layout.paragraphFacts(at: start + 5, rules: document.rules, sheet: document.styles))
+            let facts = try #require(layout.paragraphFacts(at: start + 5, sheet: document.styles))
             #expect(facts.lineCount == layout.pages[0].lines.filter { $0.paragraphLocation == start }.count)
             #expect(facts.lineCount >= 4)
             #expect(facts.wordCount == 4 * 20, "venti parole per frase")
             #expect(facts.firstPage == 1 && !facts.isSplit)
             #expect(!facts.isDocumentStart && facts.previousStyle == "Heading 1")
-            #expect(facts.rules == [rule.summary])
+            #expect(facts.rules.count == 1, "la regola che nasce dalla formula di «Body»")
             #expect(facts.lastLineFill > 0 && facts.lastLineFill < 1)
-            let title = try #require(layout.paragraphFacts(at: 0, rules: document.rules, sheet: document.styles))
+            let title = try #require(layout.paragraphFacts(at: 0, sheet: document.styles))
             #expect(title.isDocumentStart && title.isFirstOnPage && title.lineCount == 1 && title.rules.isEmpty)
-            let short = try #require(layout.paragraphFacts(at: start + (long as NSString).length + 2, rules: document.rules, sheet: document.styles))
+            let short = try #require(layout.paragraphFacts(at: start + (long as NSString).length + 2, sheet: document.styles))
             #expect(short.isLastOnPage && short.previousStyle == "Body" && short.rules.isEmpty, "non è il primo dopo il titolo")
         }
 
@@ -174,7 +173,7 @@ extension TypesettingSuite {
             #expect(layout.pages.count >= 2)
             // Il paragrafo dell'ultima riga della prima pagina continua nella seconda.
             let lastLine = try #require(layout.pages[0].lines.last)
-            let split = try #require(layout.paragraphFacts(at: lastLine.range.location, rules: [], sheet: document.styles))
+            let split = try #require(layout.paragraphFacts(at: lastLine.range.location, sheet: document.styles))
             #expect(split.isSplit == (layout.pages[1].lines.first?.paragraphLocation == lastLine.paragraphLocation))
             let page = try #require(layout.pageFacts(at: 0, affinity: .downstream))
             #expect(page.number == 1 && !page.isEven && page.lineCount == layout.pages[0].lines.count && !page.hasNotes)
@@ -197,9 +196,9 @@ extension TypesettingSuite {
             #expect(first.justification > 0 && first.naturalWidth < first.width)
             let last = try #require(layout.lineFacts(at: (long as NSString).length - 2, affinity: .downstream))
             #expect(last.number == lines.count && abs(last.justification) < 0.01, "l'ultima riga non si giustifica")
-            #expect(layout.rules(touching: 2, rules: document.rules, sheet: document.styles) == [rule.summary])
+            #expect(layout.rules(touching: 2, sheet: document.styles).count == 1)
             let third = lines[2].range.location + 1
-            #expect(layout.rules(touching: third, rules: document.rules, sheet: document.styles).isEmpty)
+            #expect(layout.rules(touching: third, sheet: document.styles).isEmpty)
             #expect(layout.documentFacts() == DocumentFacts(pageCount: 1, paragraphCount: 1, wordCount: 80, noteCount: 0))
         }
 

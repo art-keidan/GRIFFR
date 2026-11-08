@@ -6,8 +6,6 @@ import Foundation
 /// proprio livello (`Paragraph.list`); le tabelle saranno un altro caso di `Block`. Le note a piè di pagina sono
 /// un caso di `Inline` che porta con sé il proprio testo, così che richiamo e nota viaggino insieme.
 public struct Document: Equatable, Sendable {
-    /// Versione minima da conservare al salvataggio dopo la lettura.
-    public internal(set) var sourceVersion = 1
     /// Ingresso di documento conservato per le formule relative (per esempio corpo + 2 pt).
     public var formulaBase: CharacterStyle?
     public var pageSetup: PageSetup
@@ -29,8 +27,6 @@ public struct Document: Equatable, Sendable {
     /// Gli stili di flottante: che cosa fa un oggetto ancorato a un punto del testo ma collocato altrove (fase 5).
     /// Per ora c'è sempre, e solo, la nota a piè di pagina.
     public var floatStyles: [FloatStyle]
-    /// Le regole: danno l'aspetto di uno stile a pezzi di testo che si trovano componendo (fase 7).
-    public var rules: [TextRule] = []
     /// I tipi di pagina con un nome, che le sezioni scelgono (`pageSetup` è il tipo predefinito, delle pagine senza un tipo).
     public var pageTypes: [PageType] = []
     /// Gli stili di tabella: l'aspetto che le tabelle prendono dal loro stile (filetti, margini interni, fondo…).
@@ -77,7 +73,7 @@ public struct Document: Equatable, Sendable {
     public var layoutOptions: LayoutOptions {
         var options = LayoutOptions(appliesFontTracking: appliesFontTracking, usesOpticalMargins: usesOpticalMargins,
                                     glyphExpansionLimit: glyphExpansionLimit, hyphenationLanguage: language, hyphenates: hyphenates,
-                                    lists: lists, floatStyles: floatStyles, styles: styles, rules: rules)
+                                    lists: lists, floatStyles: floatStyles, styles: styles)
         options.fontRoles = fontRoles
         options.pageTypes = pageTypes
         options.pageNumbering = pageNumbering
@@ -106,8 +102,6 @@ public struct PageType: Equatable, Sendable {
 
     /// Il nome con cui si indica il tipo predefinito del documento.
     public static let defaultName = "Default"
-    /// Il nome del tipo predefinito nei documenti di prima: alla lettura diventa `defaultName`.
-    public static let legacyDefaultName = "Predefinito"
 }
 
 /// I tipi di pagina che una sezione indica (per nome; `nil` dove non ne indica uno): per le sue pagine (e per le dispari,
@@ -645,8 +639,6 @@ public struct ImageObject: Hashable, Sendable {
 /// margine, la nota di chiusura e la figura saranno stili di flottante (fase 5); per ora c'è la prima.
 public struct FloatStyle: Hashable, Sendable {
     public static let footnoteName = "Footnote"
-    /// Il nome che lo stile delle note a piè di pagina aveva nei documenti di prima: alla lettura diventa `footnoteName`.
-    public static let legacyFootnoteName = "Nota a piè di pagina"
 
     /// Dove va il contenuto.
     public enum Placement: String, Hashable, Sendable {
@@ -813,42 +805,30 @@ public struct FloatingObject: Equatable, Sendable {
     public var plainText: String { paragraphs.map { $0.map(\.text).joined() }.joined(separator: "\n") }
 }
 
-/// Un campo: un testo che la composizione calcola nel punto in cui compare (un «rimando relativo»). Nel testo è un carattere solo.
-///
-/// I quattro casi storici restano per leggere i documenti di prima; entrando nel documento o nel testo diventano le
-/// formule equivalenti (`formula`), e il file scrive soltanto formule.
+/// Un campo: un testo che la composizione calcola nel punto in cui compare (un «rimando relativo»). Nel testo è un carattere
+/// solo. Il campo è sempre una formula; `page`, `pageCount`, `sectionTitle` e `sectionNumber` sono le formule più comuni.
 public enum Field: Hashable, Sendable {
-    /// Il numero della pagina, come lo scrive la Lista che numera le pagine.
-    case page
-    /// Quante pagine ha il documento.
-    case pageCount
-    /// Il titolo della sezione in corso di un ruolo («capitolo»).
-    case sectionTitle(role: String)
-    /// Il numero della sezione in corso di un ruolo, come lo scrive la Lista che numera quel ruolo.
-    case sectionNumber(role: String)
     /// Una formula salvata nel punto del testo in cui ne viene scritto il risultato.
     case formula(FieldFormula)
 
     /// Il carattere che tiene il posto del campo nel testo.
     public static let placeholder = "\u{FFFC}"
 
-    /// La formula che il campo calcola: per i campi storici, quella equivalente.
+    /// Il numero della pagina, come lo scrive la Lista che numera le pagine.
+    public static var page: Field { .formula(.pageContainingNumber) }
+    /// Quante pagine ha il documento.
+    public static var pageCount: Field { .formula(.documentPageCount) }
+    /// Il titolo della sezione in corso di un ruolo («chapter»).
+    public static func sectionTitle(role: String) -> Field { .formula(.sectionContainingTitle(role: role)) }
+    /// Il numero della sezione in corso di un ruolo, come lo scrive la Lista che numera quel ruolo.
+    public static func sectionNumber(role: String) -> Field { .formula(.sectionContainingNumber(role: role)) }
+
+    /// La formula che il campo calcola.
     public var asFormula: FieldFormula {
         switch self {
-        case .page: .pageContainingNumber
-        case .pageCount: .documentPageCount
-        case .sectionTitle(let role): .sectionContainingTitle(role: role)
-        case .sectionNumber(let role): .sectionContainingNumber(role: role)
         case .formula(let formula): formula
         }
     }
-
-    /// Il campo come formula.
-    public var formula: Field { .formula(asFormula) }
-
-    /// Un campo storico e la sua formula sono lo stesso campo.
-    public static func == (lhs: Field, rhs: Field) -> Bool { lhs.asFormula == rhs.asFormula }
-    public func hash(into hasher: inout Hasher) { hasher.combine(asFormula) }
 
     /// Il campo come valore di un attributo: «formula», l'espressione e, per le sezioni, il ruolo, separati da a capo.
     public var encoded: String {
@@ -856,20 +836,11 @@ public enum Field: Hashable, Sendable {
         return "formula\n" + formula.expression + (formula.role.map { "\n" + $0 } ?? "")
     }
 
-    /// Legge anche le forme storiche («page», «pages», «section-title» e «section-number» col ruolo), che diventano
-    /// formule.
     public init?(encoded: String) {
         let parts = encoded.split(separator: "\n", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
-        switch (parts.first, parts.count) {
-        case ("page"?, 1): self = .formula(.pageContainingNumber)
-        case ("pages"?, 1): self = .formula(.documentPageCount)
-        case ("section-title"?, 2) where !parts[1].isEmpty: self = .formula(.sectionContainingTitle(role: parts[1]))
-        case ("section-number"?, 2) where !parts[1].isEmpty: self = .formula(.sectionContainingNumber(role: parts[1]))
-        case ("formula"?, 2), ("formula"?, 3):
-            guard let formula = FieldFormula(expression: parts[1], role: parts.count == 3 ? parts[2] : nil) else { return nil }
-            self = .formula(formula)
-        default: return nil
-        }
+        guard parts.first == "formula", parts.count == 2 || parts.count == 3,
+              let formula = FieldFormula(expression: parts[1], role: parts.count == 3 ? parts[2] : nil) else { return nil }
+        self = .formula(formula)
     }
 }
 

@@ -3,17 +3,16 @@ import SwiftUI
 import Typesetting
 
 extension EditorWindowController {
-    func applyStyleBoard(base: StyleSheet, rules: [TextRule], updated: StyleSheet, updatedRules: [TextRule]) -> String? {
+    func applyStyleBoard(base: StyleSheet, updated: StyleSheet) -> String? {
         self.definitionsPanel.flushPending()
         self.flushStyleChanges()
-        guard self.settings.styles == base, self.settings.rules == rules else {
+        guard self.settings.styles == base else {
             return "The document's styles have changed. Reload the composer before applying."
         }
         self.endUndoStep(next: .none)
         let undo = (self.document as? NSDocument)?.undoManager
         undo?.beginUndoGrouping()
         self.changeStyles(to: updated, restyle: true, actionName: "Style Formulas")
-        if updatedRules != self.settings.rules { self.changeRules(updatedRules, styles: updated) }
         undo?.endUndoGrouping()
         undo?.setActionName("Style Formulas")
         return nil
@@ -33,21 +32,21 @@ extension EditorWindowController {
         let range = TextStyling.bodyParagraph(in: store, at: selection.range.location).range
         let sample = store.attributedSubstring(from: range)
         let owner = range.length > 0 ? sample.attribute(.paragraphStyleName, at: 0, effectiveRange: nil) as? String : nil
-        let model = ComposerBoardModel(sheet: settings.styles, rules: settings.rules,
+        let model = ComposerBoardModel(sheet: settings.styles,
                                        owner: owner, sample: sample.string, resolver: fontRoleResolver,
                                        documentBase: settings.formulaBase ?? TextStyling.styleBase,
                                        wordOwner: range.length > 0 ? sample.attribute(.wordStyleName, at: 0, effectiveRange: nil) as? String : nil)
         composerModel = model
         if let name { model.selectStyle(name) }
-        model.commit = { [weak self] base, rules, updated, updatedRules in
+        model.commit = { [weak self] base, updated in
             guard let self else { return "The document was closed." }
-            return self.applyStyleBoard(base: base, rules: rules, updated: updated, updatedRules: updatedRules)
+            return self.applyStyleBoard(base: base, updated: updated)
         }
         model.reload = { [weak self] in
             guard let self else { return nil }
             self.definitionsPanel.flushPending()
             self.flushStyleChanges()
-            return (self.settings.styles, self.settings.rules)
+            return self.settings.styles
         }
         let board = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -68,7 +67,7 @@ extension EditorWindowController {
 
 @MainActor
 final class ComposerBoardModel: ObservableObject {
-    enum Section: String { case styles, selections, rules, reusable }
+    enum Section: String { case styles, selections, reusable }
     @Published var section = Section.styles
     var showingStyles: Bool {
         get { section == .styles }
@@ -83,29 +82,25 @@ final class ComposerBoardModel: ObservableObject {
     @Published var selectedStyle: String?
     @Published var previewRole: FontRole? = nil
     @Published var sheet: StyleSheet
-    @Published var rules: [TextRule]
     @Published var sample: String
     @Published var problem: String?
     @Published var incomplete: Set<UUID> = []
     private var cleanDraft: StyleSheet
     private var isApplying = false
     private(set) var baseSheet: StyleSheet
-    private(set) var baseRules: [TextRule]
     let owner: String?
     let resolver: FontRoleResolver
     let documentBase: CharacterStyle
     let wordOwner: String?
-    var commit: ((StyleSheet, [TextRule], StyleSheet, [TextRule]) -> String?)?
-    var reload: (() -> (StyleSheet, [TextRule])?)?
+    var commit: ((StyleSheet, StyleSheet) -> String?)?
+    var reload: (() -> StyleSheet?)?
 
-    init(sheet: StyleSheet, rules: [TextRule], owner: String?, sample: String, resolver: FontRoleResolver = FontRoleResolver(),
+    init(sheet: StyleSheet, owner: String?, sample: String, resolver: FontRoleResolver = FontRoleResolver(),
          documentBase: CharacterStyle = TextStyling.styleBase, wordOwner: String? = nil) {
         self.sheet = sheet
         self.cleanDraft = sheet
         self.selectedStyle = owner ?? sheet.styles.first?.name
-        self.rules = rules
         baseSheet = sheet
-        baseRules = rules
         self.owner = owner
         self.resolver = resolver
         self.documentBase = documentBase
@@ -114,11 +109,7 @@ final class ComposerBoardModel: ObservableObject {
         if self.sample.isEmpty { self.sample = "Every word finds its place." }
     }
 
-    var dirty: Bool { sheet != baseSheet || rules != baseRules }
-    var appearances: [NamedStyle] {
-        sheet.styles.filter { $0.target != .paragraph } +
-        StyleSheet.ruleStyles.filter { $0.target != .paragraph && sheet.style(named: $0.name) == nil }
-    }
+    var dirty: Bool { sheet != baseSheet }
     var validationIssue: String? {
         let formulaNames = sheet.reusableFormulas.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
         if formulaNames.contains("") || Set(formulaNames).count != formulaNames.count {
@@ -240,18 +231,18 @@ final class ComposerBoardModel: ObservableObject {
     }
 
     /// Una modifica esterna aggiorna la bacheca solo se non sovrascrive lavoro dell'autore.
-    func documentChanged(sheet updated: StyleSheet, rules updatedRules: [TextRule]) {
-        guard !isApplying, updated != baseSheet || updatedRules != baseRules else { return }
-        guard sheet == cleanDraft, rules == baseRules else {
+    func documentChanged(sheet updated: StyleSheet) {
+        guard !isApplying, updated != baseSheet else { return }
+        guard sheet == cleanDraft else {
             problem = "The document's styles have changed. The draft is kept; reload before applying."
             return
         }
-        install(sheet: updated, rules: updatedRules)
+        install(sheet: updated)
     }
 
-    private func install(sheet updated: StyleSheet, rules updatedRules: [TextRule]) {
-        sheet = updated; rules = updatedRules
-        cleanDraft = updated; baseSheet = updated; baseRules = updatedRules
+    private func install(sheet updated: StyleSheet) {
+        sheet = updated
+        cleanDraft = updated; baseSheet = updated
         incomplete = []; problem = nil
         if showingStyles {
             if let name = selectedStyle, updated.style(named: name) != nil { selectStyle(name) }
@@ -282,14 +273,8 @@ final class ComposerBoardModel: ObservableObject {
         sheet.reusableFormulas = remaining
         problem = nil
     }
-    func addEffect(_ id: UUID) {
-        guard let appearance = appearances.first else { return }
-        rules.append(TextRule(target: .selection(id), paragraphStyle: owner.flatMap { sheet.style(named: $0) == nil ? nil : $0 },
-                              styleName: appearance.name))
-    }
     func removeSelection(_ id: UUID) {
         sheet.selections.removeAll { $0.id == id }
-        rules.removeAll { $0.target == .selection(id) }
         incomplete.remove(id)
     }
     func apply() {
@@ -301,20 +286,15 @@ final class ComposerBoardModel: ObservableObject {
         for i in updated.reusableFormulas.indices {
             updated.reusableFormulas[i].name = updated.reusableFormulas[i].name.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        for rule in rules where updated.style(named: rule.styleName) == nil {
-            if let style = StyleSheet.ruleStyles.first(where: { $0.name == rule.styleName }) {
-                updated.styles.append(style)
-            }
-        }
         guard let commit else { return }
         isApplying = true
         defer { isApplying = false }
-        problem = commit(baseSheet, baseRules, updated, rules)
-        if problem == nil { sheet = updated; cleanDraft = updated; baseSheet = updated; baseRules = rules }
+        problem = commit(baseSheet, updated)
+        if problem == nil { sheet = updated; cleanDraft = updated; baseSheet = updated }
     }
     func discard() {
         guard let current = reload?() else { return }
-        install(sheet: current.0, rules: current.1)
+        install(sheet: current)
     }
 }
 
@@ -380,9 +360,8 @@ struct ComposerBoard: View {
                 Picker("View", selection: $model.section) {
                     Text("Styles").tag(ComposerBoardModel.Section.styles)
                     Text("Selections").tag(ComposerBoardModel.Section.selections)
-                    Text("Rules").tag(ComposerBoardModel.Section.rules)
                     Text("Formulas").tag(ComposerBoardModel.Section.reusable)
-                }.pickerStyle(.segmented).frame(width: 400)
+                }.pickerStyle(.segmented).frame(width: 300)
                 if model.section == .selections {
                     Button { model.addSelection() } label: { Label("Formula", systemImage: "plus") }
                 }
@@ -400,14 +379,6 @@ struct ComposerBoard: View {
                         }
                         ForEach(model.sheet.selections) { selection in card(selection) }
                     }.padding(24).frame(minWidth: 710, alignment: .leading)
-                }.background(Color(nsColor: Theme.desk))
-            }
-            if model.section == .rules {
-                ScrollView([.horizontal, .vertical]) {
-                    VStack(alignment: .leading, spacing: 20) {
-                        if model.rules.isEmpty { Text("The document's rules will appear here.").padding(24) }
-                        ForEach(model.rules.indices, id: \.self) { i in historicalRuleCard(i) }
-                    }.padding(24)
                 }.background(Color(nsColor: Theme.desk))
             }
             if model.section == .reusable {
@@ -473,7 +444,7 @@ struct ComposerBoard: View {
                     .font(.headline).textFieldStyle(.plain).frame(width: 300)
                 Spacer()
                 Button { model.removeSelection(item.id) } label: { Image(systemName: "trash") }
-                    .help("Remove the formula and its rules from the draft")
+                    .help("Remove the selection from the draft")
             }
             HStack(spacing: 10) {
                 Menu {
@@ -502,10 +473,8 @@ struct ComposerBoard: View {
             if !model.incomplete.contains(item.id) {
                 Text(item.preview(in: model.sample).map { "Result on the sample   “\($0)”" } ?? "No word at this position · effects suspended")
                     .foregroundStyle(Color(nsColor: Theme.glyph))
-                ForEach(model.rules.indices.filter { model.rules[$0].target == .selection(item.id) }, id: \.self) { i in
-                    effectRow(i)
-                }
-                Button { model.addEffect(item.id) } label: { Label("Link a Treatment", systemImage: "plus") }
+                Text("A style formula can act on this selection: choose “\(item.name)” in the formula's “On” menu.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(20).frame(width: 820, alignment: .leading)
@@ -518,27 +487,6 @@ struct ComposerBoard: View {
         Image(systemName: "arrow.right").font(.system(size: 11)).foregroundStyle(Color(nsColor: Theme.secondary))
     }
 
-    private func effectRow(_ i: Int) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "arrow.turn.down.right").foregroundStyle(Color(nsColor: Theme.secondary))
-            Menu {
-                Button("Any paragraph style") { model.rules[i].paragraphStyle = nil }
-                ForEach(model.sheet.styles.filter { $0.target == .paragraph }, id: \.name) { style in
-                    Button(style.name) { model.rules[i].paragraphStyle = style.name }
-                }
-            } label: { ComposerPill(title: model.rules[i].paragraphStyle.map { "In paragraphs · " + $0 } ?? "In all paragraphs") }
-            arrow
-            Menu {
-                ForEach(model.appearances, id: \.name) { style in
-                    Button("Apply " + style.name) { model.rules[i].styleName = style.name }
-                }
-            } label: { ComposerPill(title: "Treat with · " + model.rules[i].styleName) }
-            Menu {
-                Button(model.rules[i].isEnabled ? "Suspend Treatment" : "Activate Treatment") { model.rules[i].isEnabled.toggle() }
-                Button("Remove Treatment") { model.rules.remove(at: i) }
-            } label: { ComposerPill(title: model.rules[i].isEnabled ? "Active" : "Suspended") }
-        }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize(horizontal: true, vertical: false)
-    }
 }
 
 private struct ComposerPositionPill: View {
@@ -978,40 +926,6 @@ struct FormulaQualifiers: View {
         case .words(.numbers): "Numbers"
         default: "Selection"
         }
-    }
-}
-
-extension ComposerBoard {
-    func historicalRuleCard(_ i: Int) -> some View {
-        let rule = model.rules[i]
-        return VStack(alignment: .leading, spacing: 14) {
-            Text("Document rule \(i + 1)").font(.headline)
-            HStack {
-                Menu {
-                    Button("All paragraphs") { model.rules[i].paragraphStyle = nil }
-                    ForEach(model.sheet.styles.filter { $0.target == .paragraph }, id: \.name) { style in
-                        Button(style.name) { model.rules[i].paragraphStyle = style.name }
-                    }
-                } label: { ComposerPill(title: rule.paragraphStyle ?? "All paragraphs") }
-                ComposerPill(title: "Set · Style")
-                Menu {
-                    ForEach(model.sheet.styles.filter { $0.target != .paragraph || rule.target == .paragraph }, id: \.name) { style in
-                        Button(style.name) { model.rules[i].styleName = style.name }
-                    }
-                } label: { ComposerPill(title: rule.styleName) }
-                Menu {
-                    Button(rule.isEnabled ? "Suspend" : "On") { model.rules[i].isEnabled.toggle() }
-                    Button("Remove Rule") { model.rules.remove(at: i) }
-                } label: { ComposerPill(title: rule.isEnabled ? "On" : "Suspended") }
-            }
-            FormulaQualifiers(condition: Binding(get: { StyleCondition(position: model.rules[i].position, measurement: model.rules[i].condition) },
-                set: { model.rules[i].position = $0.position; model.rules[i].condition = $0.measurement }),
-                target: Binding(get: { model.rules[i].target }, set: { model.rules[i].target = $0 }),
-                operation: StylePropertyOperation(.set, .applyStyle, .styleName(rule.styleName)),
-                styleNames: model.sheet.styles.filter { $0.target == .paragraph }.map(\.name), selections: model.sheet.selections)
-            Text("Keeps the order and precedence of the original rule.").font(.caption).foregroundStyle(.secondary)
-        }.menuStyle(.borderlessButton).menuIndicator(.hidden).padding(20).frame(width: 850, alignment: .leading)
-            .background(Color(nsColor: Theme.side)).clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 

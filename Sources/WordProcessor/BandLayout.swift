@@ -39,7 +39,6 @@ struct BandLayout: Codable, Equatable {
         Zone(title: "alignment", items: ["allineamento"]),
         Zone(title: "spacing", items: ["interlinea", "spazi"]),
         Zone(title: "lists", items: ["puntato", "numerato", "lista", "riduciLivello", "aumentaLivello"]),
-        Zone(title: "rules", items: ["regoleBanda"]),
     ]
 
     /// I nomi dei controlli delle fasce, per la zona che nasce trascinandone uno fuori dalle zone.
@@ -51,15 +50,7 @@ struct BandLayout: Codable, Equatable {
         "carattereSpeciale": "symbols", "stile": "style", "stileCarattere": "word style",
         "stiliFlottanteBanda": "floats", "allineamento": "alignment", "interlinea": "line spacing", "spazi": "spacing",
         "puntato": "bullets", "numerato": "numbers", "lista": "list", "riduciLivello": "level", "aumentaLivello": "level",
-        "regoleBanda": "rules", "progetta": "design",
-    ]
-
-    /// I nomi predefiniti delle zone nell'interfaccia italiana di prima, con quelli inglesi di adesso.
-    static let italianZoneTitles: [String: String] = [
-        "famiglia": "family", "peso": "weight", "ruoli": "roles", "corpo": "size", "forma": "form", "segni": "marks",
-        "lingua": "language", "simboli": "symbols", "stili": "styles", "allineamento": "alignment", "spazi": "spacing",
-        "elenchi": "lists", "regole": "rules", "stampa": "print", "modifica": "edit", "inserisci": "insert", "vista": "view",
-        "strumenti": "tools", "altro": "other",
+        "progetta": "design",
     ]
 
     static func name(of item: String) -> String {
@@ -99,13 +90,6 @@ struct BandLayout: Codable, Equatable {
         let commands = EditorWindowController.toolbarItems(for: .advanced)
         guard let data = defaults.data(forKey: key), var layout = try? JSONDecoder().decode(BandLayout.self, from: data),
               layout.bands.count == Band.allCases.count else { return standard }
-        // Le disposizioni salvate quando l'interfaccia era in italiano: i nomi di sempre delle zone passano all'inglese,
-        // quelli scritti dall'autore restano.
-        for band in layout.bands.indices {
-            for zone in layout.bands[band].indices {
-                if let english = italianZoneTitles[layout.bands[band][zone].title] { layout.bands[band][zone].title = english }
-            }
-        }
         guard layout.toolbarItems != commands else { return layout.normalized() }
         let known = Set(EditorWindowController.toolbarCommands.map(\.id))
         let others = layout.bands[Band.tools.rawValue].flatMap(\.items).filter { !known.contains($0) }
@@ -132,9 +116,11 @@ struct BandLayout: Codable, Equatable {
     func normalized() -> BandLayout {
         var result = self
         var seen = Set<String>()
+        // Un controllo che l'app non conosce più (tolto in una versione successiva) sparisce dalla disposizione.
+        let known = Set(Self.itemNames.keys).union(EditorWindowController.toolbarCommands.map(\.id))
         for band in result.bands.indices {
             for zone in result.bands[band].indices {
-                result.bands[band][zone].items = result.bands[band][zone].items.filter { seen.insert($0).inserted }
+                result.bands[band][zone].items = result.bands[band][zone].items.filter { known.contains($0) && seen.insert($0).inserted }
             }
         }
         for (band, defaults) in [(Band.character, Self.defaultCharacter), (.paragraph, Self.defaultParagraph)] {

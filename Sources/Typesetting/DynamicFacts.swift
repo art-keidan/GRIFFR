@@ -90,7 +90,7 @@ extension DocumentLayout {
         allLines.filter { !$0.line.isNote && $0.line.paragraphLocation == location }
     }
 
-    public func paragraphFacts(at index: Int, rules: [TextRule], sheet: StyleSheet) -> ParagraphFacts? {
+    public func paragraphFacts(at index: Int, sheet: StyleSheet) -> ParagraphFacts? {
         let (location, range) = paragraphLocation(at: index)
         let lines = bodyLines(ofParagraphAt: location)
         guard let first = lines.first, let last = lines.last else { return nil }
@@ -105,12 +105,12 @@ extension DocumentLayout {
             lastLineWidth: Double(last.line.naturalWidth),
             lastLineFill: last.line.availableWidth > 0 ? Double(min(last.line.width / last.line.availableWidth, 1)) : 0,
             isDocumentStart: location == 0, previousStyle: context.previousStyleName,
-            rules: applicableRules(at: location, rules: rules, sheet: sheet).map { $0.summary(selections: sheet.selections) })
+            rules: applicableRules(at: location, sheet: sheet).map { $0.summary(selections: sheet.selections) })
     }
 
     /// Le regole che valgono per il paragrafo: quelle decise dal testo, e quelle che la composizione gli ha applicato.
-    func applicableRules(at location: Int, rules: [TextRule], sheet: StyleSheet) -> [TextRule] {
-        let compiled = sheet.compilingStyleRules(rules)
+    func applicableRules(at location: Int, sheet: StyleSheet) -> [TextRule] {
+        let compiled = sheet.compilingStyleRules()
         let applied = layoutRulesApplied[location] ?? []
         let context = context(ofParagraphAt: location)
         return Rules.usable(compiled.rules, sheet: compiled.sheet).filter { rule in
@@ -146,15 +146,15 @@ extension DocumentLayout {
     }
 
     /// Le regole che toccano il carattere nella posizione, descritte.
-    public func rules(touching index: Int, rules: [TextRule], sheet: StyleSheet, affinity: NSSelectionAffinity = .downstream) -> [String] {
-        touchingRules(at: index, rules: rules, sheet: sheet, affinity: affinity).map { $0.summary(selections: sheet.selections) }
+    public func rules(touching index: Int, sheet: StyleSheet, affinity: NSSelectionAffinity = .downstream) -> [String] {
+        touchingRules(at: index, sheet: sheet, affinity: affinity).map { $0.summary(selections: sheet.selections) }
     }
 
     /// Le regole che toccano il carattere nella posizione, nell'ordine in cui si applicano.
-    public func touchingRules(at index: Int, rules: [TextRule], sheet: StyleSheet, affinity: NSSelectionAffinity = .downstream) -> [TextRule] {
+    public func touchingRules(at index: Int, sheet: StyleSheet, affinity: NSSelectionAffinity = .downstream) -> [TextRule] {
         let (location, range) = paragraphLocation(at: index)
         guard range.length > 0 else { return [] }
-        let chosen = applicableRules(at: location, rules: rules, sheet: sheet)
+        let chosen = applicableRules(at: location, sheet: sheet)
         guard !chosen.isEmpty else { return [] }
         let body = BodyText(text, paragraph: range)
         let line = lineFacts(at: index, affinity: affinity)
@@ -170,8 +170,8 @@ extension DocumentLayout {
 
     /// I tratti del corpo a cui le regole danno l'aspetto, in tutto il documento: ciò che trovano, le righe per le regole
     /// di riga, il corpo intero per quelle di paragrafo. Per i segni della provenienza.
-    public func ruleRanges(rules: [TextRule], sheet: StyleSheet) -> [NSRange] {
-        guard !sheet.compilingStyleRules(rules).rules.isEmpty, text.length > 0 else { return [] }
+    public func ruleRanges(sheet: StyleSheet) -> [NSRange] {
+        guard !sheet.compilingStyleRules().rules.isEmpty, text.length > 0 else { return [] }
         var linesByParagraph: [Int: [PlacedLine]] = [:]
         for page in pages {
             for line in page.lines where !line.isNote { linesByParagraph[line.paragraphLocation, default: []].append(line) }
@@ -181,7 +181,7 @@ extension DocumentLayout {
         while location < text.length {
             let paragraph = TextStyling.bodyParagraph(in: text, at: location).range
             location = max(NSMaxRange(paragraph), location + 1)
-            let chosen = applicableRules(at: paragraph.location, rules: rules, sheet: sheet)
+            let chosen = applicableRules(at: paragraph.location, sheet: sheet)
             guard !chosen.isEmpty else { continue }
             let body = BodyText(text, paragraph: paragraph)
             let lines = linesByParagraph[paragraph.location] ?? []

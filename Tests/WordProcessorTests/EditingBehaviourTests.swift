@@ -472,8 +472,9 @@ struct EditingBehaviourTests {
         h.select(0)
         h.editor.applyNamedStyle(.paragraph, name: "Heading 1")
         h.step()
-        h.editor.changeRules([TextRule(target: .firstWords(1), paragraphStyle: "Body", position: .firstAfter("Heading 1"), styleName: "Small Caps")],
-                             styles: h.editor.styleSheet)
+        let plain = h.editor.styleSheet
+        h.editor.setRuleFormulasForTests([TextRule(target: .firstWords(1), paragraphStyle: "Body", position: .firstAfter("Heading 1"), styleName: "Small Caps")],
+                                         over: plain)
         h.step()
         #expect(smallCapsText(h) == ["Primo"])
         #expect(h.undoActionName == "Rules")
@@ -485,7 +486,7 @@ struct EditingBehaviourTests {
         h.undo()
         #expect(h.text == "Capitolo\nPrimo paragrafo del capitolo.\nSecondo paragrafo.")
         h.undo()
-        #expect(h.editor.rules.isEmpty)
+        #expect(h.editor.styleSheet == plain)
         #expect(smallCapsText(h).isEmpty)
     }
 
@@ -494,7 +495,7 @@ struct EditingBehaviourTests {
         let long = "Un paragrafo abbastanza lungo da occupare più righe della pagina, per vedere che il maiuscoletto copre sempre e solo la prima riga, qualunque cosa si scriva in testa."
         let h = EditorHarness(paragraphs: [long, "Breve."])
         defer { h.close() }
-        h.editor.changeRules([TextRule(target: .firstLines(1), paragraphStyle: "Body", styleName: "Small Caps")], styles: h.editor.styleSheet)
+        h.editor.setRuleFormulasForTests([TextRule(target: .firstLines(1), paragraphStyle: "Body", styleName: "Small Caps")], over: h.editor.styleSheet)
         h.step()
         func firstLineText() -> String {
             guard let line = h.editor.currentLayout()?.pages.first?.lines.first else { return "" }
@@ -512,9 +513,10 @@ struct EditingBehaviourTests {
     func conditionalRuleWhileTyping() {
         let h = EditorHarness(paragraphs: ["Breve.", "Altro."])
         defer { h.close() }
-        var styles = h.editor.styleSheet
-        styles.styles += StyleSheet.ruleStyles.filter { $0.name == "Centered" }
-        h.editor.changeRules([TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centered")], styles: styles)
+        let plain = h.editor.styleSheet
+        var styles = plain
+        styles.styles.append(RuleFormulas.centered)
+        h.editor.setRuleFormulasForTests([TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centered")], over: styles)
         h.step()
         func centered() -> Bool {
             // L'ultima riga del primo paragrafo: una riga piena e giustificata sembrerebbe centrata anche senza esserlo.
@@ -529,7 +531,7 @@ struct EditingBehaviourTests {
         h.undo()
         #expect(centered())
         h.undo()
-        #expect(!centered() && h.editor.rules.isEmpty)
+        #expect(!centered() && h.editor.styleSheet == plain)
     }
 
     // MARK: Interfaccia (tappa I.1)
@@ -945,7 +947,7 @@ struct EditingBehaviourTests {
         let b = EditorHarness(paragraphs: ["x"])
         defer { b.close() }
         b.editor.pasteboard = a.editor.pasteboard
-        let head = "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\">\n"
+        let head = "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\">\n"
         a.editor.replaceContent(try DocumentFormat.document(from: head + """
             <lists>
             <list name="Postille" counter="a"/>
@@ -1474,18 +1476,6 @@ struct EditingBehaviourTests {
         #expect(h.editor.currentDocument().lists == before)
         #expect(panel.lists?.rows.contains { $0.definition.name == "Examples" && $0.definition.prefix != "[" } == true, "Annulla ricarica la scheda")
 
-        // Regole: uno stile predefinito usato da una regola entra una volta sola, anche applicando più volte.
-        h.editor.editRules(nil)
-        h.step()
-        let rules = try #require(panel.rules)
-        rules.add()
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: DefinitionsPanel.pause + 0.3))
-        let styleName = h.editor.rules.first?.styleName ?? ""
-        #expect(h.editor.rules.count == 1 && !styleName.isEmpty)
-        try #require(panel.rules).rows[0].isEnabled = false
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: DefinitionsPanel.pause + 0.3))
-        #expect(h.editor.rules.first?.isEnabled == false)
-        #expect(h.editor.styleSheet.styles.filter { $0.name == styleName }.count == 1, "lo stile non si duplica")
     }
 
     @Test("S2 · La scheda Stili: un valore nello stile cambia il testo; rinominare, togliere, nuovo, basato su; tutto annullabile")
@@ -1590,7 +1580,7 @@ struct EditingBehaviourTests {
         #expect(paragraph.title == "Ultimo paragrafo." && paragraph.label == "¶")
 
         // Un clic: il cursore va all'inizio del paragrafo; il pannello resta sulla scheda in cui era.
-        h.editor.definitionsPanel.show(.rules)
+        h.editor.definitionsPanel.show(.pages)
         tree.choose(paragraph)
         h.step()
         #expect(h.selection == NSRange(location: paragraph.range.location, length: 0))
@@ -1641,7 +1631,7 @@ struct EditingBehaviourTests {
         defer { h.close() }
         h.editor.setInterfaceMode(.advanced)
         h.editor.replaceContent(try DocumentFormat.document(from: """
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <p>Premessa.</p>
         <section id="a" role="capitolo"><title><p>Alfa</p></title><p>Testo di Alfa.</p>
         <section id="aa" role="sezione"><title><p>Alfa uno</p></title><p>Testo di Alfa uno.</p></section></section>
@@ -1710,7 +1700,7 @@ struct EditingBehaviourTests {
         defer { h.close() }
         h.editor.setInterfaceMode(.advanced)
         h.editor.replaceContent(try DocumentFormat.document(from: """
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <section id="a" role="capitolo"><title><p>Alfa</p></title><p>Testo di Alfa.</p>
         <section id="aa" role="sezione"><title><p>Alfa interna</p></title></section></section>
         <section id="b" role="capitolo"><title><p>Beta</p></title><p>Testo di Beta.</p></section>
@@ -1774,32 +1764,7 @@ struct EditingBehaviourTests {
         #expect(abs(style.firstLineHeadIndent - centimetre) < 0.0001, "1 cm arriva al rientro della prima riga come 28,35 pt")
     }
 
-    // MARK: Stili e regole dall'ispettore (tappa I.8)
-
-    @Test("R1 · Dalla selezione nasce una regola che dà lo stesso aspetto allo stesso pezzo; Annulla la toglie")
-    func ruleFromInspector() throws {
-        let h = EditorHarness(paragraphs: ["Roma, città aperta.", "Napoli, città bella."])
-        defer { h.close() }
-        h.select(0, length: 4)
-        h.editor.changeForTests(.size) { $0.size = 18 }
-        h.step()
-
-        // «Roma» è la prima parola: la regola la cerca nei paragrafi «Testo», con uno stile nuovo che ha il corpo 18.
-        h.editor.styleNameAnswerForTests = "Prime parole"
-        h.editor.createRuleFromInspector()
-        h.step()
-        #expect(h.editor.rules == [TextRule(target: .firstWords(1), paragraphStyle: "Body", styleName: "Prime parole")])
-        let style = try #require(h.editor.styleSheet.style(named: "Prime parole"))
-        #expect(style.target == .character && style.formulas.contains { $0.operation == StylePropertyOperation(.set, .size, .length(18, .points)) })
-        #expect((h.attributed.attribute(.font, at: 1, effectiveRange: nil) as? NSFont)?.pointSize != 18,
-                "il corpo dato a mano se ne va: ora lo dà la regola")
-        #expect(h.editor.definitionsPanel.rules?.selectedIndex == 0, "si apre la scheda Regole, con la regola nuova scelta")
-
-        // Annullando: la regola se ne va con il suo stile, e «Roma» riprende il suo corpo.
-        h.undo()
-        #expect(h.editor.rules.isEmpty && h.editor.styleSheet.style(named: "Prime parole") == nil)
-        #expect((h.attributed.attribute(.font, at: 1, effectiveRange: nil) as? NSFont)?.pointSize == 18)
-    }
+    // MARK: Segni della provenienza (tappa I.8)
 
     @Test("R3 · Vista › Segni della provenienza: si accendono per la finestra, solo nell'avanzata, e seguono le modifiche")
     func provenanceMarks() throws {
@@ -1807,7 +1772,7 @@ struct EditingBehaviourTests {
         defer { InterfaceMode.lastChoice = saved }
         let h = EditorHarness(paragraphs: ["Roma, città aperta.", "Napoli, città bella."])
         defer { h.close() }
-        h.editor.changeRules([TextRule(target: .firstWords(1), paragraphStyle: "Body", styleName: "Emphasis")], styles: h.editor.styleSheet)
+        h.editor.setRuleFormulasForTests([TextRule(target: .firstWords(1), paragraphStyle: "Body", styleName: "Emphasis")], over: h.editor.styleSheet)
         h.step()
         #expect(h.editor.provenanceMarks.rules.isEmpty, "spenti all'inizio")
         h.editor.setInterfaceMode(.simple)
@@ -2016,13 +1981,13 @@ struct EditingBehaviourTests {
         let h = EditorHarness(paragraphs: ["Una prova."])
         defer { h.close() }
         h.editor.setInterfaceMode(.advanced)
-        EditorWindowController.toolbarItems = ["salva", "|", "regole", "illustrazione"]
+        EditorWindowController.toolbarItems = ["salva", "|", "liste", "illustrazione"]
         h.step()
-        #expect(h.editor.bandControls["salva"] != nil && h.editor.bandControls["regole"] != nil)
+        #expect(h.editor.bandControls["salva"] != nil && h.editor.bandControls["liste"] != nil)
         #expect(h.editor.bandControls["nuovo"] == nil, "un comando tolto non c'è più")
         EditorWindowController.toolbarItems = EditorWindowController.defaultToolbar
         h.step()
-        #expect(h.editor.bandControls["nuovo"] != nil && h.editor.bandControls["regole"] == nil)
+        #expect(h.editor.bandControls["nuovo"] != nil && h.editor.bandControls["liste"] == nil)
 
         // Due stili di figura: due voci nel menu Illustrazione.
         var second = FloatStyle.defaultFigure
@@ -2055,7 +2020,7 @@ struct EditingBehaviourTests {
         }
         InterfaceMode.lastChoice = .simple
         EditorWindowController.setToolbarItems(EditorWindowController.defaultSimpleToolbar, for: .simple)
-        EditorWindowController.setToolbarItems(["regole", "|", "salva"], for: .advanced)
+        EditorWindowController.setToolbarItems(["liste", "|", "salva"], for: .advanced)
         let h = EditorHarness(paragraphs: ["Il documento non cambia."])
         defer { h.close() }
         let before = h.text
@@ -2063,7 +2028,7 @@ struct EditingBehaviourTests {
         #expect(h.editor.toolbarGroupsForTests == [["salva"], ["annulla", "ripeti", "cerca"], ["nota", "illustrazione", "tabella"]])
         h.editor.setInterfaceMode(.advanced)
         h.step()
-        #expect(h.editor.toolbarGroupsForTests == [["regole"], ["salva"]])
+        #expect(h.editor.toolbarGroupsForTests == [["liste"], ["salva"]])
         h.editor.setInterfaceMode(.simple)
         h.step()
         h.editor.moveToolbarGroupForTests(from: 0, to: 2)
@@ -2072,14 +2037,14 @@ struct EditingBehaviourTests {
         #expect(h.text == before)
         h.editor.setInterfaceMode(.advanced)
         h.step()
-        #expect(h.editor.toolbarGroupsForTests == [["regole"], ["salva"]], "il livello dettagliato non eredita lo spostamento")
+        #expect(h.editor.toolbarGroupsForTests == [["liste"], ["salva"]], "il livello dettagliato non eredita lo spostamento")
     }
 
     @Test("G7 · Un pulsante che apre qualcosa non resta acceso dopo il clic; Grassetto sì, finché il testo è in grassetto")
     func momentaryButtonsStayOff() throws {
         let saved = UserDefaults.standard.stringArray(forKey: "ToolbarItems")
         defer { UserDefaults.standard.set(saved, forKey: "ToolbarItems") }
-        EditorWindowController.toolbarItems = ["salva", "regole"]
+        EditorWindowController.toolbarItems = ["salva", "liste"]
         let h = EditorHarness(paragraphs: ["Una prova."])
         defer { h.close() }
         h.editor.setInterfaceMode(.advanced)
@@ -2097,10 +2062,10 @@ struct EditingBehaviourTests {
             RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
             return button
         }
-        // Regole… apre la sua scheda nel pannello (dall'interfaccia semplice passa all'avanzata).
-        let rules = try click("regole")
-        #expect(h.editor.definitionsPanel.tab == .rules, "si apre la scheda Regole")
-        #expect(rules.state == .off, "aperta la scheda, il pulsante non è acceso")
+        // Liste… apre la sua scheda nel pannello (dall'interfaccia semplice passa all'avanzata).
+        let lists = try click("liste")
+        #expect(h.editor.definitionsPanel.tab == .lists, "si apre la scheda Liste")
+        #expect(lists.state == .off, "aperta la scheda, il pulsante non è acceso")
         h.select(0, length: 3)
         h.step()
         #expect(try click("grassetto").state == .on, "Grassetto si accende: il testo scelto ora è in grassetto")

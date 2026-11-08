@@ -9,8 +9,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenu.build()
         FontLoader.registerAdobeFonts()
-        EditorWindowController.addLoremToToolbarOnce()
-        EditorWindowController.addSpellingToToolbarOnce()
         NSApp.activate(ignoringOtherApps: true)
     }
 

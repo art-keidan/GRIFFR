@@ -49,7 +49,7 @@ struct ActionComposerTests {
         // Il file conserva variabile e collegamento, alla versione 12.
         let data = try h.document.data(ofType: TextDocument.typeName)
         let xml = try #require(String(data: data, encoding: .utf8))
-        #expect(xml.contains("version=\"12\"") && xml.contains("name=\"Distanza\""))
+        #expect(xml.contains("version=\"18\"") && xml.contains("name=\"Distanza\""))
         let read = try DocumentFormat.document(from: data)
         #expect(read.styles.resolveParagraph(styleName: "Body").leftIndent == 22)
         // Il ritorno a un valore fisso conserva il valore che la variabile dava.
@@ -150,7 +150,7 @@ struct ActionComposerTests {
         board.apply(); h.step()
         #expect(h.editor.settings.styles.style(named: "Heading 1")?.heading == board.currentHeading)
         let xml = try #require(String(data: try h.document.data(ofType: TextDocument.typeName), encoding: .utf8))
-        #expect(xml.contains("version=\"15\""))
+        #expect(xml.contains("version=\"18\""))
     }
 
     @Test("Scrivi risultato dalla bacheca: la parte prima del titolo, la catena cambiata nell'editor dei campi, il formato 16")
@@ -183,7 +183,7 @@ struct ActionComposerTests {
         board.apply(); h.step()
         #expect(h.editor.settings.styles.style(named: "Heading 1")?.heading == board.currentHeading)
         let xml = try #require(String(data: try h.document.data(ofType: TextDocument.typeName), encoding: .utf8))
-        #expect(xml.contains("version=\"16\""))
+        #expect(xml.contains("version=\"18\""))
         let read = try DocumentFormat.document(from: xml)
         #expect(read.styles.style(named: "Heading 1")?.heading == board.currentHeading, "la catena torna dal file")
     }
@@ -223,7 +223,7 @@ struct ActionComposerTests {
         board.apply(); h.step()
         #expect(h.editor.settings.styles.style(named: "Body")?.writes == [written])
         let xml = try #require(String(data: try h.document.data(ofType: TextDocument.typeName), encoding: .utf8))
-        #expect(xml.contains("version=\"16\"") && xml.contains("<writes "))
+        #expect(xml.contains("version=\"18\"") && xml.contains("<writes "))
         h.undo()
         #expect(h.editor.settings.styles.style(named: "Body")?.writes.isEmpty == true)
     }

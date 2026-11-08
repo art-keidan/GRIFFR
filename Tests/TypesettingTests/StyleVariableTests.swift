@@ -61,12 +61,12 @@ struct StyleVariableTests {
     func roundTrip() throws {
         let (sheet, distance) = sheet()
         let xml = DocumentFormat.string(for: Document(styles: sheet))
-        #expect(xml.contains("version=\"12\"") && xml.contains("<variable id=\"\(distance.id.uuidString)\" name=\"Distanza\""))
+        #expect(xml.contains("version=\"18\"") && xml.contains("<variable id=\"\(distance.id.uuidString)\" name=\"Distanza\""))
         let read = try DocumentFormat.document(from: xml)
         #expect(read.styles.styles[0].variables == sheet.styles[0].variables)
         #expect(read.styles.resolveParagraph(styleName: "Quotation").leftIndent == 18)
         #expect(DocumentFormat.string(for: read) == xml, "riscritto uguale, senza duplicati")
-        #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"12\"", with: "version=\"11\"")) }
+        #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"18\"", with: "version=\"11\"")) }
     }
 
     @Test("Incollare uno stile con variabili porta la formula che esse richiamano, con l'identità rinnovata nei conflitti")

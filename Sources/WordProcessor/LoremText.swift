@@ -89,7 +89,7 @@ enum LoremText {
         ]),
     ]
 
-    /// Il brano come documento con gli stili di `settings`: il corpo nello stile di base («Body», o «Testo» nei documenti di prima), i titoletti nello stile del
+    /// Il brano come documento con gli stili di `settings`: il corpo nello stile di base («Body»), i titoletti nello stile del
     /// primo livello (aggiunto, se il foglio non ne ha); tutto in Garamond Premier Pro, se c'è, con il nero dove lo stile
     /// lo vuole. I titoletti nascono al primo livello con lo stile di quel livello: incollati dentro una sezione scendono,
     /// e lo stile li segue.

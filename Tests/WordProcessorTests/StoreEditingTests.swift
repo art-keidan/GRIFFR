@@ -69,7 +69,7 @@ struct StoreEditingTests {
         let h = EditorHarness(paragraphs: ["segnaposto"])
         defer { h.close() }
         let document = try DocumentFormat.document(from: """
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <section id="a" role="capitolo"><title><p>Alfa</p></title><p>Testo di Alfa.</p>
         <section id="aa" role="sezione"><title><p>Alfa interna</p></title><p>Testo interno.</p></section></section>
         <section id="b" role="capitolo"><title><p>Beta</p></title><p>Testo di Beta.</p></section>
@@ -110,7 +110,7 @@ struct StoreEditingTests {
         let h = EditorHarness(paragraphs: ["segnaposto"])
         defer { h.close() }
         let document = try DocumentFormat.document(from: """
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <styles><style name="Speciale" target="paragraph" outline-level="2"/></styles>
         <section id="a" role="capitolo"><title><p>Alfa</p></title>
         <section id="aa" role="sezione"><title><p style="Speciale">Alfa interna</p></title>
@@ -251,7 +251,7 @@ struct StoreEditingTests {
     /// Alfa e Beta capitoli; Alfa ha una sottosezione; ogni sezione ha un capoverso in «Testo».
     private func alfaBeta(_ h: EditorHarness) throws -> DocumentStore {
         h.editor.replaceContent(try DocumentFormat.document(from: """
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <styles><style name="Body" target="paragraph"/>
         <style name="Heading 1" target="paragraph" based-on="Body" size="18" outline-level="1"/>
         <style name="Heading 2" target="paragraph" based-on="Body" size="14" outline-level="2"/>
@@ -345,7 +345,7 @@ struct StoreEditingTests {
         let h = EditorHarness(paragraphs: ["segnaposto"])
         defer { h.close() }
         h.editor.replaceContent(try DocumentFormat.document(from: """
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <styles><style name="Body" target="paragraph"/>
         <style name="Heading 1" target="paragraph" based-on="Body" size="18" outline-level="1"/>
         <style name="Heading 2" target="paragraph" based-on="Body" size="14" outline-level="2"/>
@@ -449,7 +449,7 @@ struct StoreEditingTests {
     /// Un capitolo con due interne; dopo la prima il testo torna al capitolo, dopo il capitolo fuori da ogni sezione.
     private func returning(_ h: EditorHarness) throws -> DocumentStore {
         h.editor.replaceContent(try DocumentFormat.document(from: """
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <styles><style name="Body" target="paragraph"/>
         <style name="Heading 1" target="paragraph" based-on="Body" size="18" outline-level="1"/>
         <style name="Heading 2" target="paragraph" based-on="Body" size="14" outline-level="2"/></styles>
@@ -836,7 +836,7 @@ struct StoreEditingTests {
         let h = EditorHarness(paragraphs: ["segnaposto"])
         defer { h.close() }
         h.editor.replaceContent(try DocumentFormat.document(from: """
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <styles><style name="Body" target="paragraph"/>
         <style name="Heading 1" target="paragraph" based-on="Body" size="18" outline-level="1"/>
         <style name="Heading 2" target="paragraph" based-on="Body" size="14" outline-level="2"/>
@@ -868,7 +868,7 @@ struct StoreEditingTests {
 
     private func ownNames(_ h: EditorHarness) throws -> DocumentStore {
         h.editor.replaceContent(try DocumentFormat.document(from: """
-        <document version="1" font="HoeflerText-Regular" size="12">
+        <document version="18" font="HoeflerText-Regular" size="12">
         <styles><style name="Body" target="paragraph"/>
         <style name="Capitolo" target="paragraph" based-on="Body" size="18" outline-level="1" opens-section="capitolo"/>
         <style name="Paragrafo" target="paragraph" based-on="Body" size="14" outline-level="2" opens-section="sezione"/>

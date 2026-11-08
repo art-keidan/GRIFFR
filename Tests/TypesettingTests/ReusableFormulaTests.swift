@@ -42,11 +42,11 @@ struct ReusableFormulaTests {
         styles.reusableFormulas = [base, caller]
         let document = Document(styles: styles)
         let xml = DocumentFormat.string(for: document)
-        #expect(xml.contains("version=\"10\""))
+        #expect(xml.contains("version=\"18\""))
         let reopened = try DocumentFormat.document(from: xml)
         #expect(reopened.styles.reusableFormulas == [base, caller])
         #expect(try ReusableFormulaLibrary(definitions: reopened.styles.reusableFormulas).evaluate(caller.id) == .length(18))
-        #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"10\"", with: "version=\"9\"")) }
+        #expect(throws: (any Error).self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"18\"", with: "version=\"9\"")) }
     }
 }
 
@@ -69,7 +69,7 @@ extension ReusableFormulaTests {
         #expect(sheet.resolveParagraph(styleName: "Relativo").leftIndent == 22)
         let document = Document(styles: sheet)
         let xml = DocumentFormat.string(for: document)
-        #expect(xml.contains("version=\"11\""))
+        #expect(xml.contains("version=\"18\""))
         let read = try DocumentFormat.document(from: xml)
         #expect(read.styles.styles[0].formulas[0].binding == sheet.styles[0].formulas[0].binding)
         #expect(read.styles.resolveParagraph(styleName: "Relativo").leftIndent == 22)

@@ -6,7 +6,7 @@ extension TypesettingSuite {
     @Suite("Incollare da un altro documento: le definizioni che il testo porta con sé")
     struct DefinitionImportTests {
         private func document(lists: String = "", styles: String = "", floatStyles: String = "", body: String) throws -> Document {
-            var source = "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\">\n"
+            var source = "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\">\n"
             if !lists.isEmpty { source += "<lists>\n\(lists)\n</lists>\n" }
             if !styles.isEmpty { source += "<styles>\n\(styles)\n</styles>\n" }
             if !floatStyles.isEmpty { source += "<float-styles>\n\(floatStyles)\n</float-styles>\n" }

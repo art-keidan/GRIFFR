@@ -31,28 +31,6 @@ struct PageStartSpacingTests {
         #expect(abs(opening.requested - gap) < 0.01)
     }
 
-    @Test("Il primo salvataggio in formato 2 conserva il file v1, anche dopo un tentativo sullo stesso nome")
-    func protectedCopy() throws {
-        let h = EditorHarness(paragraphs: ["Titolo"])
-        defer { h.close() }
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: false)
-        defer { try? FileManager.default.removeItem(at: dir) }
-        let original = dir.appendingPathComponent("Titolo.wpx"), copy = dir.appendingPathComponent("Copia.grx")
-        let type = TextDocument.typeName
-        let v1 = try h.document.data(ofType: type)
-        try v1.write(to: original)
-        h.document.fileURL = original
-        try h.document.read(from: v1, ofType: type)
-        h.editor.stylesTab.onPageStart?("Body", .distance(45))
-        #expect(throws: NSError.self) { try h.document.writeSafely(to: original, ofType: type, for: .saveOperation) }
-        try h.document.writeSafely(to: copy, ofType: type, for: .saveAsOperation)
-        #expect(try Data(contentsOf: original) == v1)
-        let saved = try DocumentFormat.document(from: Data(contentsOf: copy))
-        #expect(saved.sourceVersion == 8)
-        #expect(saved.styles.values(of: "Body").pageStartSpacing == .distance(45))
-    }
-
     @Test("Eredità, disattivazione, zero esplicito e versione XML")
     func format() throws {
         func xml(_ version: Int, _ spacing: String) -> String {
@@ -65,18 +43,14 @@ struct PageStartSpacingTests {
             </styles><p style="B">Titolo</p></document>
             """
         }
-        for bad in [xml(1, "30mm"), xml(2, "-1"), xml(2, "nan")] {
+        for bad in [xml(17, "30mm"), xml(18, "-1"), xml(18, "nan")] {
             #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: bad) }
         }
-        let first = try DocumentFormat.document(from: xml(2, "1in"))
+        let first = try DocumentFormat.document(from: xml(18, "1in"))
         let reopened = try DocumentFormat.document(from: DocumentFormat.data(for: DocumentStore(document: first).document))
         #expect(reopened.styles.values(of: "B").pageStartSpacing == .distance(72))
         #expect(reopened.styles.values(of: "C").pageStartSpacing == .disabled)
         #expect(reopened.styles.values(of: "D").pageStartSpacing == .distance(0))
-        var cleared = reopened
-        cleared.styles = StyleSheet()
-        #expect(DocumentFormat.writingVersion(for: cleared) == 2)
-        #expect(DocumentFormat.writingVersion(for: Document()) == 1)
     }
 }
 
@@ -93,27 +67,25 @@ struct ComposerBoardTests {
         h.editor.openStyleComposer(nil)
         #expect(h.editor.composerController?.window === board)
         let sheet = h.editor.settings.styles
-        let model = ComposerBoardModel(sheet: sheet, rules: [], owner: "Body", sample: h.text)
+        let model = ComposerBoardModel(sheet: sheet, owner: "Body", sample: h.text)
         model.showingStyles = false
-        model.commit = { base, rules, updated, updatedRules in
-            guard h.editor.settings.styles == base, h.editor.settings.rules == rules else { return "Conflitto" }
-            h.editor.changeRules(updatedRules, styles: updated)
+        model.commit = { base, updated in
+            guard h.editor.settings.styles == base else { return "Conflitto" }
+            h.editor.endUndoStep(next: .none)
+            h.editor.changeStyles(to: updated, restyle: false, actionName: "Style Formulas")
             return nil
         }
-        model.reload = { (h.editor.settings.styles, h.editor.settings.rules) }
+        model.reload = { h.editor.settings.styles }
         model.addSelection()
         let id = try #require(model.sheet.selections.first?.id)
         #expect(!model.valid)
         model.incomplete.remove(id)
-        model.addEffect(id)
-        model.addEffect(id)
         #expect(model.valid && model.dirty)
         model.apply()
         #expect(!model.dirty && model.problem == nil)
-        #expect(h.editor.settings.rules.count == 2)
         #expect(h.editor.settings.styles.selections.first?.preview(in: h.text) == "cinque")
         h.undo()
-        #expect(h.editor.settings.styles == sheet && h.editor.settings.rules.isEmpty)
+        #expect(h.editor.settings.styles == sheet)
         model.sheet.selections[0].index = 3
         model.apply()
         #expect(model.problem == "Conflitto")
@@ -121,10 +93,9 @@ struct ComposerBoardTests {
         model.discard()
         #expect(!model.dirty && model.problem == nil && model.sheet.selections.isEmpty)
         h.redo()
-        #expect(h.editor.settings.rules.count == 2)
+        #expect(h.editor.settings.styles.selections.count == 1)
         let read = try DocumentFormat.document(from: h.document.data(ofType: TextDocument.typeName))
         #expect(read.styles.selections.first?.id == id)
-        #expect(read.rules.allSatisfy { $0.target == .selection(id) })
     }
 }
 

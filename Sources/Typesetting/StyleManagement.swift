@@ -183,21 +183,14 @@ extension Document {
             }
             if result.styles.styles[index].values.nextStyle == old { result.styles.styles[index].values.nextStyle = new }
         }
-        result.rules = rules.map { rule in
-            var rule = rule
-            if rule.styleName == old { rule.styleName = new }
-            if rule.paragraphStyle == old { rule.paragraphStyle = new }
-            if case .firstAfter(old) = rule.position { rule.position = .firstAfter(new) }
-            return rule
-        }
         for index in result.floatStyles.indices where result.floatStyles[index].contentStyle == old {
             result.floatStyles[index].contentStyle = new
         }
         return result
     }
 
-    /// Le definizioni senza uno stile; regole, stili di flottante e stili che lo usavano passano allo stile su cui si
-    /// basava (`replacement`, `nil` se nessuno), e così deve fare il testo, che riscrive chi chiama. Una regola che
+    /// Le definizioni senza uno stile; formule, stili di flottante e stili che lo usavano passano allo stile su cui si
+    /// basava (`replacement`, `nil` se nessuno), e così deve fare il testo, che riscrive chi chiama. Una formula che
     /// applicava proprio quello stile, o valeva dopo un paragrafo di quello stile, passa allo stile di base; se non c'è,
     /// si toglie.
     public func removingStyle(_ name: String) -> (document: Document, replacement: String?) {
@@ -221,19 +214,6 @@ extension Document {
                 return changed
             }
             if result.styles.styles[index].values.nextStyle == name { result.styles.styles[index].values.nextStyle = parent ?? "" }
-        }
-        result.rules = rules.compactMap { rule in
-            var rule = rule
-            if rule.styleName == name {
-                guard let parent else { return nil }
-                rule.styleName = parent
-            }
-            if rule.paragraphStyle == name { rule.paragraphStyle = parent }
-            if case .firstAfter(name) = rule.position {
-                guard let parent else { return nil }
-                rule.position = .firstAfter(parent)
-            }
-            return rule
         }
         for index in result.floatStyles.indices where result.floatStyles[index].contentStyle == name {
             result.floatStyles[index].contentStyle = parent

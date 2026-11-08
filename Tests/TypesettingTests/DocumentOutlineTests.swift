@@ -7,14 +7,14 @@ extension TypesettingSuite {
     struct DocumentOutlineTests {
         private func document() throws -> Document {
             try DocumentFormat.document(from: """
-                <document version="1" font="HoeflerText-Regular" size="12">
+                <document version="18" font="HoeflerText-Regular" size="12">
                 <lists>
                 <list name="Esempi" counter="1" prefix="(" suffix=")"/>
                 <list name="Figure" counter="1" prefix="Figura " suffix="." continues="on"/>
                 </lists>
                 <styles>
-                <style name="Titolo 1" target="paragraph" size="18"/>
-                <style name="Titolo 2" target="paragraph" size="14"/>
+                <style name="Titolo 1" target="paragraph" size="18" outline-level="1"/>
+                <style name="Titolo 2" target="paragraph" size="14" outline-level="2"/>
                 <style name="Testo" target="paragraph"/>
                 </styles>
                 <float-styles>
@@ -80,10 +80,10 @@ extension TypesettingSuite {
             #expect(tree.count == 1 && tree[0].kind == .heading(level: 3))
             #expect(tree[0].children?.map(\.kind) == [.paragraph])
 
-            // Solo quando l'attributo manca resta il riconoscimento dei documenti precedenti.
+            // Senza l'attributo il nome dello stile non dice niente: è un capoverso.
             text.removeAttribute(.outlineLevel, range: NSRange(location: 0, length: text.length))
             tree = DocumentOutline.build(text: text, layout: nil, floatStyles: [])
-            #expect(tree.first?.kind == .heading(level: 1))
+            #expect(tree.first?.kind == .paragraph)
         }
     }
 }

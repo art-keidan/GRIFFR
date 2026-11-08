@@ -19,7 +19,7 @@ extension TypesettingSuite {
 
         @Test("Il file conserva le facce dei ruoli, statiche e variabili")
         func roundTrip() throws {
-            var document = try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><p>Testo.</p></document>")
+            var document = try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"><p>Testo.</p></document>")
             document.fontRoles.customize(family: "Baskerville", role: .bold, to: FontRoleEquivalence(staticFace: "Baskerville-SemiBold"))
             document.fontRoles.customize(family: "Adobe Kis VF", role: .bold, to: FontRoleEquivalence(
                 variableInstance: VariableFontInstance(fontName: "AdobeKisVF-Default", variations: [AxisValue(tag: "wght", value: 450)])))
@@ -31,16 +31,16 @@ extension TypesettingSuite {
             let read = try DocumentFormat.document(from: written)
             #expect(read.fontRoles == document.fontRoles)
             // Senza facce scelte, nulla nel file.
-            #expect(!DocumentFormat.string(for: try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><p>x</p></document>")).contains("font-role"))
+            #expect(!DocumentFormat.string(for: try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"><p>x</p></document>")).contains("font-role"))
         }
 
         @Test("Un ruolo sconosciuto o ripetuto rende il file illeggibile")
         func invalid() {
             #expect(throws: (any Error).self) {
-                try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><font-roles><font-role family=\"X\" role=\"semibold\"/></font-roles><p>x</p></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"><font-roles><font-role family=\"X\" role=\"semibold\"/></font-roles><p>x</p></document>")
             }
             #expect(throws: (any Error).self) {
-                try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"><font-roles><font-role family=\"X\" role=\"bold\"/><font-role family=\"X\" role=\"bold\"/></font-roles><p>x</p></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"><font-roles><font-role family=\"X\" role=\"bold\"/><font-role family=\"X\" role=\"bold\"/></font-roles><p>x</p></document>")
             }
         }
     }

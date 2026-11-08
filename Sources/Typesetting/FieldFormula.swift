@@ -212,9 +212,6 @@ public struct FieldFormula: Hashable, Sendable {
         self = formula
     }
 
-    /// La versione del formato che ha introdotto la formula.
-    public var formatVersion: Int { self == .pageContainingNumber ? 9 : 13 }
-
     // MARK: Valore
 
     /// Il testo che la formula scrive, in un punto della composizione. Una catena che non dà risultato scrive niente.

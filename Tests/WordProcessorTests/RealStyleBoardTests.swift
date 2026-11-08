@@ -18,8 +18,8 @@ struct RealStyleBoardTests {
         doc.blocks = [.paragraph(Paragraph(styleName: "Body", inlines: [.text(TextRun("Prova", style: italic, characterStyleName: "Strong"))]))]
         h.editor.replaceContent(doc)
         h.document.undoManager?.removeAllActions()
-        let model = ComposerBoardModel(sheet: doc.styles, rules: [], owner: "Body", sample: "Prova")
-        model.commit = { h.editor.applyStyleBoard(base: $0, rules: $1, updated: $2, updatedRules: $3) }
+        let model = ComposerBoardModel(sheet: doc.styles, owner: "Body", sample: "Prova")
+        model.commit = { h.editor.applyStyleBoard(base: $0, updated: $1) }
         model.selectStyle("Strong")
         let style = try #require(model.sheet.style(named: "Strong"))
         let f = try #require(style.formulas.first)
@@ -42,7 +42,7 @@ struct RealStyleBoardTests {
         let data = try h.document.data(ofType: TextDocument.typeName)
         try h.document.read(from: data, ofType: TextDocument.typeName)
         #expect((h.attributed.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.fontName == "HoeflerText-Italic")
-        #expect(try DocumentFormat.document(from: data).sourceVersion == 6)
+        _ = try DocumentFormat.document(from: data)
     }
 
     @Test("La conversione dei predefiniti conserva la resa dei quattro ruoli")
@@ -62,7 +62,6 @@ struct RealStyleBoardTests {
             }
         }
         let loaded = try DocumentFormat.document(from: DocumentFormat.data(for: Document(styles: migrated, lists: ListDefinition.builtIn)))
-        #expect(loaded.sourceVersion == 8)
         #expect(loaded.styles.styles == migrated.styles)
         for style in migrated.styles { #expect(style.materializingFormulas() == style) }
     }
@@ -108,20 +107,20 @@ struct RealStyleBoardTests {
         let sheet = StyleSheet(styles: [NamedStyle(name: "Base", target: .paragraph, values: root),
             NamedStyle(name: "Figlio", target: .paragraph, basedOn: "Base", values: child,
                 formulas: [StyleFormula(operation: StylePropertyOperation(.add, .leftIndent, .length(6, .points)))])])
-        let model = ComposerBoardModel(sheet: sheet, rules: [], owner: "Figlio", sample: "Prova")
+        let model = ComposerBoardModel(sheet: sheet, owner: "Figlio", sample: "Prova")
         model.selectStyle("Figlio")
         let style = try #require(model.sheet.style(named: "Figlio"))
         let state = try #require(model.formulaStates(style).first { $0.output.paragraph.leftIndent == 30 })
         #expect(state.input.paragraph.leftIndent == 24 && state.output.paragraph.leftIndent == 30)
         #expect(style.values.bold == nil)
         #expect(style.formulas.contains { $0.operation == StylePropertyOperation(.subtract, .font, .font(.bold)) })
-        model.commit = { h.editor.applyStyleBoard(base: $0, rules: $1, updated: $2, updatedRules: $3) }
+        model.commit = { h.editor.applyStyleBoard(base: $0, updated: $1) }
         model.updateFormula(state.id, operation: StylePropertyOperation(.set, .leftIndent, .length(6, .points)))
         let before = h.editor.currentDocument()
         model.apply()
         #expect(model.problem != nil)
         #expect(h.editor.currentDocument().styles == before.styles)
-        model.reload = { (sheet, []) }
+        model.reload = { sheet }
         model.discard()
         #expect(model.problem == nil)
         #expect(try model.preview(try #require(model.sheet.style(named: "Figlio"))).paragraph.leftIndent == 30)
@@ -130,7 +129,7 @@ struct RealStyleBoardTests {
     @Test("Cambiare scheda non permette di applicare una formula con risultato impossibile")
     func invalidDraftStaysInvalid() throws {
         let sheet = StyleSheet(styles: [NamedStyle(name: "A", target: .paragraph), NamedStyle(name: "B", target: .paragraph)])
-        let model = ComposerBoardModel(sheet: sheet, rules: [], owner: "A", sample: "Prova")
+        let model = ComposerBoardModel(sheet: sheet, owner: "A", sample: "Prova")
         model.addStyleFormula()
         let id = try #require(model.sheet.style(named: "A")?.formulas.first?.id)
         model.updateFormula(id, operation: StylePropertyOperation(.add, .size, .length(-100, .points)))

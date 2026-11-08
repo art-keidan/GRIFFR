@@ -79,8 +79,9 @@ struct Measurements {
         }
         let storeLayout = clock.measure { _ = PageLayout.layout(store, options: options) }
         // Con due regole: una sulle prime parole di ogni paragrafo, una su tutte le parole (sigle).
-        h.editor.changeRules([TextRule(target: .firstWords(2), paragraphStyle: "Body", styleName: "Small Caps"),
-                              TextRule(target: .words(.capitals), styleName: "Small Caps")], styles: h.editor.styleSheet)
+        let plainSheet = h.editor.styleSheet
+        h.editor.setRuleFormulasForTests([TextRule(target: .firstWords(2), paragraphStyle: "Body", styleName: "Small Caps"),
+                                          TextRule(target: .words(.capitals), styleName: "Small Caps")], over: plainSheet)
         var ruleLayouts: [Double] = []
         for _ in 0..<5 {
             h.editor.pagesInsert("x", replacementRange: h.editor.pagesSelectedRange)
@@ -90,7 +91,7 @@ struct Measurements {
         // Con la prima riga in maiuscoletto in ogni paragrafo: composta insieme agli a capo.
         // (Cambiare le regole ricompone già tutto: si misura quello.)
         let firstLineOpen = clock.measure {
-            h.editor.changeRules([TextRule(target: .firstLines(1), paragraphStyle: "Body", styleName: "Small Caps")], styles: h.editor.styleSheet)
+            h.editor.setRuleFormulasForTests([TextRule(target: .firstLines(1), paragraphStyle: "Body", styleName: "Small Caps")], over: plainSheet)
         }
         let styledFirstLines = h.editor.currentLayout()?.pages.flatMap(\.lines).filter { placed in
             guard let run = (CTLineGetGlyphRuns(placed.line) as? [CTRun])?.first else { return false }
@@ -104,9 +105,9 @@ struct Measurements {
             h.step()
         }
         // Con una regola che dipende dalla composizione: i paragrafi di una riga centrati (ogni paragrafo si controlla).
-        var centeredStyles = h.editor.styleSheet
-        centeredStyles.styles += StyleSheet.ruleStyles.filter { $0.name == "Centered" && centeredStyles.style(named: $0.name) == nil }
-        h.editor.changeRules([TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centered")], styles: centeredStyles)
+        var centeredStyles = plainSheet
+        if centeredStyles.style(named: "Centered") == nil { centeredStyles.styles.append(RuleFormulas.centered) }
+        h.editor.setRuleFormulasForTests([TextRule(target: .paragraph, condition: .init(.lines, .equal, 1), styleName: "Centered")], over: centeredStyles)
         var conditionLayouts: [Double] = []
         for _ in 0..<5 {
             h.editor.pagesInsert("x", replacementRange: h.editor.pagesSelectedRange)
@@ -146,7 +147,7 @@ struct Measurements {
     static func keepingDocument(keeping: Bool) throws -> Typesetting.Document {
         let sentence = "La composizione tipografica di un documento lungo mette alla prova il programma, pagina dopo pagina, riga dopo riga. "
         var xml = """
-            <document version="1" font="HoeflerText-Regular" size="12">
+            <document version="18" font="HoeflerText-Regular" size="12">
             <styles>
             <style name="Testo" target="paragraph" align="justified" first-indent="14"\(keeping ? " orphan-lines=\"2\" widow-lines=\"2\"" : "")/>
             <style name="Titolo" target="paragraph" based-on="Testo" size="14" align="left" first-indent="0" space-before="14" space-after="4"\(keeping ? " keep-with-next=\"on\"" : "")/>

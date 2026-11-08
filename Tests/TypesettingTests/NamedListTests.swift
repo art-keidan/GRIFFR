@@ -120,7 +120,7 @@ extension TypesettingSuite {
         @Test("Errori nel file: Lista inesistente, superiore inesistente o circolare, note senza Lista")
         func errors() {
             func error(_ document: String, _ body: String) -> DocumentFormatError? {
-                do { _ = try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\"\(document)>\n\(body)\n</document>"); return nil }
+                do { _ = try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\"\(document)>\n\(body)\n</document>"); return nil }
                 catch { return error as? DocumentFormatError }
             }
             let lists = "<lists>\n<list name=\"A\" counter=\"1\"/>\n</lists>"

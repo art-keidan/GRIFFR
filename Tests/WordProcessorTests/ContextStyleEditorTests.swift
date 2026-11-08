@@ -57,26 +57,7 @@ struct ContextStyleEditorTests {
         h.redo()
         #expect(h.editor.currentLayout()?.pageStarts[0]?.requested == 36)
         let loaded = try DocumentFormat.document(from: h.document.data(ofType: TextDocument.typeName))
-        #expect(loaded.sourceVersion == 8)
         #expect(loaded.styles.style(named: "Body")?.formulas.contains { $0.id == id && $0.when.position == .firstOnPage } == true)
-    }
-
-    @Test("Le regole storiche si modificano dalla bacheca mantenendo posizione e condizione")
-    func historicalRules() throws {
-        let h = EditorHarness(paragraphs: ["Uno due tre"])
-        defer { h.close() }
-        let rule = TextRule(target: .firstWords(1), paragraphStyle: "Body", condition: .init(.words, .lessOrEqual, 3), styleName: "Strong")
-        h.editor.changeRules([rule], styles: h.editor.settings.styles)
-        h.step()
-        h.editor.openStyleComposer(nil)
-        let model = try #require(h.editor.composerModel)
-        model.section = .rules
-        model.rules[0].target = .firstWords(2)
-        model.apply(); h.step()
-        #expect(h.editor.settings.rules[0].condition == rule.condition)
-        #expect(h.editor.settings.rules[0].target == .firstWords(2))
-        h.undo()
-        #expect(h.editor.settings.rules == [rule])
     }
 
 }

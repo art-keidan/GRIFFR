@@ -204,7 +204,7 @@ extension TypesettingSuite {
             #expect(attributed.attribute(.fontOpticalSize, at: 0, effectiveRange: nil) as? String == "caption")
             #expect(attributed.attribute(.fontOpticalSize, at: 6, effectiveRange: nil) == nil)
             #expect(throws: DocumentFormatError.invalidValue(line: 1, attribute: "optical", value: "enorme")) {
-                try DocumentFormat.document(from: "<document version=\"1\" font=\"Minion3-Regular\" size=\"12\" optical=\"enorme\"><p>x</p></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" font=\"Minion3-Regular\" size=\"12\" optical=\"enorme\"><p>x</p></document>")
             }
         }
     }

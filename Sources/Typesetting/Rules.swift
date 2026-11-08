@@ -24,8 +24,9 @@ public struct WordSelection: Hashable, Identifiable, Sendable {
 
 // MARK: - Regole
 
-/// Una regola: trova pezzi di testo che nessuno ha creato (la prima lettera di un paragrafo, le sue prime parole, le
-/// parole tutte maiuscole…) e dà loro l'aspetto di uno stile di carattere o di parola.
+/// Una regola del motore: trova pezzi di testo che nessuno ha creato (la prima lettera di un paragrafo, le sue prime
+/// parole, le parole tutte maiuscole…) e dà loro l'aspetto di uno stile di carattere o di parola. Le regole non stanno nel
+/// documento: nascono dalle formule contestuali degli stili (`StyleSheet.compilingStyleRules`) a ogni composizione.
 ///
 /// Il testo non cambia: la regola si applica a ogni composizione, su una copia, e il suo effetto si sposta da solo
 /// quando il testo cambia. Un valore dato a mano a quel testo vale sopra la regola, e la regola sopra gli stili.
@@ -212,7 +213,7 @@ public struct TextRule: Hashable, Sendable {
         return StyleCondition(position: position).holds(in: context)
     }
 
-    /// Una descrizione di una riga, per gli elenchi: «Prime 2 parole · Testo, primo dopo Titolo 1 → Maiuscoletto».
+    /// Una descrizione di una riga, per gli elenchi: «First 2 words · Body paragraphs, first after Heading 1 → Small Caps».
     public var summary: String { summary(selections: []) }
 
     public func summary(selections: [WordSelection]) -> String {
@@ -247,8 +248,8 @@ public struct TextRule: Hashable, Sendable {
 public enum Rules {
     /// Una copia del testo con le regole applicate, paragrafo per paragrafo. Il testo è quello dell'editor (o
     /// del documento), con i nomi degli stili negli attributi; i testi delle note non si toccano.
-    public static func applied(_ sourceRules: [TextRule], to text: NSAttributedString, sheet sourceSheet: StyleSheet, resolver: FontRoleResolver = FontRoleResolver()) -> NSAttributedString {
-        let compiled = sourceSheet.compilingStyleRules(sourceRules)
+    public static func applied(to text: NSAttributedString, sheet sourceSheet: StyleSheet, resolver: FontRoleResolver = FontRoleResolver()) -> NSAttributedString {
+        let compiled = sourceSheet.compilingStyleRules()
         let rules = compiled.rules, sheet = compiled.sheet
         // Le regole che dipendono dalla composizione le applica l'impaginazione, paragrafo per paragrafo.
         let active = usable(rules, sheet: sheet).filter { !$0.dependsOnLayout }
@@ -329,43 +330,6 @@ public enum Rules {
         /// Il paragrafo con le regole applicate; `nil` se le regole non lo cambiano.
         let text: NSAttributedString?
         init(text: NSAttributedString?) { self.text = text }
-    }
-
-    /// Che cosa dovrebbe cercare una regola per trovare, nel suo paragrafo, il pezzo `selection` del testo: la prima
-    /// lettera, il paragrafo intero, le prime N parole, la prima frase; se il pezzo è una parola sola in un altro punto,
-    /// quella parola ovunque. Spazi e punteggiatura agli estremi non contano. `nil` se il pezzo non è nessuna di queste.
-    public static func guessTarget(for selection: NSRange, in text: NSAttributedString) -> TextRule.Target? {
-        guard selection.length > 0, NSMaxRange(selection) <= text.length else { return nil }
-        let string = text.string as NSString
-        let paragraph = TextStyling.bodyParagraph(in: text, at: selection.location).range
-        let ignored = CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters).union(CharacterSet(charactersIn: "\u{FFFC}\u{2028}"))
-        func core(_ range: NSRange) -> NSRange? {
-            var start = range.location, end = NSMaxRange(range)
-            while start < end, let scalar = UnicodeScalar(string.character(at: start)), ignored.contains(scalar) { start += 1 }
-            while end > start, let scalar = UnicodeScalar(string.character(at: end - 1)), ignored.contains(scalar) { end -= 1 }
-            return end > start ? NSRange(location: start, length: end - start) : nil
-        }
-        guard let wanted = core(selection), NSMaxRange(wanted) <= NSMaxRange(paragraph) else { return nil }
-        let body = BodyText(text, paragraph: paragraph)
-        // Il tratto che va dal primo all'ultimo pezzo trovato (più pezzi se in mezzo c'è una nota).
-        func span(_ ranges: [NSRange]) -> NSRange? {
-            guard let first = ranges.first, let last = ranges.last else { return nil }
-            return NSRange(location: first.location, length: NSMaxRange(last) - first.location)
-        }
-        let whole = body.positions.first.map { NSRange(location: $0, length: body.positions.last! + 1 - $0) }
-        var candidates: [(TextRule.Target, NSRange?)] = [(.firstLetter, span(body.ranges(of: .firstLetter))), (.paragraph, whole)]
-        // Una selezione che finisce con il punto è più probabilmente una frase che un numero di parole.
-        let selected = string.substring(with: selection).trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: "»”’\")")))
-        let sentence: (TextRule.Target, NSRange?) = (.firstSentence, span(body.ranges(of: .firstSentence)))
-        if selected.last.map(".!?…".contains) == true { candidates.append(sentence) }
-        for count in 1...max(1, min(body.wordCount, 60)) {
-            candidates.append((.firstWords(count), span(body.ranges(of: .firstWords(count)))))
-        }
-        candidates.append(sentence)
-        for (target, range) in candidates where range.flatMap(core) == wanted { return target }
-        let word = string.substring(with: wanted)
-        guard word.rangeOfCharacter(from: .whitespacesAndNewlines) == nil, !word.contains("\u{FFFC}") else { return nil }
-        return .words(.listed([word]))
     }
 
     private static let cacheLock = NSLock()

@@ -1,12 +1,25 @@
 # Stato del progetto e lavoro residuo
 
-Aggiornato il 6 novembre 2026.
+Aggiornato l'8 novembre 2026.
 
 ## Interfaccia in inglese · 6 novembre
 
-Per la diffusione pubblica l'interfaccia è in inglese: menu, fasce e zone, ispettore, schede, compositore, avvisi, messaggi d'errore del formato e diagnosi del motore. L'app dichiara l'inglese come lingua (`CFBundleDevelopmentRegion`), così anche i pannelli di sistema e i nomi degli assi dei font restano in inglese su un Mac in italiano. Le disposizioni delle fasce salvate in italiano passano ai nomi inglesi al caricamento.
+Per la diffusione pubblica l'interfaccia è in inglese: menu, fasce e zone, ispettore, schede, compositore, avvisi, messaggi d'errore del formato e diagnosi del motore. L'app dichiara l'inglese come lingua (`CFBundleDevelopmentRegion`), così anche i pannelli di sistema e i nomi degli assi dei font restano in inglese su un Mac in italiano.
 
-I documenti nuovi usano nomi predefiniti inglesi (Body, Heading 1…, Notes, Figures, Footnote, Default, ruolo «chapter») e Lorem è in inglese. I documenti di prima tengono i loro nomi; «Nota a piè di pagina» e «Predefinito» diventano Footnote e Default alla lettura (`LegacyNamesTests`). Nella bacheca ogni menu mostra una sola freccia, quella della pastiglia.
+I documenti nuovi usano nomi predefiniti inglesi (Body, Heading 1…, Notes, Figures, Footnote, Default, ruolo «chapter») e Lorem è in inglese. Nella bacheca ogni menu mostra una sola freccia, quella della pastiglia.
+
+## Pulizia della retrocompatibilità · 8 novembre
+
+Fatta in anticipo rispetto all'ordine consigliato, su richiesta. Il programma scrive la versione 18 del formato e legge solo dalla 18 in poi (`DocumentFormat.oldestReadableVersion`); un file delle versioni dello sviluppo dà un errore chiaro. Tolti:
+
+- la lettura dei formati 1–17 e la scelta della versione più bassa al salvataggio (`writingVersion`, `sourceVersion`, la copia obbligata in «Save As» quando il formato cresceva);
+- i campi storici (`kind="page"`, `pages`, `section-title`, `section-number`): nel file e nel testo un campo è sempre una formula; `Field.page` e gli altri restano come modi brevi di scriverla;
+- le conversioni dei file di prima: il maiuscoletto fra le funzioni, il livello dedotto dal nome «Titolo N», i nomi «Predefinito», «Nota a piè di pagina» e «Testo» come stile di base;
+- **le regole del documento**: l'elemento `<rule>`, la scheda Rules delle definizioni, la vista Rules e i «trattamenti» delle selezioni nel compositore, il pulsante «Rules…», «Crea una regola da qui». Le regole del motore restano, ma nascono solo dalle formule contestuali degli stili (`compilingStyleRules()`), e quindi vincono sempre su un valore dato a mano, salvo un'eccezione nel testo (`rules-off`). Le selezioni condivise restano, come bersaglio delle formule (menu «On»);
+- l'estensione `.wpx`, nel formato, nel riconoscimento dei file e nei tipi dichiarati dalla .app; resta solo `.grx`;
+- le migrazioni una tantum delle preferenze (Lorem e ortografia aggiunti alla barra, nomi italiani delle zone, `nascostiBarra`); un controllo che l'app non conosce più sparisce dalle fasce salvate.
+
+I documenti di prova in `Appunti/` sono stati convertiti alla 18 prima della pulizia (le due regole di `prova-compositore.grx` sono diventate formule di «Testo» e «Citazione»; `annapurna-sil-tabelle` è ora `.grx`). Restano invece, perché non sono compatibilità ma il modo in cui gli stili funzionano oggi, i valori fissi degli stili accanto alle formule.
 
 ## Nuovo ispettore · in corso dal 6 novembre
 
@@ -111,6 +124,6 @@ Dopo il nucleo delle formule restano anche miglioramenti del motore, da affronta
 4. Realizzare il flottante derivato della quinta parola e generalizzare le relazioni fra oggetti.
 5. Migrare tabelle e flottanti nella stessa grammatica e chiudere la compatibilità dei documenti.
 6. Fare la verifica d'uso completa nell'app e solo dopo riprendere le estensioni tipografiche indipendenti.
-7. **Ultima tappa, a fine lavoro** (richiesta del 6 novembre): togliere tutta la retrocompatibilità accumulata nello sviluppo, cioè la lettura dei formati precedenti, i campi storici, i nomi italiani dei documenti di prima, i passaggi e i comandi intermedi, e la vecchia estensione `.wpx` (resta solo `.grx`). Prima, aprire e risalvare nel formato nuovo i documenti già scritti.
+7. ~~Togliere la retrocompatibilità dello sviluppo.~~ Fatto l'8 novembre, in anticipo (vedi sopra). D'ora in poi un costrutto nuovo alza la versione del formato, e il lettore continua a leggere la 18.
 
 Il primo incremento concreto sui campi è implementato. Il passo successivo in quest'area è estendere la grammatica a risultati e operazioni ulteriori, mantenendo l'ancoraggio, la ricomposizione, il salvataggio e l'aggiornamento senza duplicare i campi.

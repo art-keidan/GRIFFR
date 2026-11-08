@@ -911,7 +911,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             pagesView.ruleRanges = []
             return
         }
-        pagesView.ruleRanges = layout.ruleRanges(rules: settings.rules, sheet: settings.styles)
+        pagesView.ruleRanges = layout.ruleRanges(sheet: settings.styles)
         pagesView.manualRanges = TextStyling.manualRanges(in: documentText, sheet: settings.styles)
     }
 
@@ -1531,7 +1531,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
     /// Ricompone tutto il documento e aggiorna le pagine mostrate.
     func layoutPages() {
-        composerModel?.documentChanged(sheet: settings.styles, rules: settings.rules)
+        composerModel?.documentChanged(sheet: settings.styles)
         pendingLayout = nil
         pagesView.layout = PageLayout.layout(documentText, setup: settings.pageSetup, options: documentLayoutOptions)
         // Il conto delle parole del documento intero si rifà solo a richiesta (scegliendo «Documento» nel percorso).
@@ -2297,9 +2297,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
     var pendingStyleTimer: Timer?
 
-    /// Le regole e gli stili del documento, e i nomi delle Liste (per le prove: senza passare dal salvataggio).
-    var rules: [TextRule] { settings.rules }
-
+    /// Gli stili del documento e i nomi delle Liste (per le prove: senza passare dal salvataggio).
     var listNames: [String] { settings.lists.map(\.name) }
 
     var styleSheet: StyleSheet { settings.styles }

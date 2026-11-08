@@ -23,13 +23,13 @@ extension TypesettingSuite {
                 .paragraph(Paragraph(styleName: "Titolo", inlines: [.text(TextRun("Titolo", style: base))])),
                 .paragraph(Paragraph(styleName: "Testo", style: sheet.resolveParagraph(styleName: "Testo"), inlines: [.text(TextRun("Uno due tre", style: base))]))
             ]).attributedString().text
-            let result = Rules.applied([], to: source, sheet: sheet)
+            let result = Rules.applied(to: source, sheet: sheet)
             let at = (source.string as NSString).range(of: "Uno").location
             #expect((source.attribute(.paragraphStyle, at: at, effectiveRange: nil) as? NSParagraphStyle)?.firstLineHeadIndent == 18)
             #expect((result.attribute(.paragraphStyle, at: at, effectiveRange: nil) as? NSParagraphStyle)?.firstLineHeadIndent == 0)
             #expect((result.attribute(.font, at: at, effectiveRange: nil) as? NSFont)?.fontName == "HoeflerText-Black")
             #expect((result.attribute(.font, at: at + 8, effectiveRange: nil) as? NSFont)?.fontName == "HoeflerText-Regular")
-            let compiled = sheet.compilingStyleRules([])
+            let compiled = sheet.compilingStyleRules()
             #expect(compiled.rules.count == 2)
             #expect(sheet.styles.count == 3)
         }
@@ -59,7 +59,6 @@ extension TypesettingSuite {
             sheet.styles[0].formulas.append(formula(.applyStyle, .styleName("Forte"), when: StyleCondition(position: .firstAfter("Testo"), measurement: .init(.lines, .greaterOrEqual, 2)), target: .selection(selection.id)))
             let data = DocumentFormat.data(for: Document(styles: sheet))
             let loaded = try DocumentFormat.document(from: data)
-            #expect(loaded.sourceVersion == 8)
             for (a, b) in zip(loaded.styles.styles, sheet.styles) {
                 #expect(a.values == b.values)
                 #expect(a.formulas == b.formulas)
@@ -68,7 +67,7 @@ extension TypesettingSuite {
             #expect(loaded.styles.values(of: "Titolo").pageStartSpacing == .distance(72))
             #expect(loaded.styles.values(of: "Titolo").nextStyle == "Testo")
             let xml = try #require(String(data: data, encoding: .utf8))
-            #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"8\"", with: "version=\"7\"")) }
+            #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"18\"", with: "version=\"7\"")) }
             #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "threshold=\"2\"", with: "threshold=\"nan\"")) }
             #expect(throws: DocumentFormatError.self) { try DocumentFormat.document(from: xml.replacingOccurrences(of: "value=\"Testo\"", with: "value=\"Assente\"")) }
         }
@@ -122,7 +121,7 @@ extension TypesettingSuite {
                 NamedStyle(name: "P", target: .paragraph, values: values, formulas: [add, subtract])])
             let source = Document(styles: sheet, blocks: [.paragraph(Paragraph(styleName: "Titolo", inlines: [.text(TextRun("Titolo", style: base))])),
                 .paragraph(Paragraph(styleName: "P", style: sheet.resolveParagraph(styleName: "P"), inlines: [.text(TextRun("Corpo", style: base))]))]).attributedString().text
-            let styled = Rules.applied([], to: source, sheet: sheet)
+            let styled = Rules.applied(to: source, sheet: sheet)
             let at = (styled.string as NSString).range(of: "Corpo").location
             #expect((styled.attribute(.paragraphStyle, at: at, effectiveRange: nil) as? NSParagraphStyle)?.headIndent == 16)
             let evaluated = try sheet.values(of: "P").evaluatingFormulas(from: StylePredicateState(character: base), context: .init(styleName: "P", previousStyleName: "Titolo", isSequenceStart: false))
@@ -136,10 +135,10 @@ extension TypesettingSuite {
             let sheet = StyleSheet(styles: [NamedStyle(name: "P", target: .paragraph, formulas: [effect])])
             var doc = Document(styles: sheet, blocks: [.paragraph(Paragraph(styleName: "P", inlines: [.text(TextRun("Prova", style: base))]))])
             let source = doc.attributedString().text
-            let normal = Rules.applied([], to: source, sheet: sheet)
+            let normal = Rules.applied(to: source, sheet: sheet)
             let table = FontRoleTable(customizations: [.init(family: "Hoefler Text", role: .bold,
                 equivalence: FontRoleEquivalence(staticFace: "HoeflerText-Italic"))])
-            let customized = Rules.applied([], to: source, sheet: sheet, resolver: FontRoleResolver(table: table))
+            let customized = Rules.applied(to: source, sheet: sheet, resolver: FontRoleResolver(table: table))
             #expect((normal.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.fontName == "HoeflerText-Black")
             #expect((customized.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.fontName == "HoeflerText-Italic")
             doc.fontRoles = table
@@ -158,7 +157,7 @@ extension TypesettingSuite {
                 NamedStyle(name: "Figlio", target: .paragraph, basedOn: "Base", formulas: [second])])
             let source = Document(styles: sheet, blocks: [.paragraph(Paragraph(styleName: "Titolo", inlines: [.text(TextRun("Titolo", style: base))])),
                 .paragraph(Paragraph(styleName: "Figlio", inlines: [.text(TextRun("Corpo", style: base))]))]).attributedString().text
-            let result = Rules.applied([], to: source, sheet: sheet)
+            let result = Rules.applied(to: source, sheet: sheet)
             let at = (result.string as NSString).range(of: "Corpo").location
             #expect((result.attribute(.paragraphStyle, at: at, effectiveRange: nil) as? NSParagraphStyle)?.headIndent == 20)
         }

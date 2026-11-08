@@ -167,9 +167,8 @@ extension Document {
             } else if let level = (text.attribute(.outlineLevel, at: start, effectiveRange: nil) as? NSNumber)?.intValue {
                 resolvedParagraph.outlineLevel = level > 0 ? level : nil
             } else {
-                // Testo attribuito vecchio o costruito a mano: la migrazione avviene una volta, qui.
+                // Testo costruito a mano, senza il livello: quello del suo stile.
                 resolvedParagraph.outlineLevel = settings.styles.resolveParagraph(styleName: styleName).outlineLevel
-                    ?? DocumentOutline.headingLevel(of: styleName)
             }
             paragraphs.append(FlatParagraph(Paragraph(styleName: styleName, style: resolvedParagraph, list: list, inlines: runs,
                                                       openingDistance: TextStyling.openingDistance(in: text, at: start),
@@ -196,7 +195,6 @@ extension Document {
                 resolvedParagraph.outlineLevel = level > 0 ? level : nil
             } else {
                 resolvedParagraph.outlineLevel = settings.styles.resolveParagraph(styleName: styleName).outlineLevel
-                    ?? DocumentOutline.headingLevel(of: styleName)
             }
             paragraphs.append(FlatParagraph(Paragraph(styleName: styleName, style: resolvedParagraph,
                                                       list: TextStyling.finalParagraphListItem(in: text),

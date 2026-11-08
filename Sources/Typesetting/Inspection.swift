@@ -273,7 +273,7 @@ extension TextStyling {
         let expectedParagraph = sheet.resolveParagraph(styleName: names.paragraph)
         let recordedLevel = (text.attribute(.outlineLevel, at: index, effectiveRange: nil) as? NSNumber)?.intValue
         paragraph.outlineLevel = recordedLevel.map { $0 > 0 ? $0 : nil }
-            ?? (recordedLevel == nil ? expectedParagraph.outlineLevel ?? DocumentOutline.headingLevel(of: names.paragraph) : nil)
+            ?? (recordedLevel == nil ? expectedParagraph.outlineLevel : nil)
         let expectedList = sheet.values(of: names.paragraph).list
         let expectedOpening = sheet.values(of: names.paragraph).openingDistance ?? 0
         let opening = openingDistance(in: text, at: index) ?? expectedOpening
@@ -574,7 +574,7 @@ extension TextStyling {
     /// applicano): un valore non dato a mano che una regola cambia viene da lei, con il valore che lei gli dà.
     public static func withRuleSources(_ values: [InspectedValue], rules: [TextRule], in text: NSAttributedString, at index: Int,
                                        sheet originalSheet: StyleSheet, resolver: FontRoleResolver = FontRoleResolver()) -> [InspectedValue] {
-        let sheet = originalSheet.compilingStyleRules([]).sheet
+        let sheet = originalSheet.compilingStyleRules().sheet
         guard !rules.isEmpty, text.length > 0 else { return values }
         let index = min(index, text.length - 1)
         let original = text.attributedSubstring(from: NSRange(location: index, length: 1))
@@ -634,10 +634,8 @@ extension TextStyling {
             var copy = value
             // Le scavalcate prima, poi quella che conta.
             let names = (candidates[value.property] ?? []).filter { $0 != last.rule } + [last.rule]
-            // Una regola storica non tocca un valore dato a mano; quella che viene da una formula sì, tranne dove
-            // un'eccezione lo protegge.
-            let active = last.owner != nil
-            if value.source == .own && (!active || exceptions.contains(value.property)) {
+            // Una regola vince su un valore dato a mano, che resta sospeso, tranne dove un'eccezione lo protegge.
+            if value.source == .own && exceptions.contains(value.property) {
                 copy.rules = RuleInfluence(rules: names, owner: last.owner, yielded: last.value)
                 return copy
             }

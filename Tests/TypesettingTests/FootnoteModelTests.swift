@@ -62,7 +62,7 @@ extension TypesettingSuite {
         @Test("Nel file, tra i paragrafi di una nota si possono mettere spazi e a capo; del testo sciolto no")
         func noteParagraphsInFile() throws {
             let document = try DocumentFormat.document(from: """
-            <document version="1" font="HoeflerText-Regular" size="12">
+            <document version="18" font="HoeflerText-Regular" size="12">
             <p>a<note size="10">
               <p>uno</p>
               <p>due</p>
@@ -75,7 +75,7 @@ extension TypesettingSuite {
             }
             #expect(note.paragraphs.map { $0.map(\.text).joined() } == ["uno", "due"])
             #expect(throws: DocumentFormatError.self) {
-                try DocumentFormat.document(from: "<document version=\"1\" font=\"X\" size=\"12\"><p>a<note><p>uno</p>sciolto<p>due</p></note></p></document>")
+                try DocumentFormat.document(from: "<document version=\"18\" font=\"X\" size=\"12\"><p>a<note><p>uno</p>sciolto<p>due</p></note></p></document>")
             }
         }
 
@@ -92,10 +92,10 @@ extension TypesettingSuite {
         @Test("Una nota fuori da un paragrafo o dentro un'altra nota è un errore")
         func misplaced() {
             #expect(throws: DocumentFormatError.unexpectedElement(line: 2, element: "note", parent: "document")) {
-                try DocumentFormat.document(from: "<document version=\"1\" font=\"X\" size=\"12\">\n<note>a</note>\n</document>")
+                try DocumentFormat.document(from: "<document version=\"18\" font=\"X\" size=\"12\">\n<note>a</note>\n</document>")
             }
             #expect(throws: DocumentFormatError.unexpectedElement(line: 2, element: "note", parent: "note")) {
-                try DocumentFormat.document(from: "<document version=\"1\" font=\"X\" size=\"12\">\n<p>a<note>b<note>c</note></note></p>\n</document>")
+                try DocumentFormat.document(from: "<document version=\"18\" font=\"X\" size=\"12\">\n<p>a<note>b<note>c</note></note></p>\n</document>")
             }
         }
 

@@ -257,7 +257,7 @@ extension TextStyling {
             if let level = (text.attribute(.outlineLevel, at: paragraph.range.location, effectiveRange: nil) as? NSNumber)?.intValue {
                 current.outlineLevel = level > 0 ? level : nil
             } else {
-                current.outlineLevel = oldParagraph.outlineLevel ?? DocumentOutline.headingLevel(of: paragraph.old)
+                current.outlineLevel = oldParagraph.outlineLevel
             }
             let result = restyled(current, from: oldParagraph, to: newParagraph)
             if result != current { text.addAttribute(.paragraphStyle, value: result.nsParagraphStyle, range: paragraph.range) }
@@ -341,9 +341,9 @@ extension TextStyling {
         if target == .paragraph {
             let list = listItem(in: text, at: index)?.listName ?? ""
             if list != (sheet.values(of: basedOn).listName ?? "") { values.listName = list }
-            // Il livello registrato vince sul nome dello stile; solo il testo vecchio senza attributo usa il ripiego.
+            // Il livello registrato nel testo vince su quello dello stile.
             let level = (text.attribute(.outlineLevel, at: index, effectiveRange: nil) as? NSNumber)?.intValue
-                ?? sheet.resolveParagraph(styleName: paragraphName).outlineLevel ?? DocumentOutline.headingLevel(of: paragraphName) ?? 0
+                ?? sheet.resolveParagraph(styleName: paragraphName).outlineLevel ?? 0
             let inheritedLevel = sheet.resolveParagraph(styleName: basedOn).outlineLevel ?? 0
             if level != inheritedLevel { values.outlineLevel = level }
             // E la distanza d'apertura data a mano.

@@ -77,7 +77,7 @@ extension TypesettingSuite {
         @Test("Errori nel file: serie inesistente, stile del contenuto che non è di paragrafo, Lista inesistente")
         func fileErrors() {
             func error(_ body: String) -> DocumentFormatError? {
-                do { _ = try DocumentFormat.document(from: "<document version=\"1\" font=\"HoeflerText-Regular\" size=\"12\">\n\(body)\n</document>"); return nil }
+                do { _ = try DocumentFormat.document(from: "<document version=\"18\" font=\"HoeflerText-Regular\" size=\"12\">\n\(body)\n</document>"); return nil }
                 catch { return error as? DocumentFormatError }
             }
             #expect(error("<p>x<note style=\"Nessuna\">y</note></p>") == .invalidValue(line: 2, attribute: "style", value: "Nessuna"))

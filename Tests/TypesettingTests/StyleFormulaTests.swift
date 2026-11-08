@@ -20,7 +20,6 @@ extension TypesettingSuite {
             ]))])
             let serialized = DocumentFormat.data(for: doc)
             let loaded = try DocumentFormat.document(from: serialized)
-            #expect(loaded.sourceVersion == 4)
             #expect(loaded.styles.styles == sheet.styles)
             #expect(loaded.styles.resolveCharacter(paragraphStyle: nil, wordStyle: nil, characterStyle: "Strong", base: base).fontName == "HoeflerText-BlackItalic")
             #expect(loaded.styles.resolveCharacter(paragraphStyle: nil, wordStyle: nil, characterStyle: "Nero assoluto", base: base).fontName == "HoeflerText-Black")
@@ -82,7 +81,7 @@ extension TypesettingSuite {
         func additiveSizeRemainsRelative() throws {
             let id = UUID().uuidString
             let xml = """
-            <document version="4" font="HoeflerText-Italic" size="12"><styles>
+            <document version="18" font="HoeflerText-Italic" size="12"><styles>
             <style name="A" target="paragraph">
             <formula id="\(id)" predicate="add" property="size" kind="length" value="2" unit="pt"/>
             </style></styles><p style="A">Prova</p></document>
@@ -129,10 +128,10 @@ extension TypesettingSuite {
             #expect(resolved.fontName == "HoeflerText-Italic" && resolved.features == values.features)
             let data = DocumentFormat.data(for: Document(styles: sheet))
             let loaded = try DocumentFormat.document(from: data)
-            #expect(loaded.sourceVersion == 7 && loaded.styles.styles == sheet.styles)
+            #expect(loaded.styles.styles == sheet.styles)
             let xml = try #require(String(data: data, encoding: .utf8))
             #expect(throws: DocumentFormatError.self) {
-                try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"7\"", with: "version=\"6\""))
+                try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"18\"", with: "version=\"6\""))
             }
         }
 
@@ -144,31 +143,30 @@ extension TypesettingSuite {
                 NamedStyle(name: "Sottrazione", target: .paragraph, basedOn: "Base", formulas: operations)])
             let data = DocumentFormat.data(for: Document(styles: sheet))
             let loaded = try DocumentFormat.document(from: data)
-            #expect(loaded.sourceVersion == 6 && loaded.styles.styles == sheet.styles)
+            #expect(loaded.styles.styles == sheet.styles)
             #expect(loaded.styles.resolveParagraph(styleName: "Sottrazione").leftIndent == 18)
             let input = StylePredicateState(character: CharacterStyle(fontName: "HoeflerText-BlackItalic", size: 12))
             #expect(try loaded.styles.values(of: "Sottrazione").evaluatingFormulas(from: input).character.fontName == "HoeflerText-Italic")
             let xml = try #require(String(data: data, encoding: .utf8))
             for previous in [4, 5] {
                 #expect(throws: DocumentFormatError.self) {
-                    try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"6\"", with: "version=\"\(previous)\""))
+                    try DocumentFormat.document(from: xml.replacingOccurrences(of: "version=\"18\"", with: "version=\"\(previous)\""))
                 }
             }
-            #expect(DocumentFormat.writingVersion(for: Document()) == 1)
         }
 
         @Test("Le formule malformate vengono rifiutate senza degradarle in valori costanti")
         func invalidFile() throws {
             let id = UUID().uuidString
             let xml = """
-            <document version="4" font="HoeflerText-Regular" size="12"><styles>
+            <document version="18" font="HoeflerText-Regular" size="12"><styles>
             <style name="A" target="paragraph">
             <formula id="\(id)" predicate="add" property="spaceBefore" kind="length" value="6" unit="pt"/>
             </style></styles><p style="A">Prova</p></document>
             """
             #expect(try DocumentFormat.document(from: xml).styles.resolveParagraph(styleName: "A").spaceBefore == 6)
             for bad in [
-                xml.replacingOccurrences(of: "version=\"4\"", with: "version=\"3\""),
+                xml.replacingOccurrences(of: "version=\"18\"", with: "version=\"3\""),
                 xml.replacingOccurrences(of: "predicate=\"add\"", with: "predicate=\"unknown\""),
                 xml.replacingOccurrences(of: "target=\"paragraph\"", with: "target=\"character\""),
                 xml.replacingOccurrences(of: "value=\"6\"", with: "value=\"nan\""),

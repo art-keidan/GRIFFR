@@ -313,7 +313,7 @@ public struct StyleSheet: Hashable, Sendable {
         } else if let model = Self.builtIn.style(named: "Heading \(min(level, 3))") {
             heading = model
             heading.name = name
-            // Un documento senza «Testo» (o senza lo stile di base) non lo riceve: il titolo si basa sul testo del documento.
+            // Un documento senza «Body» (o senza lo stile di base) non lo riceve: il titolo si basa sul testo del documento.
             if let base = heading.basedOn, style(named: base) == nil { heading.basedOn = nil }
         } else {
             return nil
@@ -324,26 +324,15 @@ public struct StyleSheet: Hashable, Sendable {
         return (result, name)
     }
 
-    /// Gli stili predefiniti che le regole usano più spesso: la finestra delle regole li propone anche ai documenti che
-    /// non li hanno ancora.
-    public static var ruleStyles: [NamedStyle] {
-        var centered = StyleValues()
-        centered.alignment = .center
-        // «Centrato» fissa solo l'allineamento: applicato da una regola a un paragrafo, il resto non cambia.
-        return builtIn.styles.filter { [smallCapsStyle, allSmallCapsStyle].contains($0.name) } + [NamedStyle(name: "Centered", target: .paragraph, values: centered)]
-    }
-
     /// Lo stile di paragrafo predefinito dei documenti nuovi.
     public static let defaultParagraphStyle = "Body"
-    /// Lo stile di paragrafo predefinito nei documenti di prima.
-    public static let legacyParagraphStyle = "Testo"
-    /// Gli stili di carattere del maiuscoletto che le regole propongono.
+    /// Gli stili di carattere del maiuscoletto, fra quelli con cui nasce un documento.
     public static let smallCapsStyle = "Small Caps"
     public static let allSmallCapsStyle = "All Small Caps"
 
-    /// Lo stile di base del testo di questo documento: «Body», o «Testo» nei documenti di prima; `nil` se non c'è.
+    /// Lo stile di base del testo di questo documento: «Body»; `nil` se non c'è.
     public var bodyStyleName: String? {
-        [Self.defaultParagraphStyle, Self.legacyParagraphStyle].first { style(named: $0)?.target == .paragraph }
+        style(named: Self.defaultParagraphStyle)?.target == .paragraph ? Self.defaultParagraphStyle : nil
     }
 
     /// Gli stili con cui nasce un documento nuovo.
