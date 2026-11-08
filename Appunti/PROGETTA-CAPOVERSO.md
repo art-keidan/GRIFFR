@@ -104,7 +104,7 @@ capoverso, valore a mano, formula, pulsanti, margini, lati con le pagine affacci
 - La portata non era riconoscibile (due icone): ora sta nel riquadro in alto a destra, a parole, «Changes to: All
   “Body” | This paragraph». Accanto, l'interruttore **Live on all** (occhio): spento, l'anteprima cambia solo il
   capoverso evidenziato, gli altri restano com'erano finché non si salva; Save mette comunque le modifiche nello stile.
-- La build con la progettazione è anche in `GRIFFR-fork-stili/build/GRIFFR Stili.app`; quella di `main` che c'era è
+- La build con la progettazione è anche in `build/GRIFFR.app`; quella di `main` che c'era è
   nel Cestino.
 - Prova nuova: `livePreviewOff`. 220 prove di WordProcessorTests verdi. Verifica a schermo di questa tappa non fatta:
   l'app era aperta dall'utente con la build precedente.

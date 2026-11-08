@@ -1,7 +1,7 @@
 # GRIFFR · contesto per Claude Code
 
 Questa cartella è l'unico progetto di lavoro: `/Users/artemio/GRIFFR`.
-L'app nativa macOS usa Swift Package Manager, AppKit, SwiftUI e Core Text. Il prodotto si chiama GRIFFR; la copia di sviluppo è `build/GRIFFR Stili.app`.
+L'app nativa macOS usa Swift Package Manager, AppKit, SwiftUI e Core Text. Il prodotto si chiama GRIFFR; la copia di sviluppo è `build/GRIFFR.app`.
 
 ## Lavoro attuale autorizzato
 

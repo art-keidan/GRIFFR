@@ -42,7 +42,7 @@ Il fork contiene già il primo nucleo del modello a oggetti per gli stili:
 - il primo campo formula persistente è disponibile: `Posizione → Pagina contenente → Numero → Scrivi risultato qui`, salvato come formula distinta dai campi storici;
 - il formato conserva le nuove definizioni e mantiene la lettura dei documenti precedenti;
 - la barra del percorso della finestra principale è stata resa scorrevole, così l'inserimento ripetuto di Lorem non allarga più la finestra senza limite;
-- la procedura di compilazione lascia una sola applicazione corrente, `build/GRIFFR Stili.app`.
+- la procedura di compilazione lascia una sola applicazione corrente, `build/GRIFFR.app`.
 
 Le tappe archiviate in `Appunti/archivio/` sono documentazione storica delle decisioni e delle verifiche già eseguite. Non sono più il piano di lavoro corrente.
 

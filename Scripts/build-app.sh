@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Compila l'app e la confeziona come GRIFFR Stili.app in build/.
+# Compila l'app e la confeziona come GRIFFR.app in build/.
 # Uso: Scripts/build-app.sh [--open]
 set -e
 root=${0:a:h:h}
@@ -10,9 +10,9 @@ build_flags=()
 if [[ ${GRIFFR_DISABLE_BUILD_SANDBOX:-0} == 1 ]]; then build_flags+=(--disable-sandbox); fi
 swift build "${build_flags[@]}" --scratch-path "$build_path" -c release --product WordProcessor
 mkdir -p "$app_build_dir"
-destination="$app_build_dir/GRIFFR Stili.app"
+destination="$app_build_dir/GRIFFR.app"
 staging=$(mktemp -d "$app_build_dir/.griffr-stage.XXXXXX")
-app="$staging/GRIFFR Stili.app"
+app="$staging/GRIFFR.app"
 mkdir -p $app/Contents/MacOS
 cp "$build_path/release/WordProcessor" $app/Contents/MacOS/WordProcessor
 # I modelli di sillabazione di TeX, che il programma cerca tra le proprie risorse.
@@ -26,8 +26,8 @@ cat > $app/Contents/Info.plist <<'PLIST'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>GRIFFR Stili</string>
-    <key>CFBundleDisplayName</key><string>GRIFFR Stili</string>
+    <key>CFBundleName</key><string>GRIFFR</string>
+    <key>CFBundleDisplayName</key><string>GRIFFR</string>
     <key>CFBundleIdentifier</key><string>local.wordprocessor.stili</string>
     <key>CFBundleExecutable</key><string>WordProcessor</string>
     <key>CFBundleIconFile</key><string>GRIFFR</string>
@@ -70,18 +70,18 @@ PLIST
 previous=""
 if [[ -e "$destination" ]]; then
     previous=$(mktemp -d "$app_build_dir/.griffr-previous.XXXXXX")
-    mv "$destination" "$previous/GRIFFR Stili.retired"
+    mv "$destination" "$previous/GRIFFR.retired"
 fi
 if ! mv "$app" "$destination"; then
     if [[ -n "$previous" ]]; then
-        mv "$previous/GRIFFR Stili.retired" "$destination"
+        mv "$previous/GRIFFR.retired" "$destination"
     fi
     exit 1
 fi
 rmdir "$staging" 2>/dev/null || true
 # Anche le copie lasciate dalle versioni precedenti dello script cessano di
 # essere applicazioni apribili; non si elimina nessuna vecchia compilazione.
-for legacy in "$app_build_dir"/.griffr-{previous,stage}.*/"GRIFFR Stili.app"(N); do
+for legacy in "$app_build_dir"/.griffr-{previous,stage}.*/*.app(N); do
     mv "$legacy" "${legacy%.app}.retired"
 done
 app="$destination"

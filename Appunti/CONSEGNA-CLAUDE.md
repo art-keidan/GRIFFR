@@ -62,7 +62,7 @@ Se un nuovo stato dell'interfaccia richiede persistenza, scegliere uno schema ve
 - Anteprima, Applica, Annulla/Ripeti, controlli ordinari e ispettore concordano. Una bozza non sovrascrive silenziosamente cambiamenti fatti altrove.
 - Salvataggio e riapertura conservano definizioni e resa, senza duplicazioni e con lettura dei file precedenti.
 - Finestra ridimensionabile: i controlli non spariscono a larghezze contenute e le formule lunghe non causano crescita illimitata della finestra. Navigazione e spostamento delle azioni sono possibili da tastiera, anche senza trascinamento. Etichette VoiceOver e contrasto adeguati.
-- Prove pertinenti eseguite, verifica visiva nativa quando disponibile e `build/GRIFFR Stili.app` ricreata. Dichiarare con precisione ciò che non si è potuto verificare.
+- Prove pertinenti eseguite, verifica visiva nativa quando disponibile e `build/GRIFFR.app` ricreata. Dichiarare con precisione ciò che non si è potuto verificare.
 - Aggiornare `RIASSUNTO-RESIDUO.md` e il resoconto del revamp; nessuna funzione dimostrativa con valori finti nell'app finale.
 
 ## Prove da cui partire
