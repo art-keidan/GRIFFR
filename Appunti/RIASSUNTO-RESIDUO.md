@@ -116,6 +116,8 @@ Restano da provare direttamente nell'app, oltre alle prove automatiche:
 
 Dopo il nucleo delle formule restano anche miglioramenti del motore, da affrontare separatamente: tabulazioni nel compositore ottimale, griglia delle linee di base, spaziatura delle lettere nella giustificazione, composizione ottimale da destra a sinistra, regole tipografiche per lingua, ottimizzazione considerando la pagina intera, colonne e indice generato.
 
+**Da fare: il testo dei font a colori nel PDF** (8 novembre). I font a colori escono a colori sulla pagina e nel PDF in tutti i formati (`ColorFontTests`), ma dal PDF il loro testo non si estrae sempre: con COLR v1 (Honk, Noto Color Emoji) niente, con SVG (Gilbert Color, EmojiOne Color) solo il primo glifo, con Apple Color Emoji niente in PDFKit (giusto in Poppler e MuPDF); Bungee Color dà «AA» per «Aa» perché il font manda la minuscola alla forma della maiuscola. La causa è in Core Text: per Honk scrive come testo la sola prima lettera, e fuori dalla pagina. Provati e scartati: `ActualText` (Core Graphics lo scrive solo nell'albero della struttura, che Poppler, MuPDF e PDFKit non usano per estrarre il testo) e il disegno glifo per glifo (perde anche la «G» di Gilbert). Il rimedio da provare è quello di Graphite (`GraphiteLayout.drawLineForPDF`): Core Text disegna i colori, e sotto ogni tratto colorato si scrive il suo testo invisibile in un font normale. Rischio: testo doppio dove Core Text ne scrive già un pezzo (la «G» di Gilbert, le «AA» di Bungee); va verificato font per font con `pdftotext`, `mutool` e PDFKit.
+
 ## Ordine consigliato
 
 1. Completato il primo vocabolario di formule nominate, parametri, tipi e diagnosi nel compositore; estendere le operazioni insieme ai casi successivi.
