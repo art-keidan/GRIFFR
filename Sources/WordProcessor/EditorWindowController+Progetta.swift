@@ -19,6 +19,8 @@ struct ParagraphDesignDraft: Equatable {
     var ownResets: [DocumentStore.ParagraphID: Set<InspectorProperty>] = [:]
     /// Formato e margini: per tipo di pagina ("" il tipo predefinito).
     var pageSetups: [String: PageSetup] = [:]
+    /// La testata, stile per stile (`nil` = nessuna testata propria).
+    var headings: [String: HeadingComposition?] = [:]
 
     var isEmpty: Bool { self == ParagraphDesignDraft() }
 }
@@ -43,6 +45,9 @@ final class ParagraphDesignSession {
     var redoStack: [ParagraphDesignDraft] = []
     /// La maniglia trascinata: il valore all'inizio del gesto e quello mostrato ora.
     var drag: (handle: DesignHandle, start: CGFloat, value: CGFloat)?
+    /// La parte della testata scelta, e la maniglia della testata trascinata (con il valore all'inizio del gesto).
+    var selectedHeadingPart: Int?
+    var headingDrag: (id: HeadingGripID, start: CGFloat)?
     /// La tenuta trascinata: da che parte, quante righe all'inizio e ora.
     var keepDrag: (side: KeepSide, start: Int, value: Int)?
     /// Il margine trascinato: la pagina, il lato, il valore all'inizio e ora.
@@ -87,6 +92,8 @@ extension EditorWindowController {
             pagesView.onDesignLockedHandle = { [weak self] handle in self?.openDesignFormula(handle.property) }
             pagesView.onKeepDrag = { [weak self] side, count, phase in self?.keepDragged(side, count: count, phase: phase) }
             pagesView.onKeepLocked = { [weak self] _ in self?.openDesignFormula(.keepWithNext) }
+            pagesView.onHeadingDrag = { [weak self] id, delta, phase in self?.headingDragged(id, by: delta, phase: phase) }
+            pagesView.onHeadingSelect = { [weak self] part in self?.selectHeadingPart(part) }
             pagesView.designBar = NSHostingView(rootView: ParagraphDesignBar(model: session.bar).themed())
             pagesView.designActions = NSHostingView(rootView: ParagraphDesignActions(model: session.bar).themed())
         } else {
@@ -140,7 +147,7 @@ extension EditorWindowController {
     /// Rilegge il capoverso del cursore e le sue misure, dalla bozza. Mentre si trascina, valgono quelle dell'anteprima.
     func refreshParagraphDesign() {
         selectionPanelModel.isDesigning = paragraphDesign != nil
-        guard let session = paragraphDesign, session.drag == nil, session.marginDrag == nil, session.keepDrag == nil else { return }
+        guard let session = paragraphDesign, session.drag == nil, session.marginDrag == nil, session.keepDrag == nil, session.headingDrag == nil else { return }
         let source = documentText
         guard source.length > 0 else {
             session.styleName = nil
@@ -170,9 +177,15 @@ extension EditorWindowController {
                                              locked: Set(DesignHandle.allCases.filter { isDesignLocked($0.property) }))
         overlay.keep = [.next: keepCount(session, .next), .previous: keepCount(session, .previous)]
         overlay.keepLocked = Set([KeepSide.next, .previous].filter { side in Self.keepProperties(side).contains { isDesignLocked($0) } })
+        let heading = sheet.heading(ofParagraphStyle: name)
+        if let part = session.selectedHeadingPart, !(heading?.parts.indices.contains(part) ?? false) { session.selectedHeadingPart = nil }
+        overlay.heading = heading
+        overlay.selectedHeadingPart = session.selectedHeadingPart
+        overlay.headingEditable = isHeadingEditable
         pagesView.design = overlay
         selectionPanelModel.styleName = name
         refreshDesignBar(session, text: text, sheet: sheet, at: at)
+        refreshRuler()
     }
 
     /// Una misura calcolata da una formula dello stile non si cambia nello stile (si cambia nel compositore); per il
@@ -213,6 +226,10 @@ extension EditorWindowController {
         bar.paragraphStyles = sheet.styles.filter { $0.target == .paragraph }.map(\.name)
         bar.nextStyle = session.styleName.flatMap { sheet.style(named: $0)?.values.nextStyle }
         bar.locked = Set(InspectorProperty.allCases.filter { isDesignLocked($0) })
+        bar.headingParts = sheet.heading(ofParagraphStyle: session.styleName)?.parts ?? []
+        bar.selectedHeadingPart = session.selectedHeadingPart
+        bar.headingEditable = isHeadingEditable
+        bar.partStyles = sheet.styles.filter { $0.target != .paragraph || $0.name != session.styleName }.map(\.name)
     }
 
     private func connectDesignBar(_ bar: ParagraphDesignBarModel) {
@@ -232,6 +249,22 @@ extension EditorWindowController {
         }
         bar.openFormula = { [weak self] property in self?.openDesignFormula(property) }
         bar.save = { [weak self] in self?.saveParagraphDesign() }
+        bar.useStandardHeading = { [weak self] in self?.changeDesignHeading { _ in .standard } }
+        bar.removeHeading = { [weak self] in
+            self?.paragraphDesign?.selectedHeadingPart = nil
+            self?.changeDesignHeading { _ in nil }
+        }
+        bar.addHeadingPart = { [weak self] part in self?.changeDesignHeading { HeadingComposition.adding(part, to: $0) } }
+        bar.updateHeadingPart = { [weak self] index, part in self?.changeDesignHeading { HeadingComposition.updating($0, at: index, to: part) } }
+        bar.moveHeadingPart = { [weak self] index, offset in
+            self?.paragraphDesign?.selectedHeadingPart = index + offset
+            self?.changeDesignHeading { HeadingComposition.moving($0, at: index, by: offset) }
+        }
+        bar.removeHeadingPart = { [weak self] index in
+            self?.paragraphDesign?.selectedHeadingPart = nil
+            self?.changeDesignHeading { HeadingComposition.removing($0, at: index) }
+        }
+        bar.selectHeadingPart = { [weak self] index in self?.selectHeadingPart(index) }
         bar.cancel = { [weak self] in self?.cancelParagraphDesign() }
     }
 
@@ -248,6 +281,15 @@ extension EditorWindowController {
         }
         for (name, next) in draft.nextStyles {
             if let index = sheet.styles.firstIndex(where: { $0.name == name }) { sheet.styles[index].values.nextStyle = next }
+        }
+        return Self.applyingHeadings(draft, to: sheet)
+    }
+
+    /// Gli stili con le testate della bozza.
+    static func applyingHeadings(_ draft: ParagraphDesignDraft, to sheet: StyleSheet) -> StyleSheet {
+        var sheet = sheet
+        for (name, heading) in draft.headings {
+            if let index = sheet.styles.firstIndex(where: { $0.name == name }) { sheet.styles[index].heading = heading }
         }
         return sheet
     }
@@ -287,9 +329,17 @@ extension EditorWindowController {
             }
             TextStyling.restyle(copy, range: range, from: settings.styles, to: sheet,
                                 resolver: fontRoleResolver, base: settings.formulaBase ?? TextStyling.styleBase)
-            if paragraphDesign?.livePreviewAll != false { document.styles = sheet }
+            // La testata vive solo nello stile: si vede sempre su tutti i titoli, anche con l'occhio barrato.
+            document.styles = paragraphDesign?.livePreviewAll != false ? sheet : Self.applyingHeadings(draft, to: settings.styles)
         }
-        applyParagraphChanges(draft, to: copy, store: store, sheet: sheet)
+        // Con l'occhio barrato un capoverso progettato prima resta com'è nel documento: il valore dato a mano che
+        // perderebbe salvando lo perde, nell'anteprima, solo il capoverso evidenziato.
+        var shown = draft
+        if paragraphDesign?.livePreviewAll == false {
+            let current = paragraphDesign?.paragraphID
+            shown.ownResets = shown.ownResets.filter { $0.key == current }
+        }
+        applyParagraphChanges(shown, to: copy, store: store, sheet: sheet)
         if let range = localPreviewRange, range.length > 0 {
             // Tenuta e distanza d'apertura vengono lette dallo stile durante la
             // composizione: fissiamo sulla copia il valore effettivo del solo
@@ -326,6 +376,7 @@ extension EditorWindowController {
         let composed = draftDocument(draft)
         session.draftText = composed.text
         pagesView.layout = PageLayout.layout(composed.text, setup: composed.setup, options: composed.options)
+        refreshRuler()
     }
 
     /// Dopo ogni ricomposizione del documento (si è scritto, si è annullato altro): la bozza torna sulle pagine.
@@ -335,7 +386,7 @@ extension EditorWindowController {
     }
 
     /// Una modifica alla bozza: un passo dell'Annulla interno.
-    private func changeDraft(_ change: (inout ParagraphDesignDraft) -> Void) {
+    func changeDraft(_ change: (inout ParagraphDesignDraft) -> Void) {
         guard let session = paragraphDesign else { return }
         var draft = session.draft
         change(&draft)
@@ -351,7 +402,7 @@ extension EditorWindowController {
     }
 
     /// La bozza con un valore in più, secondo la portata scelta.
-    private func draft(_ draft: ParagraphDesignDraft, setting property: InspectorProperty, _ values: StyleValues) -> ParagraphDesignDraft {
+    func draft(_ draft: ParagraphDesignDraft, setting property: InspectorProperty, _ values: StyleValues) -> ParagraphDesignDraft {
         guard let session = paragraphDesign else { return draft }
         var result = draft
         switch session.scope {
@@ -402,6 +453,84 @@ extension EditorWindowController {
 
     var canUndoParagraphDesign: Bool { paragraphDesign?.undoStack.isEmpty == false }
     var canRedoParagraphDesign: Bool { paragraphDesign?.redoStack.isEmpty == false }
+
+    // MARK: La testata del titolo
+
+    /// La testata si cambia solo nello stile, con l'occhio pieno: vale per tutti i titoli dello stile.
+    var isHeadingEditable: Bool {
+        guard let session = paragraphDesign else { return false }
+        return session.scope == .style && session.livePreviewAll && session.styleName != nil
+    }
+
+    /// La testata del capoverso progettato, come è nella bozza.
+    func designHeading() -> HeadingComposition? {
+        guard let session = paragraphDesign else { return nil }
+        return draftSheet(session.draft).heading(ofParagraphStyle: session.styleName)
+    }
+
+    /// Cambia la testata nella bozza: nello stile del capoverso, che ne prende una copia sua se la ereditava.
+    func changeDesignHeading(_ change: (HeadingComposition?) -> HeadingComposition?) {
+        guard isHeadingEditable, let name = paragraphDesign?.styleName else { return }
+        let changed = change(designHeading())
+        guard changed != designHeading() else { return }
+        changeDraft { $0.headings[name] = .some(changed) }
+    }
+
+    func selectHeadingPart(_ part: Int?) {
+        guard let session = paragraphDesign else { return }
+        session.selectedHeadingPart = part
+        refreshParagraphDesign()
+    }
+
+    func headingDragged(_ id: HeadingGripID, by delta: CGSize, phase: DesignDragPhase) {
+        guard let session = paragraphDesign, isHeadingEditable, let name = session.styleName,
+              let heading = designHeading(), heading.parts.indices.contains(id.part) else { return }
+        let part = heading.parts[id.part]
+        let shown = pagesView.designHeadingParts().first { $0.part == id.part }
+        let shownRect = shown.map { NSRect(x: 0, y: 0, width: $0.rect.width / pagesView.scale, height: $0.rect.height / pagesView.scale) } ?? .zero
+        let right: Bool = {
+            let leftPage = shown.map { (pagesView.layout?.setup(forPage: $0.page).facing ?? false) && $0.page % 2 == 1 } ?? false
+            switch part {
+            case .rule(_, _, let alignment): return alignment.resolved(onLeftPage: leftPage) == .right
+            case .numberBeside(_, _, let side, _): return side.resolved(onLeftPage: leftPage) == .right
+            default: return false
+            }
+        }()
+        switch phase {
+        case .began:
+            session.selectedHeadingPart = id.part
+            session.headingDrag = (id, part.value(of: id.grip, shown: shownRect))
+            pagesView.design?.activeHeadingGrip = id
+            pagesView.design?.selectedHeadingPart = id.part
+        case .changed, .ended:
+            guard let drag = session.headingDrag, drag.id == id else { return }
+            // Al mezzo millimetro, come i margini.
+            let step = PageSetup.points(fromMillimetres: 0.5)
+            let value = (part.value(of: id.grip, from: drag.start, moved: delta, onRightSide: right) / step).rounded() * step
+            let changed = HeadingComposition.updating(heading, at: id.part, to: part.setting(id.grip, to: value))
+            if phase == .changed {
+                var preview = session.draft
+                preview.headings[name] = .some(changed)
+                pagesView.design?.heading = changed
+                showDraft(preview)
+                return
+            }
+            session.headingDrag = nil
+            pagesView.design?.activeHeadingGrip = nil
+            if abs(value - drag.start) > 0.001 {
+                changeDraft { $0.headings[name] = .some(changed) }
+            } else {
+                showDraft(session.draft)
+                refreshParagraphDesign()
+            }
+        }
+    }
+
+    func dragHeadingForTests(_ id: HeadingGripID, by delta: CGSize) {
+        headingDragged(id, by: .zero, phase: .began)
+        headingDragged(id, by: delta, phase: .changed)
+        headingDragged(id, by: delta, phase: .ended)
+    }
 
     // MARK: Tenere con le righe dei vicini
 
@@ -600,4 +729,5 @@ extension EditorWindowController {
     var paragraphDesignDraftForTests: ParagraphDesignDraft? { paragraphDesign?.draft }
     var paragraphDesignPreviewForTests: NSAttributedString? { paragraphDesign?.draftText }
     var designHandleRectsForTests: [DesignHandle: NSRect] { pagesView.designHandleRects() }
+    var designHeadingGripsForTests: [HeadingGripID] { Array(pagesView.headingGripRects().keys) }
 }

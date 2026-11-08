@@ -1510,7 +1510,11 @@ final class RulerView: NSView {
         var markerWidth: CGFloat?
     }
 
-    enum Handle { case firstLine, left, right }
+    /// I rientri del paragrafo e i margini della pagina (i bordi dello specchio, come si vedono: sinistro e destro).
+    enum Handle { case firstLine, left, right, marginLeft, marginRight
+
+        var isMargin: Bool { self == .marginLeft || self == .marginRight }
+    }
 
     var geometry: Geometry? { didSet { needsDisplay = true } }
     /// Durante il trascinamento (`finished` falso) e alla fine: quale segno, a quale valore in punti di pagina (dal bordo
@@ -1527,6 +1531,8 @@ final class RulerView: NSView {
         case .firstLine: g.columnMinX + g.firstLine * g.scale
         case .left: g.columnMinX + g.left * g.scale
         case .right: g.columnMinX + g.columnWidth - g.right * g.scale
+        case .marginLeft: g.columnMinX
+        case .marginRight: g.columnMinX + g.columnWidth
         }
     }
 
@@ -1541,6 +1547,13 @@ final class RulerView: NSView {
             if g.markerWidth == nil { g.firstLine += dragging.value - g.left }
             g.left = dragging.value
         case .right: g.right = dragging.value
+        case .marginLeft:
+            // Il margine si sposta, la colonna con lui: i rientri restano misurati dal suo bordo.
+            let right = g.columnMinX + g.columnWidth
+            g.columnMinX = g.pageMinX + dragging.value * g.scale
+            g.columnWidth = right - g.columnMinX
+        case .marginRight:
+            g.columnWidth = g.pageMinX + g.pageWidth - dragging.value * g.scale - g.columnMinX
         }
         return g
     }
@@ -1554,6 +1567,16 @@ final class RulerView: NSView {
         let track = NSRect(x: g.pageMinX, y: 4, width: g.pageWidth, height: bounds.height - 9)
         Theme.rulerPage.setFill()
         NSBezierPath(roundedRect: track, xRadius: 2, yRadius: 2).fill()
+        // I margini: le parti della pagina fuori dallo specchio, appena scure, e il loro bordo che si trascina.
+        Theme.tick.withAlphaComponent(0.18).setFill()
+        NSRect(x: track.minX, y: track.minY, width: max(g.columnMinX - track.minX, 0), height: track.height).fill()
+        NSRect(x: g.columnMinX + g.columnWidth, y: track.minY, width: max(track.maxX - g.columnMinX - g.columnWidth, 0), height: track.height).fill()
+        for handle in [Handle.marginLeft, .marginRight] {
+            let active = dragging?.handle == handle
+            (active ? Theme.activeTop : Theme.accent.withAlphaComponent(0.55)).setFill()
+            NSBezierPath(roundedRect: NSRect(x: x(of: handle, in: g) - 2, y: track.minY + 2, width: 4, height: 8),
+                         xRadius: 2, yRadius: 2).fill()
+        }
         let centimetre = 10 * Self.millimetre * g.scale
         let count = Int(g.columnWidth / centimetre)
         let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 8.5), .foregroundColor: Theme.secondary]
@@ -1583,7 +1606,12 @@ final class RulerView: NSView {
         if let dragging {
             // Il valore mentre si trascina, in centimetri.
             let centimetres = Double(dragging.value) / (10 * Self.millimetre)
-            let text = centimetres.formatted(.number.precision(.fractionLength(1...2))) + " cm" as NSString
+            let title = switch dragging.handle {
+            case .marginLeft: "Left margin "
+            case .marginRight: "Right margin "
+            default: ""
+            }
+            let text = title + centimetres.formatted(.number.precision(.fractionLength(1...2))) + " cm" as NSString
             let label: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 10, weight: .medium), .foregroundColor: Theme.accentInk]
             let size = text.size(withAttributes: label)
             let anchor = x(of: dragging.handle, in: g)
@@ -1613,6 +1641,11 @@ final class RulerView: NSView {
     /// altri due in basso), entro un raggio di presa.
     func handle(at point: NSPoint) -> Handle? {
         guard let g = geometry else { return nil }
+        // A metà altezza, sui bordi dello specchio, si prendono i margini; in alto e in basso i triangoli dei rientri.
+        if point.y > 5, point.y < bounds.height - 12 {
+            let margins = [Handle.marginLeft, .marginRight].min { abs(x(of: $0, in: g) - point.x) < abs(x(of: $1, in: g) - point.x) }!
+            if abs(x(of: margins, in: g) - point.x) <= 5 { return margins }
+        }
         func center(_ handle: Handle) -> NSPoint {
             NSPoint(x: x(of: handle, in: g), y: handle == .firstLine ? 4 : bounds.height - 8)
         }
@@ -1624,6 +1657,13 @@ final class RulerView: NSView {
     /// Il valore in punti di pagina per un punto del righello, agganciato al millimetro (con ⌘, libero).
     func value(for handle: Handle, at x: CGFloat, modifiers: NSEvent.ModifierFlags) -> CGFloat {
         guard let g = geometry else { return 0 }
+        if handle.isMargin {
+            // Il margine dal bordo della pagina, al millimetro; lo specchio resta largo almeno mezzo pollice.
+            var value = handle == .marginLeft ? (x - g.pageMinX) / g.scale : (g.pageMinX + g.pageWidth - x) / g.scale
+            if !modifiers.contains(.command) { value = (value / Self.millimetre).rounded() * Self.millimetre }
+            let other = handle == .marginLeft ? (g.pageMinX + g.pageWidth - g.columnMinX - g.columnWidth) / g.scale : (g.columnMinX - g.pageMinX) / g.scale
+            return min(max(value, 0), g.pageWidth / g.scale - other - 36)
+        }
         var value = handle == .right ? (g.columnMinX + g.columnWidth - x) / g.scale : (x - g.columnMinX) / g.scale
         if !modifiers.contains(.command) { value = (value / Self.millimetre).rounded() * Self.millimetre }
         return min(max(value, 0), g.columnWidth / g.scale - 18)
@@ -1661,6 +1701,11 @@ final class RulerView: NSView {
     /// La posizione sullo schermo (in coordinate di questa vista) di un valore, per la guida sulla pagina.
     func screenX(for handle: Handle, value: CGFloat) -> CGFloat? {
         guard let g = geometry else { return nil }
-        return handle == .right ? g.columnMinX + g.columnWidth - value * g.scale : g.columnMinX + value * g.scale
+        switch handle {
+        case .right: return g.columnMinX + g.columnWidth - value * g.scale
+        case .marginLeft: return g.pageMinX + value * g.scale
+        case .marginRight: return g.pageMinX + g.pageWidth - value * g.scale
+        default: return g.columnMinX + value * g.scale
+        }
     }
 }

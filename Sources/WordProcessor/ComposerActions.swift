@@ -166,22 +166,7 @@ extension ComposerBoardModel {
 
     /// Una parte nuova in fondo alla testata (prima di quanto segue il titolo, se è un'etichetta o il numero). Senza
     /// testata, ne nasce una con il solo titolo.
-    func addHeadingPart(_ part: HeadingPart) {
-        changeHeading { heading in
-            var parts = heading?.parts ?? [.plainTitle]
-            if part.isTitle, parts.contains(where: \.isTitle) { return }
-            // Un solo numero accanto al titolo.
-            if case .numberBeside = part, parts.contains(where: { if case .numberBeside = $0 { true } else { false } }) { return }
-            switch part {
-            case .label, .number, .numberBeside, .result:
-                let title = parts.firstIndex(where: \.isTitle) ?? parts.count
-                parts.insert(part, at: title)
-            default:
-                parts.append(part)
-            }
-            heading = HeadingComposition(parts: parts)
-        }
-    }
+    func addHeadingPart(_ part: HeadingPart) { changeHeading { $0 = HeadingComposition.adding(part, to: $0) } }
 
     /// I ruoli delle sezioni che una formula «risultato» può nominare: quelli pronti e quelli aperti dagli stili.
     var sectionRoles: [String] {
@@ -211,29 +196,11 @@ extension ComposerBoardModel {
         return editor
     }
 
-    func updateHeadingPart(at index: Int, to part: HeadingPart) {
-        changeHeading { heading in
-            guard var current = heading, current.parts.indices.contains(index) else { return }
-            current.parts[index] = part
-            heading = current
-        }
-    }
+    func updateHeadingPart(at index: Int, to part: HeadingPart) { changeHeading { $0 = HeadingComposition.updating($0, at: index, to: part) } }
 
-    func moveHeadingPart(at index: Int, by offset: Int) {
-        changeHeading { heading in
-            guard var current = heading, current.parts.indices.contains(index), current.parts.indices.contains(index + offset) else { return }
-            current.parts.swapAt(index, index + offset)
-            heading = current
-        }
-    }
+    func moveHeadingPart(at index: Int, by offset: Int) { changeHeading { $0 = HeadingComposition.moving($0, at: index, by: offset) } }
 
-    func removeHeadingPart(at index: Int) {
-        changeHeading { heading in
-            guard var current = heading, current.parts.indices.contains(index) else { return }
-            current.parts.remove(at: index)
-            heading = current.parts.isEmpty ? nil : current
-        }
-    }
+    func removeHeadingPart(at index: Int) { changeHeading { $0 = HeadingComposition.removing($0, at: index) } }
 }
 
 /// Spostare trascinando: un'azione va al posto di un'altra della stessa fase (l'ordine fra fasi lo decide il motore), una

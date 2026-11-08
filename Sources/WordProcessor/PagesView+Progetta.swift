@@ -109,6 +109,11 @@ struct ParagraphDesignOverlay: Equatable {
     var keep: [KeepSide: Int] = [:]
     var keepLocked: Set<KeepSide> = []
     var activeKeep: KeepSide?
+    /// La testata dello stile del capoverso (nella bozza), la parte scelta, se si può cambiare (solo nello stile, dal vivo).
+    var heading: HeadingComposition?
+    var selectedHeadingPart: Int?
+    var headingEditable = false
+    var activeHeadingGrip: HeadingGripID?
 
     func value(_ handle: DesignHandle) -> CGFloat { values[handle] ?? 0 }
 }
@@ -334,6 +339,7 @@ extension PagesView {
 
     func designMouseDown(at point: NSPoint, modifiers: NSEvent.ModifierFlags) -> Bool {
         guard let design else { return false }
+        if headingGrip(at: point) != nil, headingMouseDown(at: point) { return true }
         if let handle = designHandle(at: point) {
             if design.locked.contains(handle) {
                 onDesignLockedHandle?(handle)
@@ -369,10 +375,13 @@ extension PagesView {
             onMarginDrag?(margin.page, margin.side, .zero, .began, modifiers)
             return true
         }
+        // Un clic sulla fascia di una parte della testata la sceglie.
+        if headingMouseDown(at: point) { return true }
         return false
     }
 
     func designMouseDragged(to point: NSPoint, modifiers: NSEvent.ModifierFlags) -> Bool {
+        if headingMouseDragged(to: point) { return true }
         if let drag = designDrag {
             var delta = designDelta(from: drag.start, to: point)
             delta.height *= drag.factor
@@ -391,6 +400,7 @@ extension PagesView {
     }
 
     func designMouseUp(at point: NSPoint, modifiers: NSEvent.ModifierFlags) -> Bool {
+        if headingMouseUp(at: point) { return true }
         if let drag = designDrag {
             designDrag = nil
             var delta = designDelta(from: drag.start, to: point)
@@ -413,6 +423,7 @@ extension PagesView {
 
     func designMouseMoved(at point: NSPoint) -> Bool {
         guard design != nil else { return false }
+        if headingMouseMoved(at: point) { return true }
         hoveredDesignHandle = designHandle(at: point) ?? (designBaseline(at: point) != nil ? .lineSpacing : nil)
         hoveredKeep = hoveredDesignHandle == nil ? [KeepSide.next, .previous].first { keepHandleRect($0)?.insetBy(dx: -4, dy: -4).contains(point) == true } : nil
         hoveredMargin = hoveredDesignHandle == nil && hoveredKeep == nil ? marginHandle(at: point) : nil
@@ -454,6 +465,7 @@ extension PagesView {
         context.restoreGState()
         drawMargins(onPage: index, in: context)
         drawKeep(onPage: index, pageFrame: pageFrame, in: context)
+        drawHeading(onPage: index, in: context)
         guard !here.isEmpty else { return }
 
         let accent = Theme.accent
@@ -639,7 +651,12 @@ extension PagesView {
         }
         // Fissa in alto a sinistra della zona visibile, come Salva e Annulla a destra: non copre mai il testo.
         let size = bar.fittingSize
-        bar.frame = NSRect(x: visibleRect.minX + 12, y: visibleRect.minY + 10, width: size.width, height: size.height)
+        var frame = NSRect(x: visibleRect.minX + 12, y: visibleRect.minY + 10, width: size.width, height: size.height)
+        // In una finestra stretta la barra arriverebbe sotto Salva e Annulla: scende sotto il loro riquadro.
+        if let actions = designActions, !actions.isHidden, frame.maxX > actions.frame.minX - 8 {
+            frame.origin.y = actions.frame.maxY + 6
+        }
+        bar.frame = frame
         bar.isHidden = false
     }
 }

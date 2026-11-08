@@ -132,3 +132,22 @@ capoverso, valore a mano, formula, pulsanti, margini, lati con le pagine affacci
   Annulla dentro la bozza. Da sapere: con l'occhio acceso la tenuta vale per tutti i capoversi dello stile, e numeri alti
   creano catene lunghe e pagine con buchi. Limite visto: la barra dei pulsanti, sopra il capoverso, copre le righe del
   precedente che si agganciano.
+
+## La testata nel designer (8 novembre 2026)
+
+- Motore: la pagina composta registra dove sono posate le parti della testata (`LaidOutPage.headingParts`, con il posto
+  della parte in `HeadingComposition.parts`): la fascia di etichetta, numero, risultato e spazio, il filetto vero, il
+  riquadro del numero accanto al titolo. Il formato non cambia. Le operazioni sulle parti (aggiungi, cambia, sposta,
+  togli) sono ora funzioni di `HeadingComposition`, usate dal compositore e dal designer.
+- Bozza: `headings` per stile; Salva la scrive nello stile in un passo di Annulla, Cancel la scarta. Se lo stile
+  ereditava la testata, ne prende una copia sua.
+- Pagina: cornici tratteggiate per tutte le parti; un clic su una fascia sceglie la parte (cornice piena con il nome);
+  solo la parte scelta ha le maniglie, nel margine destro: altezza minima (etichetta, numero, risultato), altezza dello
+  spazio, lunghezza e spessore del filetto, distanza del numero accanto al titolo; al mezzo millimetro, valore in mm.
+- Barra: icona «testata» con il menu delle parti (pronta, etichetta, numero, numero accanto, risultato, filetto, spazio,
+  scelta di una parte, togli la testata); con una parte scelta, una seconda riga: testo (Invio applica), allineamento o
+  lato, stile, su, giù, togli, chiudi.
+- Si cambia solo nello stile con l'occhio pieno; con l'occhio barrato o ¶ i comandi sono spenti. Con l'occhio barrato
+  la testata della bozza si vede comunque su tutti i titoli (vive solo nello stile).
+- Non ancora: la parte «titolo» (allineamento e altezza minima propri) non ha maniglie; il lato del numero accanto si
+  cambia dalla barra, non trascinandolo.

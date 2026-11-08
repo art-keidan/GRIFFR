@@ -976,6 +976,14 @@ extension EditorWindowController {
         var geometry = RulerView.Geometry(
             pageMinX: frame.minX, pageWidth: frame.width, columnMinX: frame.minX + setup.textRect(forPage: page).minX * scale, columnWidth: setup.textRect.width * scale,
             scale: scale, firstLine: style?.firstLineHeadIndent ?? 0, left: style?.headIndent ?? 0, right: right)
+        // Durante la progettazione il righello mostra la bozza: i rientri del capoverso progettato come sono lì (i
+        // margini li dà già la pagina composta dalla bozza).
+        if let session = paragraphDesign {
+            let left = session.number(.leftIndent)
+            geometry.left = left
+            geometry.firstLine = left + session.number(.firstLineIndent)
+            geometry.right = session.number(.rightIndent)
+        }
         // Una voce di elenco: in alto dove finisce il segno (i segni si allineano a destra), in basso dove comincia il testo.
         if let list = currentListGeometry(in: layout, page: page) {
             geometry.firstLine = list.markerEnd
@@ -1014,6 +1022,16 @@ extension EditorWindowController {
 
     /// Un segno del righello trascinato: mentre si trascina la guida sulla pagina, alla fine la modifica (un passo solo).
     func rulerDragged(_ handle: RulerView.Handle, value: CGFloat, finished: Bool, modifiers: NSEvent.ModifierFlags) {
+        if handle.isMargin {
+            rulerMarginDragged(handle, value: value, finished: finished)
+            return
+        }
+        // In progettazione i rientri del righello sono le maniglie della pagina: vanno nella bozza (le voci di elenco
+        // restano come fuori dalla progettazione).
+        if paragraphDesign != nil, rulerView.geometry?.markerWidth == nil {
+            rulerDesignDragged(handle, value: value, finished: finished)
+            return
+        }
         guard let edit = rulerEdit(handle, value: value, modifiers: modifiers) else { return }
         guard finished else {
             pagesView.guideX = rulerView.screenX(for: handle, value: value).map { pagesView.convert(NSPoint(x: $0, y: 0), from: rulerView).x }
@@ -1057,13 +1075,105 @@ extension EditorWindowController {
             case .right: return paragraph(.rightIndent, "Right Indent") { $0.rightIndent = Double(value) }
             case .left: return listMeasureEdit(of: list.item, textIndent: Double(max(value - headIndent, 0)), markerPosition: marker, onlyThisItem: modifiers.contains(.option))
             case .firstLine: return listMeasureEdit(of: list.item, textIndent: text, markerPosition: Double(max(value - headIndent, 0)), onlyThisItem: modifiers.contains(.option))
+            case .marginLeft, .marginRight: return nil
             }
         }
         switch handle {
         case .left: return paragraph(.leftIndent, "Left Indent") { $0.leftIndent = Double(value) }
         case .firstLine: return paragraph(.firstLineIndent, "First-Line Indent") { $0.firstLineIndent = Double(value - geometry.left) }
         case .right: return paragraph(.rightIndent, "Right Indent") { $0.rightIndent = Double(value) }
+        case .marginLeft, .marginRight: return nil
         }
+    }
+
+    /// Un rientro trascinato sul righello durante la progettazione: lo stesso gesto della maniglia sulla pagina.
+    func rulerDesignDragged(_ handle: RulerView.Handle, value: CGFloat, finished: Bool) {
+        guard let session = paragraphDesign, let geometry = rulerView.geometry else { return }
+        let (design, number): (DesignHandle, CGFloat) = switch handle {
+        case .left: (.leftIndent, value)
+        case .firstLine: (.firstLineIndent, value - geometry.left)
+        default: (.rightIndent, value)
+        }
+        guard !isDesignLocked(design.property) else {
+            if finished { openDesignFormula(design.property) }
+            return
+        }
+        let values = Self.designValues(design.property, number)
+        guard finished else {
+            pagesView.guideX = rulerView.screenX(for: handle, value: value).map { pagesView.convert(NSPoint(x: $0, y: 0), from: rulerView).x }
+            if lastRulerPreview?.handle != handle || lastRulerPreview?.value != value {
+                lastRulerPreview = (handle, value)
+                session.drag = (design, session.number(design.property), number)
+                pagesView.design?.active = design
+                pagesView.design?.values[design] = number
+                showDraft(draft(session.draft, setting: design.property, values))
+            }
+            return
+        }
+        pagesView.guideX = nil
+        lastRulerPreview = nil
+        session.drag = nil
+        pagesView.design?.active = nil
+        if number != session.number(design.property) {
+            designEdit(design.property, values)
+        } else {
+            showDraft(session.draft)
+            refreshParagraphDesign()
+        }
+        window?.makeFirstResponder(pagesView)
+    }
+
+    /// Un margine trascinato sul righello: della pagina del cursore. In progettazione va nella bozza; fuori, nel
+    /// formato del tipo di quella pagina, con l'anteprima durante il gesto e un passo di Annulla alla fine.
+    func rulerMarginDragged(_ handle: RulerView.Handle, value: CGFloat, finished: Bool) {
+        guard let layout = pagesView.layout, let page = layout.caret(at: selection.head, affinity: selection.affinity)?.page else { return }
+        let type = layout.pages[page].typeName.flatMap { name in settings.pageTypes.contains { $0.name == name } ? name : nil } ?? ""
+        var setup = layout.setup(forPage: page)
+        let side: MarginSide = handle == .marginLeft ? .left : .right
+        setup[keyPath: side.field(onPage: page, facing: setup.facing)] = value
+        if let session = paragraphDesign {
+            guard finished else {
+                if lastRulerPreview?.handle != handle || lastRulerPreview?.value != value {
+                    lastRulerPreview = (handle, value)
+                    session.marginDrag = (page, side, value, value)
+                    var preview = session.draft
+                    preview.pageSetups[type] = setup
+                    showDraft(preview)
+                }
+                return
+            }
+            lastRulerPreview = nil
+            session.marginDrag = nil
+            let saved = session.draft.pageSetups[type] ?? (settings.pageTypes.first { $0.name == type }?.setup ?? settings.pageSetup)
+            if setup != saved {
+                changeDraft { $0.pageSetups[type] = setup }
+            } else {
+                showDraft(session.draft)
+                refreshParagraphDesign()
+            }
+            window?.makeFirstResponder(pagesView)
+            return
+        }
+        guard finished else {
+            if lastRulerPreview?.handle != handle || lastRulerPreview?.value != value {
+                lastRulerPreview = (handle, value)
+                var document = settings
+                if type.isEmpty { document.pageSetup = setup } else if let index = document.pageTypes.firstIndex(where: { $0.name == type }) { document.pageTypes[index].setup = setup }
+                var options = document.layoutOptions
+                options.fontRoles = fontRoleResolver.table
+                pagesView.layout = PageLayout.layout(documentText, setup: document.pageSetup, options: options)
+            }
+            return
+        }
+        lastRulerPreview = nil
+        // Le pagine tornano quelle del documento; poi, se il margine è cambiato, il formato nuovo (un passo di Annulla).
+        if setup != settings.pageTypes.first(where: { $0.name == type })?.setup ?? settings.pageSetup {
+            endUndoStep(next: .none)
+            setCaretPageSetup(setup)
+        } else {
+            layoutPages()
+        }
+        window?.makeFirstResponder(pagesView)
     }
 
     /// Le misure di un elenco cambiate dal righello: di tutta la Lista con un nome, del blocco di voci consecutive per un

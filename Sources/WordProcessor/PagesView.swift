@@ -90,6 +90,11 @@ final class PagesView: NSView {
     var onKeepLocked: ((KeepSide) -> Void)?
     var keepDrag: (side: KeepSide, mids: [CGFloat])?
     var hoveredKeep: KeepSide? { didSet { if hoveredKeep != oldValue { needsDisplay = true } } }
+    /// La testata del titolo progettato: una maniglia trascinata, la scelta di una parte con un clic.
+    var onHeadingDrag: ((HeadingGripID, CGSize, DesignDragPhase) -> Void)?
+    var onHeadingSelect: ((Int) -> Void)?
+    var headingDrag: (id: HeadingGripID, start: NSPoint)?
+    var hoveredHeadingGrip: HeadingGripID? { didSet { if hoveredHeadingGrip != oldValue { needsDisplay = true } } }
     var hoveredDesignHandle: DesignHandle? {
         didSet { if hoveredDesignHandle != oldValue { needsDisplay = true } }
     }

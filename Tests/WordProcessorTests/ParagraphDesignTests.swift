@@ -380,4 +380,107 @@ struct ParagraphDesignTests {
         #expect(TextStyling.lineKeeping(in: h.attributed, at: second).previousLines == 2)
         #expect(h.editor.settings.styles.lineKeeping(styleName: "Body").previousLines == 0)
     }
+
+    @Test("Occhio barrato: un capoverso progettato prima tiene il suo valore dato a mano finché non si salva")
+    func eyeClosedKeepsEarlierManualValue() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        h.select(5)
+        h.editor.changeForTests(.leftIndent) { $0.leftIndent = 40 }
+        h.step()
+        h.editor.setParagraphDesign(true)
+        h.editor.paragraphDesignBarForTests?.setLivePreviewAll?(false)
+        h.editor.dragDesignHandleForTests(.leftIndent, by: CGSize(width: -20, height: 0))
+        func indent(_ index: Int) -> CGFloat {
+            (h.editor.paragraphDesignPreviewForTests?.attribute(.paragraphStyle, at: index, effectiveRange: nil) as? NSParagraphStyle)?.headIndent ?? -1
+        }
+        #expect(indent(0) == 20, "sul capoverso evidenziato vale lo stile della bozza")
+        h.select(third(h) + 2)
+        h.step()
+        #expect(indent(0) == 40, "passati a un altro capoverso, il primo torna com'è nel documento")
+        #expect(indent(third(h)) == 20)
+        h.editor.saveParagraphDesign()
+        h.step()
+        #expect(try paragraphStyle(h, at: 0).headIndent == 20, "salvando, il valore dato a mano se ne va come prima")
+    }
+
+    @Test("Il righello in progettazione legge e scrive la bozza; i suoi margini vanno nella bozza")
+    func rulerInDesign() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        h.select(5)
+        h.editor.setParagraphDesign(true)
+        h.editor.dragDesignHandleForTests(.leftIndent, by: CGSize(width: 18, height: 0))
+        h.editor.refreshRuler()
+        #expect(abs((h.editor.rulerGeometry?.left ?? 0) - 18) < 0.01, "il righello mostra il rientro della bozza")
+        let millimetre = 72 / 25.4
+        h.editor.dragRulerForTests(.right, to: 10 * millimetre)
+        #expect(abs((h.editor.paragraphDesignDraftForTests?.styleEdits["Body"]?[.rightIndent]?.rightIndent ?? 0) - 10 * millimetre) < 0.01,
+                "il triangolo del righello va nella bozza")
+        #expect(h.editor.settings.styles.resolveParagraph(styleName: "Body").rightIndent == 0, "il documento non cambia")
+        let before = h.editor.settings.pageSetup
+        h.editor.dragRulerForTests(.marginLeft, to: 40 * millimetre)
+        #expect(abs((h.editor.paragraphDesignDraftForTests?.pageSetups[""]?.left ?? 0) - 40 * millimetre) < 0.01)
+        #expect(h.editor.settings.pageSetup == before)
+        h.editor.saveParagraphDesign()
+        h.step()
+        #expect(abs(h.editor.settings.pageSetup.left - 40 * millimetre) < 0.01)
+        #expect(abs(h.editor.settings.styles.resolveParagraph(styleName: "Body").rightIndent - 10 * millimetre) < 0.01)
+        h.undo()
+        #expect(h.editor.settings.pageSetup == before)
+    }
+
+    @Test("Fuori dalla progettazione i margini si trascinano sul righello: un passo di Annulla")
+    func rulerMargins() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        h.select(5)
+        let before = h.editor.settings.pageSetup
+        let millimetre = 72 / 25.4
+        h.editor.dragRulerForTests(.marginRight, to: 35 * millimetre)
+        h.step()
+        #expect(abs(h.editor.settings.pageSetup.right - 35 * millimetre) < 0.01 && h.editor.settings.pageSetup.left == before.left)
+        #expect(abs((h.editor.rulerGeometry?.columnWidth ?? 0) / (h.editor.rulerGeometry?.scale ?? 1) - (before.paperSize.width - before.left - 35 * millimetre)) < 0.5,
+                "il righello mostra lo specchio nuovo")
+        h.undo()
+        #expect(h.editor.settings.pageSetup == before)
+    }
+
+    @Test("La testata nella progettazione: parti dalla barra, maniglie sulla pagina, nella bozza; spenta con l'occhio barrato")
+    func headingInDesign() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        h.select(5)
+        h.editor.setParagraphDesign(true)
+        let bar = try #require(h.editor.paragraphDesignBarForTests)
+        #expect(bar.headingEditable && bar.headingParts.isEmpty)
+        bar.useStandardHeading?()
+        #expect(bar.headingParts == HeadingComposition.standard.parts, "la barra mostra le parti della testata")
+        let placed = h.editor.currentLayout()?.pages[0].headingParts.filter { $0.paragraphLocation == 0 } ?? []
+        #expect(placed.contains { $0.part == 1 }, "lo spazio dopo il numero è posato sulla pagina: \(placed.map(\.part))")
+        let before = HeadingComposition.standard.parts[1]
+        guard case .space(let start) = before else { Issue.record("la parte 1 è uno spazio"); return }
+        #expect(h.editor.designHeadingGripsForTests.isEmpty, "senza una parte scelta, nessuna maniglia")
+        bar.selectHeadingPart?(1)
+        #expect(Set(h.editor.designHeadingGripsForTests) == [HeadingGripID(part: 1, grip: .space)])
+        h.editor.dragHeadingForTests(HeadingGripID(part: 1, grip: .space), by: CGSize(width: 0, height: 10))
+        let step = PageSetup.points(fromMillimetres: 0.5)
+        let expected = ((CGFloat(start) + 10) / step).rounded() * step
+        guard case .space(let length)? = h.editor.paragraphDesignDraftForTests?.headings["Body"]??.parts[1] else { Issue.record("spazio nella bozza"); return }
+        #expect(abs(CGFloat(length) - expected) < 0.01)
+        #expect(h.editor.settings.styles.style(named: "Body")?.heading == nil, "il documento non cambia prima di Salva")
+        // Con l'occhio barrato la testata non si cambia.
+        bar.setLivePreviewAll?(false)
+        #expect(!bar.headingEditable)
+        bar.addHeadingPart?(.label(text: "Capitolo", style: nil, alignment: .left, minHeight: nil))
+        #expect(h.editor.paragraphDesignDraftForTests?.headings["Body"]??.parts.count == HeadingComposition.standard.parts.count)
+        bar.setLivePreviewAll?(true)
+        h.editor.saveParagraphDesign()
+        h.step()
+        guard case .space(let saved)? = h.editor.settings.styles.style(named: "Body")?.heading?.parts[1] else { Issue.record("spazio salvato"); return }
+        #expect(abs(CGFloat(saved) - expected) < 0.01)
+        h.undo()
+        #expect(h.editor.settings.styles.style(named: "Body")?.heading == nil)
+    }
 }
+

@@ -29,6 +29,18 @@ final class ParagraphDesignBarModel: ObservableObject {
     @Published var nextStyle: String?
     /// Le proprietà che lo stile calcola con una formula: si cambiano nel compositore.
     @Published var locked: Set<InspectorProperty> = []
+    /// La testata dello stile, la parte scelta, se si può cambiare, e gli stili che una parte può prendere.
+    @Published var headingParts: [HeadingPart] = []
+    @Published var selectedHeadingPart: Int?
+    @Published var headingEditable = false
+    @Published var partStyles: [String] = []
+    var useStandardHeading: (() -> Void)?
+    var removeHeading: (() -> Void)?
+    var addHeadingPart: ((HeadingPart) -> Void)?
+    var updateHeadingPart: ((Int, HeadingPart) -> Void)?
+    var moveHeadingPart: ((Int, Int) -> Void)?
+    var removeHeadingPart: ((Int) -> Void)?
+    var selectHeadingPart: ((Int?) -> Void)?
 
     var set: ((InspectorProperty, StyleValues) -> Void)?
     var setNextStyle: ((String?) -> Void)?
@@ -63,6 +75,25 @@ struct ParagraphDesignBar: View {
     ]
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            mainRow
+            if let index = model.selectedHeadingPart, model.headingParts.indices.contains(index) {
+                HeadingPartRow(model: model, index: index, part: model.headingParts[index])
+            }
+        }
+        .controlSize(.small)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(nsColor: Theme.bar))
+                .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
+        )
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color(nsColor: Theme.line)))
+        .fixedSize()
+    }
+
+    private var mainRow: some View {
         HStack(spacing: 4) {
             Text(model.styleName ?? "No style")
                 .font(.system(size: 11, weight: .semibold))
@@ -131,17 +162,37 @@ struct ParagraphDesignBar: View {
                     Button(Self.points(size) + (model.size == size ? "  ✓" : "")) { model.change(.size) { $0.size = size } }
                 }
             }
+            separator
+            headingMenu
         }
-        .controlSize(.small)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(nsColor: Theme.bar))
-                .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
-        )
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color(nsColor: Theme.line)))
-        .fixedSize()
+    }
+
+    /// La testata dello stile: aggiungere le parti, sceglierne una, toglierla.
+    private var headingMenu: some View {
+        let mm = 72 / 25.4
+        return iconMenu("rectangle.split.1x2", help: model.headingEditable
+                        ? "Heading of the style: add parts, choose one to change it (on the page, click its band)"
+                        : "Heading of the style: it belongs to the style, so it changes only with the eye open on the style") {
+            Button("Ready-made Heading") { model.useStandardHeading?() }
+            Divider()
+            Button("Label") { model.addHeadingPart?(.label(text: "Chapter", style: nil, alignment: .left, minHeight: nil)) }
+            Button("Section Number") { model.addHeadingPart?(.number(prefix: "", style: nil, alignment: .left, minHeight: nil)) }
+            Button("Number Beside Title") { model.addHeadingPart?(.numberBeside(prefix: "", style: nil, side: .left, gap: 4 * mm)) }
+            Button("Write Result") {
+                model.addHeadingPart?(.result(formula: .sectionContainingTitle(role: Typesetting.Section.Role.part), prefix: "", style: nil, alignment: .left, minHeight: nil))
+            }
+            Button("Rule") { model.addHeadingPart?(.rule(thickness: 0.5 * mm, length: nil, alignment: .left)) }
+            Button("Space") { model.addHeadingPart?(.space(3 * mm)) }
+            if !model.headingParts.isEmpty {
+                Divider()
+                ForEach(Array(model.headingParts.enumerated()), id: \.offset) { index, part in
+                    Button(part.title + (model.selectedHeadingPart == index ? "  ✓" : "")) { model.selectHeadingPart?(index) }
+                }
+                Divider()
+                Button("Remove Heading") { model.removeHeading?() }
+            }
+        }
+        .disabled(!model.headingEditable)
     }
 
     /// A chi vanno le modifiche e che cosa si aggiorna dal vivo: tre icone, una accesa.
@@ -275,3 +326,123 @@ extension EditorWindowController {
         return host
     }
 }
+
+// MARK: - Le proprietà della parte della testata scelta
+
+extension HeadingPart {
+    var alignment: HeadingAlignment? {
+        switch self {
+        case .label(_, _, let a, _), .number(_, _, let a, _), .result(_, _, _, let a, _), .rule(_, _, let a): a
+        case .numberBeside(_, _, let side, _): side
+        default: nil
+        }
+    }
+
+    func with(alignment: HeadingAlignment) -> HeadingPart {
+        switch self {
+        case .label(let t, let s, _, let h): .label(text: t, style: s, alignment: alignment, minHeight: h)
+        case .number(let p, let s, _, let h): .number(prefix: p, style: s, alignment: alignment, minHeight: h)
+        case .result(let f, let p, let s, _, let h): .result(formula: f, prefix: p, style: s, alignment: alignment, minHeight: h)
+        case .rule(let t, let l, _): .rule(thickness: t, length: l, alignment: alignment)
+        case .numberBeside(let p, let s, _, let g): .numberBeside(prefix: p, style: s, side: alignment, gap: g)
+        default: self
+        }
+    }
+
+    var style: String?? {
+        switch self {
+        case .label(_, let s, _, _), .number(_, let s, _, _), .result(_, _, let s, _, _), .numberBeside(_, let s, _, _): .some(s)
+        default: nil
+        }
+    }
+
+    func with(style: String?) -> HeadingPart {
+        switch self {
+        case .label(let t, _, let a, let h): .label(text: t, style: style, alignment: a, minHeight: h)
+        case .number(let p, _, let a, let h): .number(prefix: p, style: style, alignment: a, minHeight: h)
+        case .result(let f, let p, _, let a, let h): .result(formula: f, prefix: p, style: style, alignment: a, minHeight: h)
+        case .numberBeside(let p, _, let side, let g): .numberBeside(prefix: p, style: style, side: side, gap: g)
+        default: self
+        }
+    }
+
+    /// Il testo che si scrive: dell'etichetta, o quello prima del numero o del risultato.
+    var editableText: String? {
+        switch self {
+        case .label(let t, _, _, _): t
+        case .number(let p, _, _, _), .result(_, let p, _, _, _), .numberBeside(let p, _, _, _): p
+        default: nil
+        }
+    }
+
+    func with(text: String) -> HeadingPart {
+        switch self {
+        case .label(_, let s, let a, let h): .label(text: text, style: s, alignment: a, minHeight: h)
+        case .number(_, let s, let a, let h): .number(prefix: text, style: s, alignment: a, minHeight: h)
+        case .result(let f, _, let s, let a, let h): .result(formula: f, prefix: text, style: s, alignment: a, minHeight: h)
+        case .numberBeside(_, let s, let side, let g): .numberBeside(prefix: text, style: s, side: side, gap: g)
+        default: self
+        }
+    }
+}
+
+/// La riga delle proprietà della parte scelta: testo, allineamento (o lato), stile, ordine, togli.
+struct HeadingPartRow: View {
+    @ObservedObject var model: ParagraphDesignBarModel
+    let index: Int
+    let part: HeadingPart
+    @State private var text = ""
+
+    private var alignments: [(HeadingAlignment, String)] {
+        if case .numberBeside = part { return [(.left, "Left"), (.right, "Right"), (.outside, "Out"), (.inside, "In")] }
+        return [(.left, "Left"), (.center, "Center"), (.right, "Right"), (.outside, "Out"), (.inside, "In")]
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(part.title).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(nsColor: Theme.text))
+            if let current = part.editableText {
+                TextField(part.isLabel ? "Text" : "Before the number", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 110)
+                    .onAppear { text = current }
+                    .onChange(of: current) { _, value in text = value }
+                    .onSubmit { model.updateHeadingPart?(index, part.with(text: text)) }
+                    .help("Press Return to apply")
+            }
+            if let current = part.alignment {
+                HStack(spacing: 1) {
+                    ForEach(alignments, id: \.0) { alignment, title in
+                        Button(title) { model.updateHeadingPart?(index, part.with(alignment: alignment)) }
+                            .buttonStyle(.hover(current == alignment ? .prominent : .borderless))
+                    }
+                }
+            }
+            if let current = part.style {
+                Menu {
+                    Button("Title's Style" + (current == nil ? "  ✓" : "")) { model.updateHeadingPart?(index, part.with(style: nil)) }
+                    ForEach(model.partStyles, id: \.self) { name in
+                        Button(name + (current == name ? "  ✓" : "")) { model.updateHeadingPart?(index, part.with(style: name)) }
+                    }
+                } label: { Label(current ?? "Title's style", systemImage: "textformat").font(.system(size: 11)) }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .help("The style that gives the part its look")
+            }
+            Divider().frame(height: 16)
+            Button { model.moveHeadingPart?(index, -1) } label: { Image(systemName: "chevron.up") }
+                .buttonStyle(.hover(.borderless)).disabled(index == 0).help("Move up")
+            Button { model.moveHeadingPart?(index, 1) } label: { Image(systemName: "chevron.down") }
+                .buttonStyle(.hover(.borderless)).disabled(index >= model.headingParts.count - 1).help("Move down")
+            Button { model.removeHeadingPart?(index) } label: { Image(systemName: "trash") }
+                .buttonStyle(.hover(.borderless)).help("Remove the part")
+            Button { model.selectHeadingPart?(nil) } label: { Image(systemName: "xmark") }
+                .buttonStyle(.hover(.borderless)).help("Done with this part")
+        }
+        .disabled(!model.headingEditable)
+    }
+}
+
+extension HeadingPart {
+    var isLabel: Bool { if case .label = self { true } else { false } }
+}
+

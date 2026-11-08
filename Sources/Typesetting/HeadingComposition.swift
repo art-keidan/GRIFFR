@@ -33,6 +33,16 @@ public struct HeadingComposition: Hashable, Sendable, Codable {
         return (Array(stacked[..<index]), Array(stacked[(index + 1)...]))
     }
 
+    /// Come `split`, ma con il posto di ogni parte in `parts`: serve a dire quale parte è stata posata dove.
+    public var splitIndices: (before: [Int], after: [Int]) {
+        let stacked = parts.indices.filter { if case .numberBeside = parts[$0] { false } else { true } }
+        guard let title = stacked.firstIndex(where: { parts[$0].isTitle }) else { return (stacked, []) }
+        return (Array(stacked[..<title]), Array(stacked[(title + 1)...]))
+    }
+
+    /// Il posto in `parts` del numero accanto al titolo, se c'è.
+    public var numberBesideIndex: Int? { parts.firstIndex { if case .numberBeside = $0 { true } else { false } } }
+
     /// L'allineamento e l'altezza minima propri del titolo, se la parte «titolo» li dà.
     public var titleOptions: (alignment: HeadingAlignment?, minHeight: Double?) {
         for part in parts { if case .title(let alignment, let minHeight) = part { return (alignment, minHeight) } }
@@ -182,3 +192,42 @@ extension StyleSheet {
         return nil
     }
 }
+
+// MARK: - Cambiare una testata (lo stesso per il compositore e per la progettazione sulla pagina)
+
+extension HeadingComposition {
+    /// Una parte nuova in fondo alla testata (prima del titolo, se è un'etichetta o un numero). Senza testata, ne nasce
+    /// una con il solo titolo. Un solo titolo e un solo numero accanto al titolo.
+    public static func adding(_ part: HeadingPart, to heading: HeadingComposition?) -> HeadingComposition? {
+        var parts = heading?.parts ?? [.plainTitle]
+        if part.isTitle, parts.contains(where: \.isTitle) { return heading }
+        if case .numberBeside = part, parts.contains(where: { if case .numberBeside = $0 { true } else { false } }) { return heading }
+        switch part {
+        case .label, .number, .numberBeside, .result:
+            let title = parts.firstIndex(where: \.isTitle) ?? parts.count
+            parts.insert(part, at: title)
+        default:
+            parts.append(part)
+        }
+        return HeadingComposition(parts: parts)
+    }
+
+    public static func updating(_ heading: HeadingComposition?, at index: Int, to part: HeadingPart) -> HeadingComposition? {
+        guard var current = heading, current.parts.indices.contains(index) else { return heading }
+        current.parts[index] = part
+        return current
+    }
+
+    public static func moving(_ heading: HeadingComposition?, at index: Int, by offset: Int) -> HeadingComposition? {
+        guard var current = heading, current.parts.indices.contains(index), current.parts.indices.contains(index + offset) else { return heading }
+        current.parts.swapAt(index, index + offset)
+        return current
+    }
+
+    public static func removing(_ heading: HeadingComposition?, at index: Int) -> HeadingComposition? {
+        guard var current = heading, current.parts.indices.contains(index) else { return heading }
+        current.parts.remove(at: index)
+        return current.parts.isEmpty ? nil : current
+    }
+}
+

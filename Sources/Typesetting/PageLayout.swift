@@ -333,6 +333,19 @@ struct HeadingPiece {
     let kind: Kind
     let height: CGFloat
     let alignment: HeadingAlignment
+    /// Il posto della parte nella testata dello stile (`HeadingComposition.parts`); -1 se non viene da lì.
+    var part = -1
+}
+
+/// Dove una parte della testata di un titolo è stata posata: la sua fascia (larga quanto lo specchio) o, per il numero
+/// accanto al titolo, il riquadro del numero. Serve alla progettazione, per prenderla con il mouse.
+public struct PlacedHeadingPart: Sendable {
+    /// Il titolo, come in `PlacedLine.paragraphLocation`.
+    public let paragraphLocation: Int
+    /// Il posto della parte in `HeadingComposition.parts`.
+    public let part: Int
+    /// Con l'origine della pagina in basso a sinistra.
+    public let rect: CGRect
 }
 
 public struct PlacedMarker {
@@ -354,6 +367,8 @@ public struct LaidOutPage {
     public var lines: [PlacedLine] = []
     /// I segni delle voci di elenco che cominciano in questa pagina.
     public var markers: [PlacedMarker] = []
+    /// Le parti delle testate dei titoli posate in questa pagina.
+    public var headingParts: [PlacedHeadingPart] = []
     /// Filetti da disegnare sulla pagina (il separatore sopra le note, i filetti delle tabelle), come rettangoli pieni.
     public var rules: [CGRect] = []
     /// Fondi colorati (delle celle delle tabelle), da disegnare prima dei filetti e del testo.
@@ -613,7 +628,7 @@ public enum PageLayout {
             snapshotPage()
         }
         /// Le parti di una testata, composte: le righe di testo con il loro stile, i filetti, gli spazi.
-        func headingPieces(_ parts: [HeadingPart], number: String, titleStyle: String?) -> [HeadingPiece] {
+        func headingPieces(_ parts: [HeadingPart], number: String, titleStyle: String?, indices: [Int] = []) -> [HeadingPiece] {
             let resolver = FontRoleResolver(table: options.fontRoles)
             func text(_ string: String, _ style: String?, _ alignment: HeadingAlignment, _ minHeight: Double?) -> HeadingPiece {
                 // Lo stile della parte: di paragrafo, al posto di quello del titolo; di carattere o di parola, sopra di esso.
@@ -628,7 +643,7 @@ public enum PageLayout {
                 return HeadingPiece(kind: .text(line, descent: descent, leading: leading, width: width),
                                     height: max(natural, CGFloat(minHeight ?? 0)), alignment: alignment)
             }
-            return parts.compactMap { part in
+            func composedPiece(_ part: HeadingPart) -> HeadingPiece? {
                 switch part {
                 case .label(let string, let style, let alignment, let minHeight): text(string, style, alignment, minHeight)
                 // Una sezione senza numero: la parte sparisce con la sua fascia.
@@ -643,6 +658,11 @@ public enum PageLayout {
                     HeadingPiece(kind: .rule(length: length.map { CGFloat($0) }), height: CGFloat(thickness), alignment: alignment)
                 case .space(let length): HeadingPiece(kind: .space, height: CGFloat(length), alignment: .left)
                 }
+            }
+            return parts.enumerated().compactMap { offset, part -> HeadingPiece? in
+                var piece = composedPiece(part)
+                piece?.part = indices.indices.contains(offset) ? indices[offset] : -1
+                return piece
             }
         }
         /// Posa le parti di una testata dall'altezza in corso, una sotto l'altra. Il testo poggia sul fondo della sua
@@ -659,6 +679,16 @@ public enum PageLayout {
                 }
             }
             for piece in pieces {
+                if piece.part >= 0 {
+                    // La fascia della parte; per un filetto, il filetto stesso (serve la sua lunghezza).
+                    var rect = CGRect(x: column.minX, y: column.maxY - y - piece.height, width: column.width, height: piece.height)
+                    if case .rule(let length) = piece.kind {
+                        let width = min(length ?? column.width, column.width)
+                        rect.origin.x = x(piece.alignment, width: width)
+                        rect.size.width = width
+                    }
+                    pages[index].headingParts.append(PlacedHeadingPart(paragraphLocation: paragraphLocation, part: piece.part, rect: rect))
+                }
                 switch piece.kind {
                 case .space: break
                 case .rule(let length):
@@ -2050,7 +2080,7 @@ public enum PageLayout {
                 for note in lineNotes { notePages[note.info.range.location] = pages.count }
                 if lineNumber == 0 {
                     // Ricomposte qui: se il titolo è passato a una pagina nuova, i risultati leggono questa.
-                    placeHeading(heading.map { headingPieces($0.split.before, number: headingNumber, titleStyle: paragraphStyleName) } ?? [],
+                    placeHeading(heading.map { headingPieces($0.split.before, number: headingNumber, titleStyle: paragraphStyleName, indices: $0.splitIndices.before) } ?? [],
                                  paragraphLocation: paragraphRange.location)
                     y += titleExtra
                 }
@@ -2061,6 +2091,12 @@ public enum PageLayout {
                     let leftPage = pages[index].setup.facing && index % 2 == 1
                     let x = besidePiece.alignment.resolved(onLeftPage: leftPage) == .right ? column.maxX - width : column.minX
                     pages[index].markers.append(PlacedMarker(line: numberLine, origin: CGPoint(x: x, y: placedLine.origin.y), paragraphLocation: paragraphRange.location))
+                    if let part = heading?.numberBesideIndex {
+                        var ascent: CGFloat = 0, descent: CGFloat = 0
+                        _ = CTLineGetTypographicBounds(numberLine, &ascent, &descent, nil)
+                        pages[index].headingParts.append(PlacedHeadingPart(paragraphLocation: paragraphRange.location, part: part,
+                            rect: CGRect(x: x, y: placedLine.origin.y - descent, width: width, height: ascent + descent)))
+                    }
                 }
                 if lineNumber == 0, let marker {
                     pages[pages.count - 1].markers.append(PlacedMarker(
@@ -2094,7 +2130,7 @@ public enum PageLayout {
                     }
                 }
             }
-            placeHeading(heading.map { headingPieces($0.split.after, number: headingNumber, titleStyle: paragraphStyleName) } ?? [],
+            placeHeading(heading.map { headingPieces($0.split.after, number: headingNumber, titleStyle: paragraphStyleName, indices: $0.splitIndices.after) } ?? [],
                          paragraphLocation: paragraphRange.location)
             // Tieni col seguente: se questo paragrafo è finito oltre la pagina del precedente della catena, si torna indietro.
             if keepChainBroken(by: paragraphRange.location, from: keepMark, pending: pendingKeep) { continue }
