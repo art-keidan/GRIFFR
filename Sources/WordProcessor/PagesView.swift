@@ -70,6 +70,8 @@ final class PagesView: NSView {
     /// Il gesto su una maniglia: dove è cominciato e quanto conta lo spostamento verticale (per l'interlinea presa su
     /// una riga più in basso, meno di un punto per punto).
     var designDrag: (handle: DesignHandle, start: NSPoint, factor: CGFloat)?
+    /// La larghezza che la barra dei pulsanti ha a disposizione (chi la possiede la fa andare a capo).
+    var onDesignBarWidth: ((CGFloat) -> Void)?
     /// Salva e Annulla, fissi in alto a destra della zona visibile.
     var designActions: NSView? {
         didSet {
@@ -95,6 +97,11 @@ final class PagesView: NSView {
     var onHeadingSelect: ((Int) -> Void)?
     var headingDrag: (id: HeadingGripID, start: NSPoint)?
     var hoveredHeadingGrip: HeadingGripID? { didSet { if hoveredHeadingGrip != oldValue { needsDisplay = true } } }
+    /// I filetti liberi del capoverso progettato: il gesto su una maniglia, la scelta con un clic.
+    var onRuleDrag: ((RuleGripID, CGSize, DesignDragPhase) -> Void)?
+    var onRuleSelect: ((Int) -> Void)?
+    var ruleDrag: (id: RuleGripID, start: NSPoint)?
+    var hoveredRuleGrip: RuleGripID? { didSet { if hoveredRuleGrip != oldValue { needsDisplay = true } } }
     var hoveredDesignHandle: DesignHandle? {
         didSet { if hoveredDesignHandle != oldValue { needsDisplay = true } }
     }

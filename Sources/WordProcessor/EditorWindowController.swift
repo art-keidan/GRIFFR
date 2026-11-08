@@ -50,6 +50,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     var paragraphDesign: ParagraphDesignSession?
     /// La vista Selection del pannello.
     let selectionPanelModel = SelectionPanelModel()
+    /// La fascia della progettazione, fra il righello e le pagine: si vede solo progettando.
+    let designBand = DesignBandView()
     let pagesView = PagesView()
     var pendingLayout: DispatchWorkItem?
     var pendingSpellCheck: DispatchWorkItem?
@@ -285,7 +287,9 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         paragraphBand = buildParagraphBand()
         paragraphBand.lineOnBottom = false
         statusBand = buildStatusBand()
-        let column = NSStackView(views: [toolbar, characterBand, paragraphBand, rulerView, findBar.view, split, statusBand])
+        designBand.isHidden = true
+        let column = NSStackView(views: [toolbar, characterBand, paragraphBand, rulerView, designBand, findBar.view, split, statusBand])
+        column.detachesHiddenViews = true
         column.orientation = .vertical
         column.spacing = 0
         column.alignment = .leading

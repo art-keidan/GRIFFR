@@ -73,6 +73,8 @@ public struct StyleValues: Hashable, Sendable {
     public var pageStartSpacing: PageStartSpacing?
     /// La tenuta delle righe fra le pagine; ciascun valore si eredita da solo.
     public var keeping = LineKeeping()
+    /// I filetti liberi del paragrafo (formato 18); un elenco vuoto toglie quelli ereditati, `nil` li lascia ereditare.
+    public var rules: ParagraphRules?
 
     public init() {}
 
@@ -87,7 +89,7 @@ public struct StyleValues: Hashable, Sendable {
         take(\.color); take(\.verticalPosition); take(\.decorations); take(\.graphite); take(\.smallCaps); take(\.language); take(\.hyphenates)
         take(\.alignment); take(\.firstLineIndent); take(\.leftIndent); take(\.rightIndent)
         take(\.spaceBefore); take(\.spaceAfter); take(\.lineSpacing); take(\.lineHeightMultiple); take(\.listName); take(\.opensSection)
-        take(\.nextStyle); take(\.outlineLevel); take(\.openingDistance); take(\.pageStartSpacing)
+        take(\.nextStyle); take(\.outlineLevel); take(\.openingDistance); take(\.pageStartSpacing); take(\.rules)
         result.keeping = keeping.over(parent.keeping)
         if !parent.resolutionSteps.isEmpty || !resolutionSteps.isEmpty {
             let before = parent.resolutionSteps.isEmpty ? [.values(parent.withoutResolutionSteps)] : parent.resolutionSteps
@@ -110,6 +112,7 @@ public struct StyleValues: Hashable, Sendable {
             result.openingDistance = nil
             result.pageStartSpacing = nil
             result.keeping = LineKeeping()
+            result.rules = nil
         }
         if target == .character { result.language = nil; result.hyphenates = nil }
         result.resolutionSteps = resolutionSteps.compactMap { step in

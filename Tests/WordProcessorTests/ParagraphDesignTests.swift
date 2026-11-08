@@ -482,5 +482,39 @@ struct ParagraphDesignTests {
         h.undo()
         #expect(h.editor.settings.styles.style(named: "Body")?.heading == nil)
     }
+
+    @Test("Filetti liberi nella progettazione: aggiunti, spostati, allungati; nello stile o nel solo capoverso")
+    func freeRules() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        h.select(5)
+        h.editor.setParagraphDesign(true)
+        let bar = try #require(h.editor.paragraphDesignBarForTests)
+        bar.addRule?(.top)
+        bar.addRule?(.left)
+        #expect(bar.rules.map(\.anchor) == [.top, .left] && bar.selectedRule == 1, "il filetto nuovo è scelto")
+        #expect(h.editor.currentLayout()?.pages[0].paragraphRules.filter { $0.paragraphLocation == 0 }.count == 2, "l'anteprima li posa")
+        // Ogni filetto si muove per conto suo.
+        h.editor.dragRuleForTests(RuleGripID(rule: 0, grip: .body), by: CGSize(width: 0, height: -4))
+        h.editor.dragRuleForTests(RuleGripID(rule: 1, grip: .end), by: CGSize(width: 0, height: 10))
+        let rules = try #require(h.editor.paragraphDesignDraftForTests?.styleRules["Body"]?.rules)
+        #expect(rules[0].offset == ParagraphRule.fresh(.top).offset + 4 && rules[1].end == 10 && rules[1].offset == ParagraphRule.fresh(.left).offset)
+        #expect(h.editor.settings.styles.values(of: "Body").rules == nil, "nulla nel documento prima di Salva")
+        h.editor.saveParagraphDesign()
+        h.step()
+        #expect(h.editor.settings.styles.values(of: "Body").rules?.rules.count == 2)
+        let third = (h.text as NSString).range(of: "Terzo").location
+        #expect(h.editor.currentLayout()?.pages[0].paragraphRules.contains { $0.paragraphLocation == third } == true, "valgono per tutti i capoversi dello stile")
+        h.undo()
+        #expect(h.editor.settings.styles.values(of: "Body").rules == nil)
+        // Solo questo capoverso.
+        h.editor.setParagraphDesign(true)
+        bar.setScope?(.paragraph)
+        h.editor.paragraphDesignBarForTests?.addRule?(.bottom)
+        h.editor.saveParagraphDesign()
+        h.step()
+        #expect(TextStyling.paragraphRules(in: h.attributed, at: 0)?.rules.map(\.anchor) == [.bottom])
+        #expect(h.editor.settings.styles.values(of: "Body").rules == nil)
+    }
 }
 

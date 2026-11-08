@@ -151,3 +151,22 @@ capoverso, valore a mano, formula, pulsanti, margini, lati con le pagine affacci
   la testata della bozza si vede comunque su tutti i titoli (vive solo nello stile).
 - Non ancora: la parte «titolo» (allineamento e altezza minima propri) non ha maniglie; il lato del numero accanto si
   cambia dalla barra, non trascinandolo.
+
+## Filetti liberi (formato 18) e fascia della progettazione (8 novembre 2026)
+
+- **Modello** (`Sources/Typesetting/ParagraphRules.swift`): un filetto ha un aggancio (sopra, sotto, sinistra, destra
+  del capoverso), uno scarto verso l'esterno dal bordo agganciato, un prolungamento all'inizio e alla fine (negativo
+  accorcia), uno spessore. Quanti se ne vuole. Stanno nello stile di paragrafo (`StyleValues.rules`, si ereditano) o sul
+  singolo capoverso (attributo `.paragraphRules`, sostituisce quelli dello stile). Non occupano spazio.
+- **Formato 18**: attributo `rules="top 3 0 0 0.5; left 6 0 0 1"` su `style` e `p`; si scrive 18 solo se usati.
+- **Impaginazione**: posati dopo il capoverso: sopra sulla prima pagina, sotto sull'ultima, ai lati su ogni pagina lungo
+  le righe (anche in una cella, rispetto alla cella). Disegnati con gli altri filetti della pagina; `LaidOutPage.paragraphRules`
+  dice dove sono, per la progettazione.
+- **Progettazione**: menu «filetti» nella barra (aggiungi sopra, sotto, a sinistra, a destra; scegli); un clic su un
+  filetto lo sceglie; il filetto scelto ha tre maniglie (il corpo lo allontana o lo avvicina al testo, i due capi lo
+  allungano), al mezzo punto, valore in mm; riga della barra con aggancio, spessore, togli. Bozza, occhio e ¶ come il resto.
+- **Fascia della progettazione**: la barra non sta più sopra le pagine (copriva il testo): è una fascia fra il righello e
+  le pagine, che compare solo in Design, con i pulsanti a sinistra (vanno a capo se la fascia è stretta) e Annulla/Salva a destra.
+- Verifica a schermo: filetto a sinistra aggiunto e spostato («Left, 10,1 mm from the text»), visibile su tutti i
+  «Body»; filetto sotto aggiunto e allungato («End 9,9 mm»); fascia sotto il righello. Limiti: sul capoverso progettato le
+  maniglie del filetto a sinistra stanno vicine a quelle del rientro e degli spazi; l'etichetta del valore può coprire il testo.

@@ -369,6 +369,8 @@ public struct LaidOutPage {
     public var markers: [PlacedMarker] = []
     /// Le parti delle testate dei titoli posate in questa pagina.
     public var headingParts: [PlacedHeadingPart] = []
+    /// I filetti liberi dei paragrafi posati in questa pagina (sono anche fra i `rules`, che li disegnano).
+    public var paragraphRules: [PlacedParagraphRule] = []
     /// Filetti da disegnare sulla pagina (il separatore sopra le note, i filetti delle tabelle), come rettangoli pieni.
     public var rules: [CGRect] = []
     /// Fondi colorati (delle celle delle tabelle), da disegnare prima dei filetti e del testo.
@@ -700,6 +702,29 @@ public enum PageLayout {
                                                              paragraphLocation: paragraphLocation))
                 }
                 y += piece.height
+            }
+        }
+        /// I filetti liberi di un paragrafo già posato: quelli sopra sulla prima pagina, quelli sotto sull'ultima, quelli ai
+        /// lati su ogni pagina, lungo le sue righe. Non occupano spazio.
+        func placeParagraphRules(_ rules: [ParagraphRule], paragraph: Int, fromPage: Int) {
+            let indices = (max(fromPage, 0)..<pages.count).filter { pages[$0].lines.contains { !$0.isNote && $0.paragraphLocation == paragraph } }
+            for (position, index) in indices.enumerated() {
+                let lines = pages[index].lines.filter { !$0.isNote && $0.paragraphLocation == paragraph }
+                guard let top = lines.map({ $0.origin.y + $0.ascent }).max(), let bottom = lines.map({ $0.origin.y - $0.descent }).min() else { continue }
+                let box = lines.first?.cell ?? pages[index].setup.textRect(forPage: index)
+                for (number, rule) in rules.enumerated() {
+                    let t = CGFloat(rule.thickness), offset = CGFloat(rule.offset), start = CGFloat(rule.start), end = CGFloat(rule.end)
+                    let rect: CGRect? = switch rule.anchor {
+                    case .top where position == 0: CGRect(x: box.minX - start, y: top + offset, width: box.width + start + end, height: t)
+                    case .bottom where position == indices.count - 1: CGRect(x: box.minX - start, y: bottom - offset - t, width: box.width + start + end, height: t)
+                    case .left: CGRect(x: box.minX - offset - t, y: bottom - end, width: t, height: top - bottom + start + end)
+                    case .right: CGRect(x: box.maxX + offset, y: bottom - end, width: t, height: top - bottom + start + end)
+                    default: nil
+                    }
+                    guard let rect, rect.width > 0, rect.height > 0 else { continue }
+                    pages[index].rules.append(rect)
+                    pages[index].paragraphRules.append(PlacedParagraphRule(paragraphLocation: paragraph, rule: number, rect: rect))
+                }
             }
         }
         /// Il testo di un campo, nel punto della composizione in cui si è.
@@ -2135,6 +2160,10 @@ public enum PageLayout {
             // Tieni col seguente: se questo paragrafo è finito oltre la pagina del precedente della catena, si torna indietro.
             if keepChainBroken(by: paragraphRange.location, from: keepMark, pending: pendingKeep) { continue }
             keepChain?.lastPage = pages.count - 1
+            // I filetti liberi del paragrafo, dati a mano o dallo stile: su ogni pagina in cui il paragrafo sta.
+            if let rules = (TextStyling.paragraphRules(in: text, at: paragraphRange.location) ?? values.rules)?.rules, !rules.isEmpty {
+                placeParagraphRules(rules, paragraph: paragraphRange.location, fromPage: keepMark.page)
+            }
             y += style.paragraphSpacing
             location = NSMaxRange(paragraphRange)
             // Le figure da mettere subito dopo il paragrafo: H sempre (se non entra, nella pagina dopo), h se c'è posto.

@@ -117,6 +117,8 @@ import Foundation
 ///   superiore, del paragrafo che apre una sequenza di pagine. `opens-section` su `style` di paragrafo: il ruolo della
 ///   sezione che lo stile apre quando lo si dà a un paragrafo (vuoto: nessuno).
 ///
+/// - La versione 18 aggiunge i filetti liberi dei paragrafi: l'attributo `rules` su `style` e `p` (`ParagraphRules.encoded`:
+///   aggancio, scarto, inizio, fine, spessore per ogni filetto, separati da «;»).
 /// - La versione 17 aggiunge alla tenuta delle righe `keep-next-lines` (quante righe del seguente restano con il paragrafo
 ///   che lo tiene) e `keep-with-previous` (quante righe del precedente restano con questo; 0 nessuna), su `style` e `p`,
 ///   e le proprietà di formula `nextLines` e `previousLines`.
@@ -137,7 +139,7 @@ import Foundation
 /// La lettura è severa: elementi o attributi sconosciuti sono un errore con il numero di riga, non vengono
 /// ignorati, così un refuso in un file corretto a mano non fa perdere contenuto in silenzio.
 public enum DocumentFormat {
-    public static let version = 17
+    public static let version = 18
 
     public static func writingVersion(for document: Document) -> Int {
         let contextual = document.styles.styles.flatMap(\.formulas).contains {
@@ -180,6 +182,7 @@ public enum DocumentFormat {
                 style.values.keeping.nextLines != nil || style.values.keeping.previousLines != nil
                     || style.formulas.contains { [.nextLines, .previousLines].contains($0.operation.property) }
             } || document.flatParagraphs.contains { $0.paragraph.keeping.nextLines != nil || $0.paragraph.keeping.previousLines != nil }),
+            (18, styles.contains { $0.values.rules != nil } || document.flatParagraphs.contains { $0.paragraph.rules != nil }),
         ]
         return needs.filter(\.used).map(\.version).reduce(max(1, document.sourceVersion), max)
     }
@@ -442,6 +445,7 @@ public enum DocumentFormat {
             }
             if let distance = paragraph.openingDistance { out += " opening-distance=\"\(number(distance))\"" }
             out += paragraph.keeping.xmlAttributes
+            if let rules = paragraph.rules { out += " rules=\"\(escapedAttribute(rules.encoded))\"" }
             if let local { out += styleAttributes(local, relativeTo: paragraphBase) }
             func written(_ runs: [TextRun], relativeTo style: CharacterStyle?) -> String {
                 runs.filter { !$0.text.isEmpty }.map { run -> String in
@@ -808,6 +812,7 @@ public enum DocumentFormat {
         case nil: break
         }
         out += values.keeping.xmlAttributes
+        if let rules = values.rules { out += " rules=\"\(escapedAttribute(rules.encoded))\"" }
         return out
     }
 
@@ -1575,7 +1580,7 @@ public enum DocumentFormat {
                         titleHasParagraph = true
                     }
                     let measures = ["first-indent", "left-indent", "right-indent", "space-before", "space-after", "line-spacing", "line-height"]
-                    guard check(attributes, allowed: Set(measures + ["align", "font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "list", "level", "style", "in-list", "list-indent", "list-marker", "list-gap", "opening-distance", "outline-level"] + LineKeeping.attributeNames), element: name, parser) else { return }
+                    guard check(attributes, allowed: Set(measures + ["align", "font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "list", "level", "style", "in-list", "list-indent", "list-marker", "list-gap", "opening-distance", "outline-level", "rules"] + LineKeeping.attributeNames), element: name, parser) else { return }
                     let styleName = try namedStyle(attributes["style"], target: .paragraph, attribute: "style", line: line)
                     var list: ListItem?
                     if let marker = attributes["list"] {
@@ -1648,6 +1653,10 @@ public enum DocumentFormat {
                         paragraph?.openingDistance = Double(value)
                     }
                     paragraph?.keeping = try LineKeeping(xml: attributes) { throw DocumentFormatError.invalidValue(line: line, attribute: $0, value: $1) }
+                    if let text = attributes["rules"] {
+                        guard let rules = ParagraphRules(encoded: text) else { throw DocumentFormatError.invalidValue(line: line, attribute: "rules", value: text) }
+                        paragraph?.rules = rules
+                    }
                     paragraphLine = line
 
                 case ("field", "p"), ("field", "note"):
@@ -2060,7 +2069,7 @@ public enum DocumentFormat {
             let measures = ["first-indent", "left-indent", "right-indent", "space-before", "space-after", "line-spacing", "line-height"]
             let contextual = (settings.sourceVersion >= 2 ? ["page-start-spacing"] : []) + (settings.sourceVersion >= 8 ? ["next-style"] : [])
             guard check(attributes, allowed: Set(contextual + measures + ["name", "target", "based-on", "font", "family", "italic", "bold", "size", "features", "axes", "optical",
-                                                             "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "align", "in-list", "opens-section", "opening-distance", "outline-level"] + LineKeeping.attributeNames), element: "style", parser) else { return }
+                                                             "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "align", "in-list", "opens-section", "opening-distance", "outline-level", "rules"] + LineKeeping.attributeNames), element: "style", parser) else { return }
             guard let name = attributes["name"], !name.isEmpty else { throw DocumentFormatError.missingAttribute(line: line, attribute: "name") }
             guard settings.styles.style(named: name) == nil else { throw DocumentFormatError.invalidValue(line: line, attribute: "name", value: name) }
             guard let targetText = attributes["target"] else { throw DocumentFormatError.missingAttribute(line: line, attribute: "target") }
@@ -2167,6 +2176,10 @@ public enum DocumentFormat {
                 else { throw DocumentFormatError.invalidValue(line: line, attribute: "page-start-spacing", value: raw) }
             }
             values.keeping = try LineKeeping(xml: attributes) { throw DocumentFormatError.invalidValue(line: line, attribute: $0, value: $1) }
+            if let text = attributes["rules"] {
+                guard let rules = ParagraphRules(encoded: text), target == .paragraph else { throw DocumentFormatError.invalidValue(line: line, attribute: "rules", value: text) }
+                values.rules = rules
+            }
             if !values.keeping.isEmpty, target != .paragraph {
                 throw DocumentFormatError.invalidValue(line: line, attribute: "keep-with-next", value: values.keeping.encoded)
             }

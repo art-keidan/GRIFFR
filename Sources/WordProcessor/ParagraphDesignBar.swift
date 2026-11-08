@@ -8,6 +8,8 @@ final class ParagraphDesignBarModel: ObservableObject {
     @Published var styleName: String?
     @Published var scope = ParagraphDesignScope.style
     @Published var hasChanges = false
+    /// La larghezza a disposizione della barra (la zona visibile delle pagine): oltre, le icone vanno a capo.
+    @Published var maxWidth: CGFloat = .infinity
     /// Aggiornamento dal vivo: spento, l'anteprima cambia solo il capoverso evidenziato (Save vale comunque per lo stile).
     @Published var livePreviewAll = true
     @Published var alignment: ParagraphStyle.Alignment = .left
@@ -41,6 +43,13 @@ final class ParagraphDesignBarModel: ObservableObject {
     var moveHeadingPart: ((Int, Int) -> Void)?
     var removeHeadingPart: ((Int) -> Void)?
     var selectHeadingPart: ((Int?) -> Void)?
+    /// I filetti liberi del capoverso e quello scelto.
+    @Published var rules: [ParagraphRule] = []
+    @Published var selectedRule: Int?
+    var addRule: ((ParagraphRule.Anchor) -> Void)?
+    var selectRule: ((Int?) -> Void)?
+    var updateRule: ((Int, ParagraphRule) -> Void)?
+    var removeRule: ((Int) -> Void)?
 
     var set: ((InspectorProperty, StyleValues) -> Void)?
     var setNextStyle: ((String?) -> Void)?
@@ -80,6 +89,9 @@ struct ParagraphDesignBar: View {
             if let index = model.selectedHeadingPart, model.headingParts.indices.contains(index) {
                 HeadingPartRow(model: model, index: index, part: model.headingParts[index])
             }
+            if let index = model.selectedRule, model.rules.indices.contains(index) {
+                RuleRow(model: model, index: index, rule: model.rules[index])
+            }
         }
         .controlSize(.small)
         .padding(.horizontal, 8)
@@ -94,7 +106,8 @@ struct ParagraphDesignBar: View {
     }
 
     private var mainRow: some View {
-        HStack(spacing: 4) {
+        // Le icone vanno a capo quando la zona visibile è stretta.
+        FlowLayout(spacing: 4, lineSpacing: 4, maxWidth: model.maxWidth) {
             Text(model.styleName ?? "No style")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Color(nsColor: Theme.text))
@@ -163,7 +176,23 @@ struct ParagraphDesignBar: View {
                 }
             }
             separator
+            rulesMenu
             headingMenu
+        }
+    }
+
+    /// I filetti liberi: aggiungerne uno da un lato, sceglierne uno.
+    private var rulesMenu: some View {
+        iconMenu("line.3.horizontal", help: "Free rules: add one above, below or at a side; on the page, click a rule to choose it, drag it or its ends") {
+            ForEach(ParagraphRule.Anchor.allCases, id: \.self) { anchor in
+                Button("Add Rule \(anchor == .top ? "Above" : anchor == .bottom ? "Below" : "on the \(anchor.title)")") { model.addRule?(anchor) }
+            }
+            if !model.rules.isEmpty {
+                Divider()
+                ForEach(Array(model.rules.enumerated()), id: \.offset) { index, rule in
+                    Button("Rule \(index + 1): \(rule.anchor.title.lowercased())" + (model.selectedRule == index ? "  ✓" : "")) { model.selectRule?(index) }
+                }
+            }
         }
     }
 
@@ -217,7 +246,7 @@ struct ParagraphDesignBar: View {
             .help(help)
     }
 
-    private var separator: some View { Divider().frame(height: 16).padding(.horizontal, 2) }
+    private var separator: some View { Rectangle().fill(Color(nsColor: Theme.line)).frame(width: 1, height: 16).padding(.horizontal, 2) }
 
     /// Un pulsante a icona che si accende quando la proprietà vale; ƒ se la calcola una formula.
     private func toggle(_ symbol: String, _ help: String, on: Bool, property: InspectorProperty, action: @escaping () -> Void) -> some View {
@@ -278,6 +307,52 @@ struct ParagraphDesignActions: View {
         )
         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color(nsColor: Theme.line)))
         .fixedSize()
+    }
+}
+
+/// La fascia della progettazione: i pulsanti a sinistra (vanno a capo se serve), Annulla e Salva a destra.
+struct ParagraphDesignBand: View {
+    @ObservedObject var model: ParagraphDesignBarModel
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            ParagraphDesignBar(model: model)
+            Spacer(minLength: 0)
+            ParagraphDesignActions(model: model)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: Theme.bar))
+    }
+}
+
+/// Il contenitore AppKit della fascia: dice la sua larghezza, perché i pulsanti vadano a capo, e sparisce quando è vuoto.
+@MainActor
+final class DesignBandView: NSView {
+    var onWidth: ((CGFloat) -> Void)?
+    private var host: NSView?
+
+    func show(_ content: NSView?) {
+        host?.removeFromSuperview()
+        host = content
+        if let content {
+            content.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(content)
+            NSLayoutConstraint.activate([
+                content.topAnchor.constraint(equalTo: topAnchor), content.bottomAnchor.constraint(equalTo: bottomAnchor),
+                content.leadingAnchor.constraint(equalTo: leadingAnchor), content.trailingAnchor.constraint(equalTo: trailingAnchor),
+            ])
+        } else {
+            onWidth = nil
+        }
+        isHidden = content == nil
+    }
+
+    override func layout() {
+        super.layout()
+        // Lo spazio per i pulsanti: la fascia meno Annulla e Salva e i margini.
+        onWidth?(max(bounds.width - 230, 240))
     }
 }
 
@@ -444,5 +519,45 @@ struct HeadingPartRow: View {
 
 extension HeadingPart {
     var isLabel: Bool { if case .label = self { true } else { false } }
+}
+
+/// La riga del filetto scelto: dove si aggancia, quanto è spesso, togli.
+struct RuleRow: View {
+    @ObservedObject var model: ParagraphDesignBarModel
+    let index: Int
+    let rule: ParagraphRule
+    private static let thicknesses: [Double] = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4]
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text("Rule \(index + 1)").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(nsColor: Theme.text))
+            HStack(spacing: 1) {
+                ForEach(ParagraphRule.Anchor.allCases, id: \.self) { anchor in
+                    Button(anchor.title) {
+                        var changed = rule
+                        changed.anchor = anchor
+                        model.updateRule?(index, changed)
+                    }
+                    .buttonStyle(.hover(rule.anchor == anchor ? .prominent : .borderless))
+                }
+            }
+            Menu {
+                ForEach(Self.thicknesses, id: \.self) { value in
+                    Button(ParagraphDesignBar.points(value) + (rule.thickness == value ? "  ✓" : "")) {
+                        var changed = rule
+                        changed.thickness = value
+                        model.updateRule?(index, changed)
+                    }
+                }
+            } label: { Label(ParagraphDesignBar.points(rule.thickness), systemImage: "lineweight").font(.system(size: 11)) }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .help("Thickness")
+            Divider().frame(height: 16)
+            Button { model.removeRule?(index) } label: { Image(systemName: "trash") }
+                .buttonStyle(.hover(.borderless)).help("Remove the rule")
+            Button { model.selectRule?(nil) } label: { Image(systemName: "xmark") }
+                .buttonStyle(.hover(.borderless)).help("Done with this rule")
+        }
+    }
 }
 

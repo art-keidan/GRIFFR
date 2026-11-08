@@ -1556,9 +1556,11 @@ struct SourceDot: View {
 struct FlowLayout: Layout {
     var spacing: CGFloat = 4
     var lineSpacing: CGFloat = 4
+    /// Una larghezza oltre la quale andare comunque a capo, anche quando chi contiene non propone una larghezza.
+    var maxWidth: CGFloat = .infinity
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? .infinity
+        let width = min(proposal.width ?? .infinity, maxWidth)
         var x: CGFloat = 0, y: CGFloat = 0, line: CGFloat = 0, widest: CGFloat = 0
         for subview in subviews {
             let size = subview.sizeThatFits(.unspecified)

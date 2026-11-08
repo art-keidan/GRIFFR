@@ -173,7 +173,8 @@ extension Document {
             }
             paragraphs.append(FlatParagraph(Paragraph(styleName: styleName, style: resolvedParagraph, list: list, inlines: runs,
                                                       openingDistance: TextStyling.openingDistance(in: text, at: start),
-                                                      keeping: TextStyling.lineKeeping(in: text, at: start)),
+                                                      keeping: TextStyling.lineKeeping(in: text, at: start),
+                                                      rules: TextStyling.paragraphRules(in: text, at: start)),
                                             section: section,
                                             cell: (text.attribute(.tableCell, at: start, effectiveRange: nil) as? String).flatMap(CellMark.init(encoded:)),
                                             sectionReturn: text.attribute(.sectionReturn, at: start, effectiveRange: nil) as? String))
@@ -299,6 +300,9 @@ extension Document {
             }
             if !paragraph.keeping.isEmpty, result.length > paragraphStart {
                 result.addAttribute(.lineKeeping, value: paragraph.keeping.encoded, range: NSRange(location: paragraphStart, length: result.length - paragraphStart))
+            }
+            if let rules = paragraph.rules, result.length > paragraphStart {
+                result.addAttribute(.paragraphRules, value: rules.encoded, range: NSRange(location: paragraphStart, length: result.length - paragraphStart))
             }
             // L'elenco è un attributo di tutto il paragrafo, a capo finale compreso.
             if let list = paragraph.list, result.length > paragraphStart {

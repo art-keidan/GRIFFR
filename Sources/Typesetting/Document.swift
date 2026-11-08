@@ -578,9 +578,12 @@ public struct Paragraph: Equatable, Sendable {
     public var openingDistance: Double?
     /// La tenuta data a mano; i valori assenti vengono dallo stile.
     public var keeping: LineKeeping
+    /// I filetti dati a mano: sostituiscono quelli dello stile; `nil` se valgono quelli.
+    public var rules: ParagraphRules?
 
     public init(styleName: String? = nil, style: ParagraphStyle = ParagraphStyle(), list: ListItem? = nil, inlines: [Inline] = [], openingDistance: Double? = nil,
-                keeping: LineKeeping = LineKeeping()) {
+                keeping: LineKeeping = LineKeeping(), rules: ParagraphRules? = nil) {
+        self.rules = rules
         self.styleName = styleName
         self.style = style
         self.list = list
