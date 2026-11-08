@@ -516,5 +516,74 @@ struct ParagraphDesignTests {
         #expect(TextStyling.paragraphRules(in: h.attributed, at: 0)?.rules.map(\.anchor) == [.bottom])
         #expect(h.editor.settings.styles.values(of: "Body").rules == nil)
     }
+
+    @Test("Filetti: mai dentro il testo; con Maiuscole trascinano lo spazio prima, dopo o il rientro dal loro lato")
+    func rulesPushSpace() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        h.select(5)
+        h.editor.setParagraphDesign(true)
+        let bar = try #require(h.editor.paragraphDesignBarForTests)
+        for anchor in ParagraphRule.Anchor.allCases { bar.addRule?(anchor) }   // 0 sopra, 1 sotto, 2 sinistra, 3 destra
+        func rule(_ index: Int) -> ParagraphRule? { h.editor.paragraphDesignDraftForTests?.styleRules["Body"]?.rules[index] }
+        func edit(_ property: InspectorProperty) -> StyleValues? { h.editor.paragraphDesignDraftForTests?.styleEdits["Body"]?[property] }
+        // Senza Maiuscole: si fermano al bordo del testo.
+        h.editor.dragRuleForTests(RuleGripID(rule: 0, grip: .body), by: CGSize(width: 0, height: 50))
+        h.editor.dragRuleForTests(RuleGripID(rule: 2, grip: .body), by: CGSize(width: 50, height: 0))
+        #expect(rule(0)?.offset == 0 && rule(2)?.offset == 0)
+        #expect(edit(.spaceBefore) == nil && edit(.leftIndent) == nil, "e non toccano gli spazi")
+        // Con Maiuscole: il filetto sopra spinto in giù allarga lo spazio prima, e resta alla sua distanza dal testo.
+        h.editor.dragRuleForTests(RuleGripID(rule: 0, grip: .body), by: CGSize(width: 0, height: 8), modifiers: .shift)
+        #expect(edit(.spaceBefore)?.spaceBefore == 8 && rule(0)?.offset == 0)
+        // Il filetto sotto spinto in giù allarga lo spazio dopo e scende con lui.
+        let below = try #require(rule(1)?.offset)
+        h.editor.dragRuleForTests(RuleGripID(rule: 1, grip: .body), by: CGSize(width: 0, height: 10), modifiers: .shift)
+        #expect(edit(.spaceAfter)?.spaceAfter == 10 && rule(1)?.offset == below + 10)
+        // Il filetto a sinistra spinto verso il centro allarga il rientro, e resta accanto al testo.
+        h.editor.dragRuleForTests(RuleGripID(rule: 2, grip: .body), by: CGSize(width: 12, height: 0), modifiers: .shift)
+        #expect(edit(.leftIndent)?.leftIndent == 12 && rule(2)?.offset == -12)
+        // Tirato via dal centro oltre lo zero: il rientro si ferma a zero, il filetto esce nel margine.
+        h.editor.dragRuleForTests(RuleGripID(rule: 2, grip: .body), by: CGSize(width: -30, height: 0), modifiers: .shift)
+        #expect(edit(.leftIndent)?.leftIndent == 0 && rule(2)?.offset == 18)
+        // Quello a destra verso il centro: il rientro destro.
+        h.editor.dragRuleForTests(RuleGripID(rule: 3, grip: .body), by: CGSize(width: -5, height: 0), modifiers: .shift)
+        #expect(edit(.rightIndent)?.rightIndent == 5)
+        // Un passo per gesto: Annulla dentro la bozza toglie l'ultimo, rientro destro compreso.
+        #expect(h.menu(Selector(("undo:"))))
+        #expect(edit(.rightIndent) == nil)
+        h.editor.saveParagraphDesign()
+        h.step()
+        #expect(h.editor.settings.styles.resolveParagraph(styleName: "Body").spaceBefore == 8)
+    }
+
+    @Test("I capi di un filetto si trascinano e sono attirati dalle posizioni notevoli (⌘ trascina libero)")
+    func ruleEndsSnap() throws {
+        let h = EditorHarness(paragraphs: Self.text)
+        defer { h.close() }
+        h.select(5)
+        h.editor.setParagraphDesign(true)
+        h.editor.paragraphDesignBarForTests?.addRule?(.bottom)
+        let view = h.editor.pagesView
+        view.layoutSubtreeIfNeeded()
+        let grips = view.ruleGripRects()
+        let end = try #require(grips[RuleGripID(rule: 0, grip: .end)])
+        let fragment = try #require(view.designFragments().first)
+        // Il capo destro sta sul bordo destro della colonna: lo si porta 3 pixel più in là.
+        let start = NSPoint(x: end.midX, y: end.midY)
+        let near = NSPoint(x: fragment.columnMaxX + 3, y: end.midY)
+        _ = view.designMouseDown(at: start, modifiers: [])
+        _ = view.designMouseDragged(to: near, modifiers: [])
+        #expect(view.ruleGuide?.alongX == true && abs((view.ruleGuide?.value ?? 0) - fragment.columnMaxX) < 0.01, "la guida indica il bordo della colonna")
+        _ = view.designMouseUp(at: near, modifiers: [])
+        #expect(h.editor.paragraphDesignDraftForTests?.styleRules["Body"]?.rules.first?.end == 0, "il capo resta sul bordo")
+        // Con ⌘ niente attrazione: il capo va dove si lascia.
+        let grip = try #require(view.ruleGripRects()[RuleGripID(rule: 0, grip: .end)])
+        let far = NSPoint(x: fragment.columnMaxX + 3, y: grip.midY)
+        _ = view.designMouseDown(at: NSPoint(x: grip.midX, y: grip.midY), modifiers: [])
+        _ = view.designMouseDragged(to: far, modifiers: .command)
+        _ = view.designMouseUp(at: far, modifiers: .command)
+        let free = try #require(h.editor.paragraphDesignDraftForTests?.styleRules["Body"]?.rules.first?.end)
+        #expect(free > 0, "con ⌘ il capo si allunga di qualche punto: \(free)")
+    }
 }
 

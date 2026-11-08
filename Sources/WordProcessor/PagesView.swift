@@ -98,9 +98,13 @@ final class PagesView: NSView {
     var headingDrag: (id: HeadingGripID, start: NSPoint)?
     var hoveredHeadingGrip: HeadingGripID? { didSet { if hoveredHeadingGrip != oldValue { needsDisplay = true } } }
     /// I filetti liberi del capoverso progettato: il gesto su una maniglia, la scelta con un clic.
-    var onRuleDrag: ((RuleGripID, CGSize, DesignDragPhase) -> Void)?
+    var onRuleDrag: ((RuleGripID, CGSize, DesignDragPhase, NSEvent.ModifierFlags) -> Void)?
     var onRuleSelect: ((Int) -> Void)?
-    var ruleDrag: (id: RuleGripID, start: NSPoint)?
+    /// Il gesto su un filetto: dove è cominciato, dove stava la maniglia lungo il suo asse, e le posizioni notevoli che la
+    /// attirano (in coordinate della vista).
+    var ruleDrag: (id: RuleGripID, start: NSPoint, along: CGFloat, alongX: Bool, targets: [CGFloat])?
+    /// La guida della posizione notevole che ha attirato il filetto.
+    var ruleGuide: (alongX: Bool, value: CGFloat)? { didSet { needsDisplay = true } }
     var hoveredRuleGrip: RuleGripID? { didSet { if hoveredRuleGrip != oldValue { needsDisplay = true } } }
     var hoveredDesignHandle: DesignHandle? {
         didSet { if hoveredDesignHandle != oldValue { needsDisplay = true } }

@@ -54,7 +54,7 @@ final class ParagraphDesignSession {
     var headingDrag: (id: HeadingGripID, start: CGFloat)?
     /// Il filetto scelto, e quello trascinato (con il filetto com'era all'inizio del gesto).
     var selectedRule: Int?
-    var ruleDrag: (id: RuleGripID, start: ParagraphRule)?
+    var ruleDrag: (id: RuleGripID, start: ParagraphRule, space: CGFloat)?
     /// La tenuta trascinata: da che parte, quante righe all'inizio e ora.
     var keepDrag: (side: KeepSide, start: Int, value: Int)?
     /// Il margine trascinato: la pagina, il lato, il valore all'inizio e ora.
@@ -101,7 +101,7 @@ extension EditorWindowController {
             pagesView.onKeepLocked = { [weak self] _ in self?.openDesignFormula(.keepWithNext) }
             pagesView.onHeadingDrag = { [weak self] id, delta, phase in self?.headingDragged(id, by: delta, phase: phase) }
             pagesView.onHeadingSelect = { [weak self] part in self?.selectHeadingPart(part) }
-            pagesView.onRuleDrag = { [weak self] id, delta, phase in self?.ruleDragged(id, by: delta, phase: phase) }
+            pagesView.onRuleDrag = { [weak self] id, delta, phase, modifiers in self?.ruleDragged(id, by: delta, phase: phase, modifiers: modifiers) }
             pagesView.onRuleSelect = { [weak self] rule in self?.selectRule(rule) }
             pagesView.onDesignBarWidth = { [weak self] width in
                 guard let self, let bar = self.paragraphDesign?.bar, abs(bar.maxWidth - width) > 1 else { return }
@@ -627,39 +627,97 @@ extension EditorWindowController {
         refreshParagraphDesign()
     }
 
-    func ruleDragged(_ id: RuleGripID, by delta: CGSize, phase: DesignDragPhase) {
+    /// Lo spazio che un filetto comanda con Maiuscole: quello sopra lo spazio prima, quello sotto lo spazio dopo, quelli
+    /// ai lati i rientri.
+    static func spaceProperty(of anchor: ParagraphRule.Anchor) -> InspectorProperty {
+        switch anchor {
+        case .top: .spaceBefore
+        case .bottom: .spaceAfter
+        case .left: .leftIndent
+        case .right: .rightIndent
+        }
+    }
+
+    /// La bozza con i filetti del capoverso cambiati (nello stile, o con ¶ nel solo capoverso).
+    func draft(_ draft: ParagraphDesignDraft, settingRules rules: [ParagraphRule]) -> ParagraphDesignDraft {
+        guard let session = paragraphDesign, let id = session.paragraphID else { return draft }
+        var result = draft
+        switch session.scope {
+        case .style:
+            guard let name = session.styleName else { return draft }
+            result.styleRules[name] = ParagraphRules(rules)
+            result.paragraphRules[id] = nil
+            let at = min(session.paragraphLocation, max(documentText.length - 1, 0))
+            if TextStyling.paragraphRules(in: documentText, at: at) != nil { result.ruleResets.insert(id) }
+        case .paragraph:
+            result.paragraphRules[id] = ParagraphRules(rules)
+        }
+        return result
+    }
+
+    /// Un filetto trascinato. Senza Maiuscole si muove da solo, fino al bordo del testo dal suo lato (mai dentro). Con
+    /// Maiuscole trascina il suo spazio: segue il mouse, e lo spazio dal suo lato (prima, dopo, rientro) cambia della
+    /// stessa misura, così il testo si sposta con lui; arrivato a zero, lo spazio si ferma e il filetto prosegue da solo.
+    func ruleDragged(_ id: RuleGripID, by delta: CGSize, phase: DesignDragPhase, modifiers: NSEvent.ModifierFlags = []) {
         guard let session = paragraphDesign else { return }
         let rules = designRules()
         guard rules.indices.contains(id.rule) else { return }
+        let property = Self.spaceProperty(of: rules[id.rule].anchor)
         switch phase {
         case .began:
             session.selectedRule = id.rule
-            session.ruleDrag = (id, rules[id.rule])
+            session.ruleDrag = (id, rules[id.rule], session.number(property))
             pagesView.design?.selectedRule = id.rule
             pagesView.design?.activeRuleGrip = id
         case .changed, .ended:
             guard let drag = session.ruleDrag, drag.id == id else { return }
-            var moved = drag.start.moved(id.grip, by: delta)
-            // Al mezzo punto.
             func snap(_ value: Double) -> Double { (value * 2).rounded() / 2 }
+            let dx = Double(delta.width), dy = Double(delta.height)
+            var moved = drag.start
+            var space: Double?
+            if modifiers.contains(.shift), id.grip == .body {
+                let start = Double(drag.space), offset = drag.start.offset
+                switch drag.start.anchor {
+                case .top:
+                    let value = max(snap(start + dy), 0)
+                    space = value
+                    moved.offset = offset + (value - start - dy)
+                case .bottom:
+                    space = max(snap(start + dy), 0)
+                    moved.offset = offset + dy
+                case .left:
+                    space = max(snap(start + dx), 0)
+                    moved.offset = offset - dx
+                case .right:
+                    space = max(snap(start - dx), 0)
+                    moved.offset = offset + dx
+                }
+            } else {
+                moved = drag.start.moved(id.grip, by: delta)
+            }
             moved.offset = snap(moved.offset); moved.start = snap(moved.start); moved.end = snap(moved.end)
+            // Mai dentro il testo: sopra e sotto fino al bordo delle righe, ai lati fino al rientro.
+            switch moved.anchor {
+            case .top, .bottom: moved.offset = max(moved.offset, 0)
+            case .left, .right: moved.offset = max(moved.offset, -(space ?? Double(session.number(property))))
+            }
             var changed = rules
             changed[id.rule] = moved
+            func applied(to base: ParagraphDesignDraft) -> ParagraphDesignDraft {
+                var result = draft(base, settingRules: changed)
+                if let space { result = draft(result, setting: property, Self.designValues(property, CGFloat(space))) }
+                return result
+            }
             if phase == .changed {
                 pagesView.design?.rules = changed
-                var preview = session.draft
-                switch session.scope {
-                case .style: if let name = session.styleName { preview.styleRules[name] = ParagraphRules(changed) }
-                case .paragraph: if let paragraph = session.paragraphID { preview.paragraphRules[paragraph] = ParagraphRules(changed) }
-                }
-                if session.scope == .style, let paragraph = session.paragraphID { preview.paragraphRules[paragraph] = nil }
-                showDraft(preview)
+                if let space { pagesView.design?.values[DesignHandle.allCases.first { $0.property == property } ?? .spaceBefore] = CGFloat(space) }
+                showDraft(applied(to: session.draft))
                 return
             }
             session.ruleDrag = nil
             pagesView.design?.activeRuleGrip = nil
-            if moved != drag.start {
-                changeDesignRules { _ in changed }
+            if moved != drag.start || (space.map { abs($0 - Double(drag.space)) > 0.001 } ?? false) {
+                changeDraft { $0 = applied(to: $0) }
             } else {
                 showDraft(session.draft)
                 refreshParagraphDesign()
@@ -667,10 +725,10 @@ extension EditorWindowController {
         }
     }
 
-    func dragRuleForTests(_ id: RuleGripID, by delta: CGSize) {
-        ruleDragged(id, by: .zero, phase: .began)
-        ruleDragged(id, by: delta, phase: .changed)
-        ruleDragged(id, by: delta, phase: .ended)
+    func dragRuleForTests(_ id: RuleGripID, by delta: CGSize, modifiers: NSEvent.ModifierFlags = []) {
+        ruleDragged(id, by: .zero, phase: .began, modifiers: modifiers)
+        ruleDragged(id, by: delta, phase: .changed, modifiers: modifiers)
+        ruleDragged(id, by: delta, phase: .ended, modifiers: modifiers)
     }
 
     // MARK: Tenere con le righe dei vicini

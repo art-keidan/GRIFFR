@@ -170,3 +170,19 @@ capoverso, valore a mano, formula, pulsanti, margini, lati con le pagine affacci
 - Verifica a schermo: filetto a sinistra aggiunto e spostato («Left, 10,1 mm from the text»), visibile su tutti i
   «Body»; filetto sotto aggiunto e allungato («End 9,9 mm»); fascia sotto il righello. Limiti: sul capoverso progettato le
   maniglie del filetto a sinistra stanno vicine a quelle del rientro e degli spazi; l'etichetta del valore può coprire il testo.
+
+## Filetti: limiti, Maiuscole, attrazione (8 novembre 2026)
+
+- **Limiti verso il testo**: il filetto sopra non scende sotto l'alto della prima riga, quello sotto non sale sopra il
+  basso dell'ultima, quelli ai lati non entrano oltre il bordo del testo (il rientro). Lontano dal testo sono liberi.
+- **Con Maiuscole** (sul corpo del filetto) il filetto trascina il suo spazio: segue il mouse e lo spazio dal suo lato
+  cambia della stessa misura. Sopra → spazio prima (in giù cresce, il capoverso scende con il filetto); sotto → spazio
+  dopo (in giù cresce, il testo che segue scende); sinistra/destra → rientro (verso il centro cresce, il testo si
+  stringe). A zero lo spazio si ferma e il filetto prosegue da solo verso l'esterno. Filetto e spazio vanno nella bozza
+  in un solo passo.
+- **Attrazione**: durante il gesto la maniglia è attirata (entro 4 pixel) da bordi del testo e della colonna, guide dei
+  rientri, linee di base della prima e dell'ultima riga, bordi degli spazi prima e dopo, metà dello spazio verso i
+  capoversi vicini, metà dei margini, gli altri filetti del capoverso; una guida tratteggiata attraversa la pagina. ⌘
+  la spegne. Non fatta: l'attrazione debole ai millimetri interi.
+- Prova: `rulesPushSpace`. Verifica a schermo: filetto sotto aggiunto e trascinato; lo spostamento con Maiuscole non si
+  è potuto provare a schermo (lo strumento non tiene premuto Maiuscole durante il trascinamento).

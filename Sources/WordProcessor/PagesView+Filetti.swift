@@ -70,9 +70,22 @@ extension PagesView {
     }
 
     func ruleMouseDown(at point: NSPoint) -> Bool {
-        if let id = ruleGrip(at: point) {
-            ruleDrag = (id, point)
-            onRuleDrag?(id, .zero, .began)
+        if let id = ruleGrip(at: point), let placed = designPlacedRules().first(where: { $0.rule == id.rule }), let design,
+           design.rules.indices.contains(id.rule) {
+            let horizontal = design.rules[id.rule].anchor.isHorizontal
+            // L'asse lungo cui la maniglia si muove: il corpo di traverso al filetto, i capi lungo il filetto.
+            let alongX = (id.grip == .body) != horizontal
+            let rect = placed.rect
+            let along: CGFloat = switch (id.grip, alongX) {
+            case (.body, true): rect.midX
+            case (.body, false): rect.midY
+            case (.start, true): rect.minX
+            case (.start, false): rect.minY
+            case (.end, true): rect.maxX
+            case (.end, false): rect.maxY
+            }
+            ruleDrag = (id, point, along, alongX, ruleTargets(alongX: alongX, excluding: id.rule))
+            onRuleDrag?(id, .zero, .began, [])
             return true
         }
         if let rule = placedRule(at: point) {
@@ -82,17 +95,64 @@ extension PagesView {
         return false
     }
 
-    func ruleMouseDragged(to point: NSPoint) -> Bool {
+    /// Lo spostamento del mouse, con l'attrazione delle posizioni notevoli lungo l'asse del gesto (⌘ la spegne).
+    private func ruleDelta(to point: NSPoint, modifiers: NSEvent.ModifierFlags) -> CGSize {
+        guard let drag = ruleDrag else { return .zero }
+        var delta = CGSize(width: point.x - drag.start.x, height: point.y - drag.start.y)
+        // Solo lungo l'asse: di traverso il filetto non si muove.
+        if drag.alongX { delta.height = 0 } else { delta.width = 0 }
+        let moved = drag.along + (drag.alongX ? delta.width : delta.height)
+        var guide: (Bool, CGFloat)?
+        if !modifiers.contains(.command), let target = drag.targets.min(by: { abs($0 - moved) < abs($1 - moved) }), abs(target - moved) <= 4 {
+            if drag.alongX { delta.width = target - drag.along } else { delta.height = target - drag.along }
+            guide = (drag.alongX, target)
+        }
+        ruleGuide = guide.map { (alongX: $0.0, value: $0.1) }
+        return CGSize(width: delta.width / scale, height: delta.height / scale)
+    }
+
+    func ruleMouseDragged(to point: NSPoint, modifiers: NSEvent.ModifierFlags = []) -> Bool {
         guard let drag = ruleDrag else { return false }
-        onRuleDrag?(drag.id, CGSize(width: (point.x - drag.start.x) / scale, height: (point.y - drag.start.y) / scale), .changed)
+        onRuleDrag?(drag.id, ruleDelta(to: point, modifiers: modifiers), .changed, modifiers)
         return true
     }
 
-    func ruleMouseUp(at point: NSPoint) -> Bool {
+    func ruleMouseUp(at point: NSPoint, modifiers: NSEvent.ModifierFlags = []) -> Bool {
         guard let drag = ruleDrag else { return false }
+        let delta = ruleDelta(to: point, modifiers: modifiers)
         ruleDrag = nil
-        onRuleDrag?(drag.id, CGSize(width: (point.x - drag.start.x) / scale, height: (point.y - drag.start.y) / scale), .ended)
+        ruleGuide = nil
+        onRuleDrag?(drag.id, delta, .ended, modifiers)
         return true
+    }
+
+    /// Le posizioni notevoli lungo un asse, per il filetto che si trascina: i bordi del testo e della colonna, le guide dei
+    /// rientri, le linee di base della prima e dell'ultima riga, i bordi degli spazi prima e dopo, la metà dello spazio verso
+    /// i capoversi vicini, la metà dei margini, gli altri filetti del capoverso.
+    func ruleTargets(alongX: Bool, excluding rule: Int) -> [CGFloat] {
+        guard let design, let first = designFragments().first, let last = designFragments().last else { return [] }
+        var targets: [CGFloat] = []
+        let others = designPlacedRules().filter { $0.rule != rule }
+        if alongX {
+            for fragment in [first, last] {
+                let left = fragment.columnMinX + design.value(.leftIndent) * scale
+                let right = fragment.columnMaxX - design.value(.rightIndent) * scale
+                targets += [fragment.columnMinX, fragment.columnMaxX, left, right]
+                if let page = frameOfPage(fragment.page) {
+                    targets += [(page.minX + fragment.columnMinX) / 2, (fragment.columnMaxX + page.maxX) / 2]
+                }
+            }
+            targets += others.flatMap { [$0.rect.minX, $0.rect.midX, $0.rect.maxX] }
+        } else {
+            targets += [first.top, last.bottom]
+            if let baseline = first.baselines.first { targets.append(baseline) }
+            if let baseline = last.baselines.last { targets.append(baseline) }
+            targets += [first.top - design.value(.spaceBefore) * scale, last.bottom + design.value(.spaceAfter) * scale]
+            if let previous = neighbourLines(.previous).first { targets.append((previous.maxY + first.top) / 2) }
+            if let next = neighbourLines(.next).first { targets.append((last.bottom + next.minY) / 2) }
+            targets += others.flatMap { [$0.rect.minY, $0.rect.midY, $0.rect.maxY] }
+        }
+        return targets
     }
 
     func ruleMouseMoved(at point: NSPoint) -> Bool {
@@ -121,6 +181,22 @@ extension PagesView {
             context.setLineWidth(selected ? 1.5 : 0.75)
             if !selected { context.setLineDash(phase: 0, lengths: [2, 2]) }
             context.stroke(placed.rect.insetBy(dx: -2.5, dy: -2.5))
+            context.restoreGState()
+        }
+        // La guida della posizione notevole che attira il filetto, attraverso la pagina.
+        if let guide = ruleGuide, let frame = frameOfPage(index) {
+            context.saveGState()
+            context.setStrokeColor(Theme.accent.withAlphaComponent(0.8).cgColor)
+            context.setLineWidth(0.75)
+            context.setLineDash(phase: 0, lengths: [3, 2])
+            if guide.alongX {
+                context.move(to: CGPoint(x: guide.value, y: frame.minY))
+                context.addLine(to: CGPoint(x: guide.value, y: frame.maxY))
+            } else {
+                context.move(to: CGPoint(x: frame.minX, y: guide.value))
+                context.addLine(to: CGPoint(x: frame.maxX, y: guide.value))
+            }
+            context.strokePath()
             context.restoreGState()
         }
         let grips = ruleGripRects()

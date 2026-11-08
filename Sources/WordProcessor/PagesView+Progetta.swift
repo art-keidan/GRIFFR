@@ -388,7 +388,7 @@ extension PagesView {
 
     func designMouseDragged(to point: NSPoint, modifiers: NSEvent.ModifierFlags) -> Bool {
         if headingMouseDragged(to: point) { return true }
-        if ruleMouseDragged(to: point) { return true }
+        if ruleMouseDragged(to: point, modifiers: modifiers) { return true }
         if let drag = designDrag {
             var delta = designDelta(from: drag.start, to: point)
             delta.height *= drag.factor
@@ -408,7 +408,7 @@ extension PagesView {
 
     func designMouseUp(at point: NSPoint, modifiers: NSEvent.ModifierFlags) -> Bool {
         if headingMouseUp(at: point) { return true }
-        if ruleMouseUp(at: point) { return true }
+        if ruleMouseUp(at: point, modifiers: modifiers) { return true }
         if let drag = designDrag {
             designDrag = nil
             var delta = designDelta(from: drag.start, to: point)
