@@ -6,7 +6,7 @@ GRIFFR is a native macOS app (AppKit, SwiftUI, Core Text) for writing and typese
 
 ## What it does
 
-- **Every font technology.** AAT (`morx` features and selectors), OpenType features, Graphite (when installed on the system), and variable fonts with their axes and optical sizes.
+- **Every font technology.** AAT (`morx` features and selectors), OpenType features, Graphite (when installed on the system), variable fonts with their axes and optical sizes, and color fonts (`sbix` and `COLR`), in color both on screen and in the PDF.
 - **Layout as objects.** A document is made of objects (paragraphs, sections, chapter headings, notes, floats, lists, tables, fields) that are combined through functions: a style is a set of formulas, a field is a chain that reads a result from other objects and writes it where it stands, a heading composes its parts around the title. All of this is built visually, with blocks, not written as code.
 - **Three levels of interface.**
   - *Simple*: only what you need to write.
