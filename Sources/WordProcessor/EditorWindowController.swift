@@ -1182,6 +1182,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             stylePills.styleName = ""
             stylePills.titles = []
             stylePills.additions = []
+            styleAdditions = []
             return
         }
         let index = min(selection.range.location, text.length - 1)
@@ -1193,6 +1194,12 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
                runTarget.text.attribute(.characterStyleName, at: probeIndex, effectiveRange: nil) as? String].compactMap { $0 }
             : []
         stylePills.styleName = ([paragraphName ?? "No style"] + runNames).joined(separator: " › ")
+        guard paragraphName != nil || !runNames.isEmpty else {
+            styleAdditions = []
+            stylePills.titles = []
+            stylePills.additions = []
+            return
+        }
         var additions: [StyleAddition] = []
         for level in [StyleTarget.character, .word, .paragraph] {
             let target = inspectionTarget(level)

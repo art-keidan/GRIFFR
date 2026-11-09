@@ -1320,7 +1320,8 @@ final class StylePillsView: NSView {
         pressedPill = nil
         invalidateIntrinsicContentSize()
         needsDisplay = true
-        toolTip = additions.isEmpty ? "Style “\(styleName)”, with no manual additions"
+        toolTip = styleName.isEmpty || styleName == "No style" ? "No style"
+            : additions.isEmpty ? "Style “\(styleName)”, with no manual additions"
             : "Style “\(styleName)”, plus:\n" + additions.map { "· \($0)" }.joined(separator: "\n") + "\nArrow: into the style. ×: remove. Long or right click: more actions."
         setAccessibilityLabel(toolTip)
     }

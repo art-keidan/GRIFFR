@@ -1085,6 +1085,25 @@ struct EditingBehaviourTests {
         #expect(h.attributed.attribute(.footnote, at: 0, effectiveRange: nil) == nil)
     }
 
+    @Test("Il monitor non mostra aggiunte quando il testo non ha stili")
+    func noAdditionsWithoutStyle() {
+        let h = EditorHarness(paragraphs: ["Una prova."])
+        defer { h.close() }
+        h.select(0, length: 3)
+        h.editor.toggleItalic(nil)
+        h.step()
+        #expect(h.editor.styleMonitor.additions.contains("char. italic"))
+        h.editor.applyNamedStyle(.paragraph, name: nil)
+        h.step()
+        #expect(h.editor.styleMonitor.style == "No style")
+        #expect(h.editor.styleMonitor.additions.isEmpty)
+        #expect(h.editor.styleAdditions.isEmpty)
+        #expect(!h.editor.styleMonitorMenu().items[0].isEnabled)
+        h.editor.applyNamedStyle(.paragraph, name: "Body")
+        h.step()
+        #expect(h.editor.styleMonitor.additions.contains("char. italic"))
+    }
+
     @Test("M1 · Un clic su un'aggiunta del monitor la toglie: dal tratto attorno al cursore, dalla selezione, dal paragrafo; «+N» toglie tutte; un passo")
     func removeAdditionsFromMonitor() throws {
         let h = EditorHarness(paragraphs: ["Una prova di testo.", "Altro."])

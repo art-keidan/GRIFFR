@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document version="18" font="HoeflerText-Regular" size="12">
+<styles>
+<style name="Specimen" target="paragraph" family="Hoefler Text" size="12" space-after="7"/>
+<style name="Title" target="paragraph" based-on="Specimen" size="26" space-after="10"/>
+<style name="Section" target="paragraph" based-on="Specimen" bold="on" size="13" space-before="12" space-after="5" keep-with-next="on"/>
+<style name="Small" target="paragraph" based-on="Specimen" size="9"/>
+<style name="Large" target="paragraph" based-on="Specimen" size="18"/>
+<style name="Display" target="paragraph" based-on="Specimen" size="28"/>
+<style name="Italic" target="paragraph" based-on="Specimen" italic="on"/>
+<style name="Bold" target="paragraph" based-on="Specimen" bold="on"/>
+<style name="Bold Italic" target="paragraph" based-on="Specimen" bold="on" italic="on"/>
+</styles>
+<page width="210mm" height="297mm" top="22mm" bottom="22mm" left="25mm" right="25mm"/>
+<p style="Title">Font specimen</p>
+<p style="Specimen">To try another typeface, change the font family of the Specimen paragraph style. The sample styles inherit from it. Save a copy to keep your changes. Some fonts may not provide every character or style shown here; missing characters may use a fallback font.</p>
+<p style="Section">Alphabet and figures</p>
+<p style="Large">ABCDEFGHIJKLMNOPQRSTUVWXYZ</p>
+<p style="Large">abcdefghijklmnopqrstuvwxyz</p>
+<p style="Large">0123456789  ·  123,456.78  ·  € $ £ ¥</p>
+<p style="Specimen">À Á Â Ã Ä Å Æ Ç È É Ê Ë Ì Í Î Ï Ñ Ò Ó Ô Õ Ö Ø Œ Ù Ú Û Ü Ý Ÿ</p>
+<p style="Specimen">à á â ã ä å æ ç è é ê ë ì í î ï ñ ò ó ô õ ö ø œ ù ú û ü ý ÿ</p>
+<p style="Specimen">.,:;!?  «Guillemets»  “Quotation”  ‘Single’  (Parentheses)  [Brackets]  — – -  / &amp; @ # %</p>
+<p style="Section">Text sizes</p>
+<p style="Small">9 pt — Pack my box with five dozen liquor jugs. The quick brown fox jumps over the lazy dog.</p>
+<p style="Specimen">12 pt — Pack my box with five dozen liquor jugs. The quick brown fox jumps over the lazy dog.</p>
+<p style="Large">18 pt — The quick brown fox jumps over the lazy dog.</p>
+<p style="Display">28 pt — Hamburgefonts</p>
+<p style="Section">Styles</p>
+<p style="Specimen">Regular — A quiet morning, 0123456789.</p>
+<p style="Italic">Italic — A quiet morning, 0123456789.</p>
+<p style="Bold">Bold — A quiet morning, 0123456789.</p>
+<p style="Bold Italic">Bold italic — A quiet morning, 0123456789.</p>
+<p style="Section">Reading and detail</p>
+<p style="Specimen">Typography gives a voice to words before they are read aloud. Look at the rhythm of the lines, the space between letters, and the shapes that repeat. A comfortable text remains clear at a small size and keeps its character at a larger one.</p>
+<p style="Specimen">Italiano: Quel vituperabile xenofobo zelante assaggia il whisky ed esclama: «Alleluia!»</p>
+<p style="Specimen">Combining marks: á è î ö ũ  ·  Ligature sequences: fi fl ffi ffl  ·  Similar forms: Il1 O0 rn m</p>
+</document>
