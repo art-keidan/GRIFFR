@@ -11,18 +11,24 @@ public enum PDFRenderer {
         if let title { info[kCGPDFContextTitle] = title }
         guard let consumer = CGDataConsumer(data: data as CFMutableData),
               let context = CGContext(consumer: consumer, mediaBox: &mediaBox, info as CFDictionary) else { return Data() }
-        for (index, page) in layout.pages.enumerated() {
-            // L'ultima pagina, se contiene solo la riga vuota del cursore, non va stampata.
-            if index > 0, index == layout.pages.count - 1, isOnlyCaretLine(page) { continue }
+        // L'ultima pagina, se contiene solo la riga vuota del cursore, non va stampata.
+        var printed = layout.pages.count
+        if printed > 1, isOnlyCaretLine(layout.pages[printed - 1]) { printed -= 1 }
+        // Segnalibri, collegamenti fra richiami e note, etichette delle pagine.
+        let navigation = PDFNavigation(layout: layout, pageCount: printed)
+        for (index, page) in layout.pages.prefix(printed).enumerated() {
             // Ogni pagina con il suo formato: le sezioni possono avere tipi di pagina diversi.
             var box = CGRect(origin: .zero, size: page.setup.paperSize)
             let boxData = Data(bytes: &box, count: MemoryLayout<CGRect>.size)
             context.beginPDFPage([kCGPDFContextMediaBox: boxData] as CFDictionary)
             draw(page, in: context, tagged: true, text: layout.text.string as NSString)
+            navigation.write(page: index, in: context)
             context.endPDFPage()
         }
+        if let outline = navigation.outline { CGPDFContextSetOutline(context, outline) }
         context.closePDF()
-        return data as Data
+        let values = layout.pages.prefix(printed).map(\.numberValue)
+        return PDFNavigation.finishing(data as Data, labels: navigation.pageLabels, values: values)
     }
 
     /// Vero per una pagina con la sola riga vuota del cursore: nessun carattere, nessuna figura, segno o filetto.

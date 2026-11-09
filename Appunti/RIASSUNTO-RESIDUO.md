@@ -25,6 +25,20 @@ I documenti di prova in `Appunti/` sono stati convertiti alla 18 prima della pul
 
 `docs/guide/index.html`, in inglese, con foto vere e poche righe di commento: interfaccia semplice e dettagliata, Design Paragraph, note, figure e tabelle, definizioni, compositore degli stili. Le foto le genera `GuideScreenshotTests` (si attiva con `GRIFFR_GUIDE_OUT`) e le ritaglia `Scripts/guide-crops.swift`; le schede delle definizioni vengono dall'app, perché i loro pannelli SwiftUI fuori dallo schermo escono neri. Quando l'interfaccia cambia, le foto vanno rifatte. Collegata dal README.
 
+## Navigazione nel PDF · 9 novembre
+
+Dall'idea 6 di [IDEE-DA-LOUT.md](IDEE-DA-LOUT.md). Il PDF esportato e stampato (`PDFRenderer.pdfData`) ora ha:
+
+- **segnalibri** dai titoli, annidati come nell'albero degli oggetti (sezioni secondo la profondità, altrimenti il livello di paragrafazione), con il numero della sezione davanti quando c'è; portano alla cima del titolo, testata compresa;
+- **collegamenti fra richiami e note**: dal richiamo all'inizio della nota e, dal segno davanti alla nota, di nuovo al richiamo. Valgono per ogni nota con un richiamo visibile (piè di pagina, fine del documento, margine); figure, testate e piedi correnti non hanno richiamo e non ne hanno;
+- **etichette delle pagine** con il numero stampato (i, ii, iii…, poi 1, 2…), scritte solo se almeno una pagina ha un numero diverso dalla sua posizione nel PDF. Romani e cifre arabe diventano tratti `/S /r` e `/S /D`; un numero con prefisso o suffisso («— 1 —») è un'etichetta per pagina.
+
+Il codice è in `PDFNavigation.swift`. Segnalibri e collegamenti li scrive Core Graphics (`CGPDFContextSetOutline`, `addDestination`, `setDestination`). Le etichette e due correzioni dei segnalibri vanno in un **aggiornamento in coda al file**, che riscrive solo il catalogo e le voci dei segnalibri e lascia intatto il resto. Le correzioni: Core Graphics scrive le voci senza `/Parent` e con un `/Count` negativo nella radice (MuPDF avvisava «Bad or missing parent pointer»), e porta al titolo con `/FitR`, che fa ingrandire il lettore fino al riquadro del titolo; ora è `/XYZ`, che va al titolo senza cambiare l'ingrandimento. Se il PDF non ha la tabella dei riferimenti classica, il file resta com'è, senza etichette.
+
+Prove: `PDFNavigationTests` (5 prove: collegamenti delle note risolti da PDFKit, segnalibri annidati e loro pagina, etichette di una premessa in romani con capitolo in cifre arabe, nessuna etichetta quando non serve, voci di `/Nums`). Suite intere: Typesetting 519 prove e WordProcessor 232 prove, tutte passate; l'unico problema noto è quello di sempre (PDFKit non usa `ActualText`). Controllati a mano con `pdfinfo` (Poppler) e `mutool` (MuPDF) tre PDF di prova: segnalibri, etichette e collegamenti letti senza avvisi. **Non verificato** in Anteprima o in Acrobat facendo clic davvero.
+
+Restano: i collegamenti dei campi e dei rimandi (servono i rimandi con etichetta, idea 2), e un nome per i segnalibri diverso dal titolo intero (un titolo lungo diventa un segnalibro lungo).
+
 ## Nuovo ispettore · in corso dal 6 novembre
 
 Fa parte del revamp dell'interfaccia. Disegno scelto (variante A: definizioni nel pannello, dietro un segmento «Definitions»), prototipo e fasi sono in [Interfaccia-ispettore/ISPETTORE.md](Interfaccia-ispettore/ISPETTORE.md).
@@ -119,6 +133,8 @@ Restano da provare direttamente nell'app, oltre alle prove automatiche:
 ## Lavoro tipografico indipendente
 
 Dopo il nucleo delle formule restano anche miglioramenti del motore, da affrontare separatamente: tabulazioni nel compositore ottimale, griglia delle linee di base, spaziatura delle lettere nella giustificazione, composizione ottimale da destra a sinistra, regole tipografiche per lingua, ottimizzazione considerando la pagina intera, colonne e indice generato.
+
+**Idee da Lout** (9 novembre): galley e posti di destinazione per flottanti e note, rimandi con etichetta, indice come galley ordinati da fondere, impaginazione ottimale della pagina intera, pagine come oggetti con posti; dalla guida per esperti, collegamenti e segnalibri nel PDF (oggi assenti), unità in righe ed em, intestazioni ripetute quando un oggetto continua. Riguardano le tappe 4 e 5 e questo elenco: [IDEE-DA-LOUT.md](IDEE-DA-LOUT.md).
 
 **Da fare: il testo dei font a colori nel PDF** (8 novembre). I font a colori escono a colori sulla pagina e nel PDF in tutti i formati (`ColorFontTests`), ma dal PDF il loro testo non si estrae sempre: con COLR v1 (Honk, Noto Color Emoji) niente, con SVG (Gilbert Color, EmojiOne Color) solo il primo glifo, con Apple Color Emoji niente in PDFKit (giusto in Poppler e MuPDF); Bungee Color dà «AA» per «Aa» perché il font manda la minuscola alla forma della maiuscola. La causa è in Core Text: per Honk scrive come testo la sola prima lettera, e fuori dalla pagina. Provati e scartati: `ActualText` (Core Graphics lo scrive solo nell'albero della struttura, che Poppler, MuPDF e PDFKit non usano per estrarre il testo) e il disegno glifo per glifo (perde anche la «G» di Gilbert). Il rimedio da provare è quello di Graphite (`GraphiteLayout.drawLineForPDF`): Core Text disegna i colori, e sotto ogni tratto colorato si scrive il suo testo invisibile in un font normale. Rischio: testo doppio dove Core Text ne scrive già un pezzo (la «G» di Gilbert, le «AA» di Bungee); va verificato font per font con `pdftotext`, `mutool` e PDFKit.
 
