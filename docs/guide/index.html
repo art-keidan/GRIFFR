@@ -61,6 +61,19 @@
     border-radius: 4px; padding: 0 4px; background: var(--paper); color: var(--ink);
   }
   footer { color: var(--muted); font-size: 13px; padding-bottom: 48px; }
+  @page { size: A4; margin: 14mm 12mm; }
+  @media print {
+    body { background: #fff; font-size: 12px; }
+    header { padding-top: 0; }
+    nav { display: none; }
+    section { margin: 28px 0; }
+    section + section { break-before: page; margin-top: 0; }
+    figure, .pair > *, .grid4 figure { break-inside: avoid; }
+    h2, .lead { break-after: avoid; }
+    figure img { box-shadow: none; }
+    .grid4 { grid-template-columns: repeat(4, 1fr); }
+    .pair { grid-template-columns: 1fr 1fr; }
+  }
 </style>
 </head>
 <body>
