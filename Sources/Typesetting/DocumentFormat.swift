@@ -34,6 +34,11 @@ import Foundation
 /// - `list` su `p` ne fa una voce di elenco. Il valore è il segno: un simbolo (`•`, `–`) oppure un modello di
 ///   numerazione, cioè un contatore (`1`, `a`, `A`, `i`, `I`) con la sua punteggiatura (`1.`, `a)`, `(i)`).
 ///   `level` è il livello di annidamento, da 1 (sottinteso) a 9. I numeri non si scrivono: si calcolano.
+///   `continue-previous-item="on"` (dal formato 20) dice che il paragrafo è un altro capoverso della voce
+///   precedente: non ha segno e non consuma un numero. Nel 19 un paragrafo è sempre una voce intera.
+///   `sequence-start` (dal formato 21) apre un tratto nuovo della Lista da quel numero; `sequence-resume` (dal 21)
+///   riprende il tratto che comincia con il capoverso che ha quell'identità. Valgono solo con `in-list`, e un
+///   capoverso non può insieme aprire e riprendere un tratto.
 /// - `<lists>`, prima degli stili, contiene le Liste con un nome: `<list name="Esempi" counter="1" prefix="("
 ///   suffix=")" continues="on"/>`. `counter` è `1`, `a`, `A`, `i`, `I`, `*` (asterischi), `†` (segni
 ///   tipografici) o `none`; poi `start`, `end`, `parent` (un'altra lista, oppure `page`), `continues`,
@@ -121,10 +126,12 @@ import Foundation
 /// - Variabili degli stili: `<variable id="…" name="Distanza" expression="…"/>` dentro `style`, prima delle formule: un
 ///   risultato con un nome che le formule dello stile richiamano per identità (`binding` con una variabile).
 ///
-/// Il programma legge le versioni da `oldestReadableVersion` a `version`. Il writer usa il formato 19 per identità
-/// e rimandi, e il 18 per i documenti privi di questi dati. Un elemento o attributo sconosciuto produce un errore con il numero di riga.
+/// Il programma legge le versioni da `oldestReadableVersion` a `version`. Il writer usa il formato 21 per i tratti di
+/// una Lista scelti dall'autore, il 20 per le voci di elenco che continuano la precedente, il 19 per identità e
+/// rimandi, e il 18 per i documenti privi di questi dati. Un elemento o attributo sconosciuto produce un errore con il
+/// numero di riga.
 public enum DocumentFormat {
-    public static let version = 19
+    public static let version = 21
     /// La versione più vecchia che il programma legge. Le versioni dello sviluppo, prima della 18, non si leggono più.
     public static let oldestReadableVersion = 18
 
@@ -147,7 +154,15 @@ public enum DocumentFormat {
                 }
             }
         }
-        let writtenVersion = usesIdentities ? version : oldestReadableVersion
+        // Il 21 serve ai tratti scelti dall'autore, il 20 alle voci che continuano la precedente, il 19 alle identità e
+        // ai rimandi, il 18 al resto.
+        let hasSequences = paragraphs.contains {
+            guard let list = $0.list, !list.continuesPreviousItem, list.listName != nil else { return false }
+            return list.sequenceStart != nil || list.sequenceResume != nil
+        }
+        let writtenVersion: Int = hasSequences
+            ? version
+            : (paragraphs.contains { $0.list?.continuesPreviousItem == true } ? 20 : (usesIdentities ? 19 : oldestReadableVersion))
         // Lo stile più usato diventa quello del documento, così la maggior parte dei paragrafi non lo ripete.
         var base = dominantStyle(paragraphs.flatMap { paragraph in runs(of: paragraph).map { ($0.style, $0.text.utf16.count + 1) } })
         if document.styles.styles.contains(where: { !$0.formulas.isEmpty }) {
@@ -390,6 +405,10 @@ public enum DocumentFormat {
             if let list = ownList {
                 if let indent = list.textIndent { out += " list-indent=\"\(number(indent))\"" }
                 if let marker = list.markerPosition { out += " list-marker=\"\(number(marker))\"" }
+                if list.continuesPreviousItem { out += " continue-previous-item=\"on\"" }
+                // I tratti valgono solo per una Lista con un nome e non su una continuazione, come li legge il lettore.
+                if list.listName != nil, !list.continuesPreviousItem, let start = list.sequenceStart { out += " sequence-start=\"\(start)\"" }
+                if list.listName != nil, !list.continuesPreviousItem, let resume = list.sequenceResume { out += " sequence-resume=\"\(resume.uuidString)\"" }
             }
             if let distance = paragraph.openingDistance { out += " opening-distance=\"\(number(distance))\"" }
             out += paragraph.keeping.xmlAttributes
@@ -1490,7 +1509,7 @@ public enum DocumentFormat {
                         titleHasParagraph = true
                     }
                     let measures = ["first-indent", "left-indent", "right-indent", "space-before", "space-after", "line-spacing", "line-height"]
-                    guard check(attributes, allowed: Set(measures + ["align", "font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "list", "level", "style", "in-list", "list-indent", "list-marker", "list-gap", "opening-distance", "outline-level", "rules"] + LineKeeping.attributeNames + (version >= 19 ? ["id"] : [])), element: name, parser) else { return }
+                    guard check(attributes, allowed: Set(measures + ["align", "font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "list", "level", "style", "in-list", "list-indent", "list-marker", "list-gap", "opening-distance", "outline-level", "rules"] + LineKeeping.attributeNames + (version >= 19 ? ["id"] : []) + (version >= 20 ? ["continue-previous-item"] : []) + (version >= 21 ? ["sequence-start", "sequence-resume"] : [])), element: name, parser) else { return }
                     let styleName = try namedStyle(attributes["style"], target: .paragraph, attribute: "style", line: line)
                     var list: ListItem?
                     if let marker = attributes["list"] {
@@ -1549,6 +1568,31 @@ public enum DocumentFormat {
                         guard list != nil else { throw DocumentFormatError.missingAttribute(line: line, attribute: "list") }
                         guard let value = DocumentFormat.parseLength(text), value >= 0 else { throw DocumentFormatError.invalidValue(line: line, attribute: attribute, value: text) }
                         list?[keyPath: path] = Double(value)
+                    }
+                    // Un altro capoverso della voce precedente: senza il suo elenco non significa niente.
+                    if let text = attributes["continue-previous-item"] {
+                        guard ["on", "off"].contains(text) else { throw DocumentFormatError.invalidValue(line: line, attribute: "continue-previous-item", value: text) }
+                        guard list != nil else { throw DocumentFormatError.missingAttribute(line: line, attribute: "list") }
+                        list?.continuesPreviousItem = text == "on"
+                    }
+                    // I tratti di una Lista scelti dall'autore: una ripartenza da un numero, o la ripresa del tratto che
+                    // comincia con un capoverso preciso. Valgono solo per una Lista con un nome, e non si combinano.
+                    if attributes["sequence-start"] != nil || attributes["sequence-resume"] != nil {
+                        guard list?.listName != nil else { throw DocumentFormatError.missingAttribute(line: line, attribute: "in-list") }
+                        guard attributes["sequence-start"] == nil || attributes["sequence-resume"] == nil else {
+                            throw DocumentFormatError.malformed(line: line, detail: "a paragraph cannot both start and resume a sequence")
+                        }
+                        guard list?.continuesPreviousItem != true else {
+                            throw DocumentFormatError.malformed(line: line, detail: "a paragraph that continues the previous item cannot start or resume a sequence")
+                        }
+                    }
+                    if let text = attributes["sequence-start"] {
+                        guard let value = Int(text), value >= 1 else { throw DocumentFormatError.invalidValue(line: line, attribute: "sequence-start", value: text) }
+                        list?.sequenceStart = value
+                    }
+                    if let text = attributes["sequence-resume"] {
+                        guard let identity = UUID(uuidString: text) else { throw DocumentFormatError.invalidValue(line: line, attribute: "sequence-resume", value: text) }
+                        list?.sequenceResume = identity
                     }
                     // La forma di un giorno solo (17 ottobre 2026): la distanza fra segno e testo invece della posizione del segno.
                     if let text = attributes["list-gap"], list?.markerPosition == nil {

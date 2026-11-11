@@ -17,6 +17,18 @@ public struct ListItem: Hashable, Sendable {
     /// «(9)» e «(10)» restano allineati sulla parentesi).
     public var textIndent: Double?
     public var markerPosition: Double?
+    /// Vero se questo paragrafo è un altro capoverso della voce precedente, e non una voce nuova: non ha segno, non
+    /// consuma un numero, e prende dal paragrafo che apre la voce i rientri. Vale per una voce di più capoversi, che
+    /// ha un solo segno sul primo. Il segno e il livello servono solo a riconoscere la voce che continua.
+    public var continuesPreviousItem: Bool
+    /// Il numero da cui comincia un nuovo tratto della stessa Lista: è la ripartenza scelta dall'autore («riparte
+    /// da 1»), e vale per il capoverso che apre il tratto e per le voci che lo seguono. `nil`: il tratto continua
+    /// quello prima, con la politica ordinaria della Lista. Non convive con `sequenceResume`.
+    public var sequenceStart: Int? = nil
+    /// L'identità del capoverso che apre il tratto della stessa Lista che questo capoverso riprende («prosegue
+    /// l'elenco che comincia con…»). Il tratto ripreso è lo stesso: si continua la numerazione da dove era arrivato,
+    /// e le voci dopo restano sue. `nil`: nessuna ripresa. Non convive con `sequenceStart`.
+    public var sequenceResume: UUID? = nil
 
     public static let maximumLevel = 9
     /// I valori iniziali delle misure: di quanto rientra ogni livello, e lo spazio fra segno e testo.
@@ -25,16 +37,18 @@ public struct ListItem: Hashable, Sendable {
     /// Lo spazio minimo fra un segno che arriva oltre l'inizio del testo e la prima riga.
     public static let minimumMarkerSpace = 6.0
 
-    public init(marker: String, level: Int = 1) {
+    public init(marker: String, level: Int = 1, continuesPreviousItem: Bool = false) {
         self.marker = marker
         self.level = min(max(level, 1), Self.maximumLevel)
+        self.continuesPreviousItem = continuesPreviousItem
     }
 
     /// Una voce di una Lista con un nome.
-    public init(listName: String) {
+    public init(listName: String, continuesPreviousItem: Bool = false) {
         self.marker = ""
         self.level = 1
         self.listName = listName
+        self.continuesPreviousItem = continuesPreviousItem
     }
 
     /// Come si scrive il contatore di un elenco numerato.
@@ -103,22 +117,60 @@ public struct ListItem: Hashable, Sendable {
         return numbering.prefix + numbering.counter.text(for: number) + numbering.suffix
     }
 
+    /// Vero se questa voce e `other` sono la stessa voce: la stessa Lista con un nome, oppure, per un elenco senza
+    /// nome, lo stesso segno allo stesso livello. Serve a sapere se un paragrafo può continuare la voce prima.
+    public func belongsToSameItem(as other: ListItem) -> Bool {
+        if let name = listName { return other.listName == name }
+        return other.listName == nil && other.marker == marker && other.level == level
+    }
+
     /// Il valore dell'attributo di testo: una stringa («livello segno», o «@Lista»), che copia e incolla conservano. Le
-    /// misure proprie, se ci sono, seguono dopo una tabulazione («rientro distanza», «-» per quella che manca).
+    /// misure proprie, se ci sono, seguono dopo una tabulazione («rientro distanza», «-» per quella che manca). Dopo le
+    /// misure vengono i segni del tratto: «c» se il paragrafo continua la voce precedente, «s» con il numero se apre una
+    /// ripartenza, «r» con l'identità se riprende un tratto.
     public var encoded: String {
         let base = listName.map { "@" + $0 } ?? "\(level) \(marker)"
-        guard textIndent != nil || markerPosition != nil else { return base }
+        guard textIndent != nil || markerPosition != nil || continuesPreviousItem || sequenceStart != nil || sequenceResume != nil else { return base }
         func number(_ value: Double?) -> String { value.map { String(format: "%g", $0) } ?? "-" }
-        return base + "\t" + number(textIndent) + " " + number(markerPosition)
+        var value = base + "\t" + number(textIndent) + " " + number(markerPosition)
+        // Una continuazione non apre né riprende un tratto: le due scelte non convivono.
+        if continuesPreviousItem {
+            value += " c"
+        } else {
+            if let start = sequenceStart { value += " s\(start)" }
+            if let resume = sequenceResume { value += " r\(resume.uuidString)" }
+        }
+        return value
     }
 
     public init?(encoded: String) {
         if let tab = encoded.firstIndex(of: "\t") {
             guard var item = ListItem(encoded: String(encoded[..<tab])) else { return nil }
             let measures = encoded[encoded.index(after: tab)...].split(separator: " ")
-            guard measures.count == 2 else { return nil }
+            // Le due misure, poi i segni del tratto: un capoverso non può insieme continuare la voce e aprire o
+            // riprendere un tratto.
+            guard measures.count >= 2 else { return nil }
             item.textIndent = measures[0] == "-" ? nil : Double(measures[0])
             item.markerPosition = measures[1] == "-" ? nil : Double(measures[1])
+            var continuation = false, start: Int?, resume: UUID?
+            for token in measures.dropFirst(2) {
+                if token == "c" {
+                    guard !continuation else { return nil }
+                    continuation = true
+                } else if token.hasPrefix("s"), let number = Int(token.dropFirst()), number >= 1 {
+                    guard start == nil else { return nil }
+                    start = number
+                } else if token.hasPrefix("r"), let identity = UUID(uuidString: String(token.dropFirst())) {
+                    guard resume == nil else { return nil }
+                    resume = identity
+                } else {
+                    return nil
+                }
+            }
+            guard !(continuation && (start != nil || resume != nil)), !(start != nil && resume != nil) else { return nil }
+            item.continuesPreviousItem = continuation
+            item.sequenceStart = start
+            item.sequenceResume = resume
             self = item
             return
         }
@@ -289,6 +341,38 @@ public enum ListOverflow: String, Hashable, Sendable, CaseIterable {
     case numbers
 }
 
+/// Un tratto di numerazione di una Lista: il capoverso che lo apre, la sua prima voce e dove è arrivato. Un autore
+/// può chiuderlo con una ripartenza e riprenderlo da un altro punto del documento.
+public struct ListSequence: Hashable, Sendable {
+    /// L'identità del tratto: quella del capoverso che lo apre.
+    public var identity: UUID
+    public var listName: String
+    /// La posizione nel testo del capoverso che apre il tratto.
+    public var start: Int
+    public var firstNumber: Int
+    public var lastNumber: Int
+    /// Quante voci ha il tratto fin qui (compreso il capoverso finale vuoto, se ne mostra il numero).
+    public var items: Int
+
+    public init(identity: UUID, listName: String, start: Int, firstNumber: Int, lastNumber: Int, items: Int) {
+        self.identity = identity
+        self.listName = listName
+        self.start = start
+        self.firstNumber = firstNumber
+        self.lastNumber = lastNumber
+        self.items = items
+    }
+}
+
+/// Il segno del prossimo elemento di una Lista, con il tratto a cui appartiene.
+public struct ListAdvance: Equatable, Sendable {
+    public var mark: ListMark
+    /// L'identità del tratto: quella del capoverso che lo apre.
+    public var segment: UUID
+    /// Vero se questo elemento apre il tratto (primo elemento, ripartenza, o ripresa che non trova il tratto).
+    public var isNewSegment: Bool
+}
+
 /// Il segno calcolato per un elemento di una Lista.
 public struct ListMark: Equatable, Sendable {
     public var text: String
@@ -300,9 +384,21 @@ public struct ListMark: Equatable, Sendable {
 }
 
 /// Conta gli elementi delle Liste con un nome mentre si scorre il documento nell'ordine.
+///
+/// I numeri appartengono a un *tratto* della Lista: quello che comincia con la sua prima voce e continua finché la
+/// politica della Lista lo lascia continuare. Un tratto ha un'identità — l'identità del capoverso che lo apre — e
+/// un autore può chiuderlo e aprirne un altro (ripartenza) o riprendere quello di prima (ripresa) da qualsiasi punto.
+/// Senza scelte dell'autore i tratti sono impliciti e si ricostruiscono a ogni composizione, come prima.
 public struct ListNumberer {
     private let definitions: [String: ListDefinition]
-    private var counts: [String: Int] = [:]
+    /// L'ultimo numero di ogni tratto, per identità del tratto.
+    private var counts: [UUID: Int] = [:]
+    /// Il tratto in corso di ogni Lista: le sue voci senza scelte proprie continuano questo.
+    private var current: [String: UUID] = [:]
+    /// A quale Lista appartiene ogni tratto.
+    private var segmentList: [UUID: String] = [:]
+    /// L'ultimo numero assegnato in ogni Lista: serve al numero della Lista superiore da scrivere davanti.
+    private var lastValue: [String: Int] = [:]
     /// Per ogni lista, il passo della sua lista superiore (o la pagina) al momento dell'ultimo elemento.
     private var parentSteps: [String: Int] = [:]
     /// Ogni passo di ogni lista ha un numero d'ordine unico: così una lista inferiore riconosce un passo nuovo
@@ -333,9 +429,11 @@ public struct ListNumberer {
         definitions.values.filter { $0.numbersSections == role }.map(\.name).min()
     }
 
-    /// Un paragrafo che non appartiene a nessuna Lista: le liste che non proseguono ripartono.
+    /// Un paragrafo che non appartiene a nessuna Lista: le liste che non proseguono chiudono il loro tratto, e la
+    /// voce dopo riparte dalla definizione. Il numero del tratto chiuso resta noto: una ripresa esplicita può
+    /// continuarlo anche dopo l'interruzione.
     public mutating func interrupt() {
-        for (name, definition) in definitions where !definition.continues { counts[name] = nil }
+        for (name, definition) in definitions where !definition.continues { closeSegment(of: name) }
     }
 
     /// Le liste da cui una lista discende (la sua superiore, la superiore di quella…).
@@ -353,13 +451,22 @@ public struct ListNumberer {
     public func depth(of name: String) -> Int { ancestors(of: name).count }
 
     /// Il segno del prossimo elemento della lista. `nil` se la lista non esiste.
-    public mutating func next(_ name: String) -> ListMark? {
+    public mutating func next(_ name: String, id: UUID? = nil, start: Int? = nil, resume: UUID? = nil) -> ListMark? {
+        advance(name, id: id, start: start, resume: resume)?.mark
+    }
+
+    /// Il segno del prossimo elemento e il tratto a cui appartiene.
+    ///
+    /// `id` è l'identità del capoverso: apre un tratto nuovo quando non c'è ancora, e dà al tratto la sua identità.
+    /// `start` apre un tratto nuovo da quel numero (la ripartenza); `resume` riprende il tratto che ha quell'identità,
+    /// continuandone il numero. Le due scelte non convivono.
+    public mutating func advance(_ name: String, id: UUID? = nil, start: Int? = nil, resume: UUID? = nil) -> ListAdvance? {
         guard let definition = definitions[name] else { return nil }
         // Un elemento di questa lista interrompe le liste che non proseguono, tranne le sue superiori.
         let keep = ancestors(of: name).union([name])
         for (other, otherDefinition) in definitions where !otherDefinition.continues && !keep.contains(other) {
             // Le liste che discendono da questa ripartono comunque al prossimo passo; le altre si interrompono.
-            if !ancestors(of: other).contains(name) { counts[other] = nil }
+            if !ancestors(of: other).contains(name) { closeSegment(of: other) }
         }
         let step: Int = switch definition.parent {
         case .list(let parent)?: lastStep[parent] ?? 0
@@ -367,13 +474,50 @@ public struct ListNumberer {
         case .section(let role)?: sectionSteps[role] ?? 0
         case nil: 0
         }
-        if parentSteps[name] != step { counts[name] = nil }
+        // Un nuovo passo della lista superiore chiude il tratto: la numerazione riparte dalla definizione. Il
+        // numero del tratto resta noto per una ripresa esplicita.
+        if parentSteps[name] != step { closeSegment(of: name) }
         parentSteps[name] = step
-        let value = (counts[name] ?? (definition.start - 1)) + 1
-        counts[name] = value
+        let segment: UUID
+        let value: Int
+        var isNew = false
+        if let resume {
+            if let resumed = counts[resume], segmentList[resume] == name {
+                // La ripresa continua il tratto ripreso: le voci dopo restano sue.
+                segment = resume
+                value = resumed + 1
+            } else {
+                // La ripresa non trova il tratto (capoverso cancellato, Lista diversa, numero già chiuso): la voce
+                // riparte dalla definizione invece di continuare il tratto in corso, che non ha scelto.
+                segment = id ?? UUID()
+                value = max(definition.start, 1)
+                isNew = true
+            }
+        } else if let start {
+            segment = id ?? UUID()
+            value = max(start, 1)
+            isNew = true
+        } else if let together = current[name], let count = counts[together] {
+            segment = together
+            value = count + 1
+        } else {
+            segment = id ?? UUID()
+            value = max(definition.start, 1)
+            isNew = true
+        }
+        counts[segment] = value
+        segmentList[segment] = name
+        current[name] = segment
+        lastValue[name] = value
         serial += 1
         lastStep[name] = serial
-        return mark(value, of: definition)
+        return ListAdvance(mark: mark(value, of: definition), segment: segment, isNewSegment: isNew)
+    }
+
+    /// Chiude il tratto in corso di una Lista, senza dimenticarne il numero: le voci che vengono dopo aprono un
+    /// tratto nuovo dalla definizione, oppure riprendono un tratto con una scelta esplicita.
+    private mutating func closeSegment(of name: String) {
+        current[name] = nil
     }
 
     /// I primi segni di una lista, per mostrarla: «(1) (2) (3)». Se la lista ha una superiore, come dopo il suo primo passo.
@@ -403,12 +547,14 @@ public struct ListNumberer {
         }
         var text = definition.prefix + counter.text(for: shown) + definition.suffix
         if counter == .none { text = definition.prefix + definition.suffix }
-        if definition.showsParent, case .list(let parent)? = definition.parent, let parentDefinition = definitions[parent], let parentValue = counts[parent] {
+        // Il numero della Lista superiore vale solo se il suo tratto è ancora aperto: dopo un'interruzione non c'è.
+        if definition.showsParent, case .list(let parent)? = definition.parent, current[parent] != nil,
+           let parentDefinition = definitions[parent], let parentValue = lastValue[parent] {
             text = parentDefinition.counter.text(for: parentValue) + text
         }
         // Con una sezione per superiore, il numero davanti è quello della sezione, se una Lista numera quel ruolo.
         if definition.showsParent, case .section(let role)? = definition.parent, let numbering = list(numbering: role),
-           let parentDefinition = definitions[numbering], let parentValue = counts[numbering] {
+           current[numbering] != nil, let parentDefinition = definitions[numbering], let parentValue = lastValue[numbering] {
             text = parentDefinition.counter.text(for: parentValue) + text
         }
         return ListMark(text: text, needsOverflowChoice: needsChoice, value: value)
@@ -491,6 +637,22 @@ extension TextStyling {
         }
     }
 
+    /// Cambia l'elenco di un solo capoverso — quello che contiene `location` — senza toccare il paragrafo finale vuoto
+    /// quando non è lui. Serve alle scelte che valgono solo per l'apertura di un tratto: ripartenza e ripresa, che
+    /// applicate a tutta la selezione aprirebbero un tratto per ogni voce.
+    public static func setListItem(in text: NSMutableAttributedString, at location: Int, _ transform: (ListItem) -> ListItem) {
+        guard text.length > 0 else { return }
+        if location >= text.length {
+            guard hasEmptyFinalParagraph(text), let item = finalParagraphListItem(in: text) else { return }
+            text.addAttribute(.finalParagraphList, value: transform(item).encoded, range: NSRange(location: text.length - 1, length: 1))
+            return
+        }
+        let paragraph = bodyParagraph(in: text, at: min(location, text.length - 1)).range
+        guard let encoded = text.attribute(.listItem, at: paragraph.location, effectiveRange: nil) as? String,
+              let item = ListItem(encoded: encoded) else { return }
+        text.addAttribute(.listItem, value: transform(item).encoded, range: paragraph)
+    }
+
     /// Dopo una modifica rimette in ordine gli attributi di elenco: ogni paragrafo ha per intero l'elenco del suo
     /// primo carattere (come fa AppKit per lo stile di paragrafo), e la dichiarazione per il paragrafo finale
     /// resta solo sull'ultimo a capo.
@@ -550,9 +712,11 @@ extension TextStyling {
         let all = NSRange(location: 0, length: text.length)
         for key in [NSAttributedString.Key.listItem, .finalParagraphList] {
             text.enumerateAttribute(key, in: all) { value, range, _ in
-                guard let encoded = value as? String, let name = ListItem(encoded: encoded)?.listName, let new = renames[name] else { return }
+                guard let encoded = value as? String, var item = ListItem(encoded: encoded), let name = item.listName, let new = renames[name] else { return }
                 if let new {
-                    text.addAttribute(key, value: ListItem(listName: new).encoded, range: range)
+                    // Il nome cambia, le misure proprie e la continuazione della voce restano.
+                    item.listName = new
+                    text.addAttribute(key, value: item.encoded, range: range)
                 } else if key == .listItem {
                     text.removeAttribute(key, range: range)
                 } else {

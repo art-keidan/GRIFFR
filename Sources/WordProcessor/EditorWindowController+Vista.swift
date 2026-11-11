@@ -188,6 +188,16 @@ extension EditorWindowController {
             return selectionListItem()?.listName == nil && (selectionListItem()?.level ?? ListItem.maximumLevel) < ListItem.maximumLevel
         case #selector(decreaseListLevel(_:)):
             return selectionListItem()?.listName == nil && (selectionListItem()?.level ?? 1) > 1
+        case #selector(toggleListContinuation(_:)):
+            menuItem.state = selectionListItem()?.continuesPreviousItem == true ? .on : .off
+            return canContinuePreviousItem()
+        case #selector(restartListNumbering(_:)):
+            menuItem.state = selectionListItem()?.sequenceStart != nil ? .on : .off
+            return canStartSequence
+        case #selector(resumeListNumbering(_:)):
+            menuItem.state = selectionListItem()?.sequenceResume != nil ? .on : .off
+            guard let (item, range) = selectionSequenceItem(), let name = item.listName else { return false }
+            return !earlierSequences(of: name, before: range.location, in: pagesView.layout).isEmpty
         case #selector(setNamedList(_:)):
             menuItem.state = (menuItem.representedObject as? String) == selectionListItem()?.listName ? .on : .off
         default:

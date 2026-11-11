@@ -931,6 +931,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     /// Per le prove: il nome che si scriverebbe nel foglio che chiede il nome di uno stile nuovo (il foglio non si apre).
     var styleNameAnswerForTests: String?
     var replaceFormulaAnswerForTests: Bool?
+    /// Per le prove: le scelte offerte dal foglio delle riprese (il foglio non si apre).
+    var chooseSequenceForTests: (([UUID]) -> Void)?
 
     /// L'albero si ricostruisce dopo una breve pausa: mentre si scrive, un tasto dopo l'altro, una volta sola.
     private func scheduleObjectTree() {
@@ -2144,7 +2146,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         panel.message = "Export the document as PDF"
         panel.prompt = "Export"
         panel.isExtensionHidden = false
-        let text = NSAttributedString(attributedString: documentText)
+        let text = store.identifiedCopy
         let setup = settings.pageSetup
         let options = documentLayoutOptions
         panel.beginSheetModal(for: window) { response in
@@ -2163,7 +2165,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     /// Il documento come lo si stampa: le stesse pagine del PDF esportato, e il formato del foglio.
     func printablePDF(title: String?) -> (data: Data, paperSize: CGSize) {
         let setup = settings.pageSetup
-        let layout = PageLayout.layout(NSAttributedString(attributedString: documentText), setup: setup, options: documentLayoutOptions)
+        let layout = PageLayout.layout(store.identifiedCopy, setup: setup, options: documentLayoutOptions)
         return (PDFRenderer.pdfData(for: layout, title: title), setup.paperSize)
     }
 

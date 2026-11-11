@@ -116,6 +116,13 @@ enum MainMenu {
         lists.addItem(.separator())
         lists.addItem(withTitle: "Increase Level (Tab)", action: #selector(EditorWindowController.increaseListLevel(_:)), keyEquivalent: "")
         lists.addItem(withTitle: "Decrease Level (Shift-Tab)", action: #selector(EditorWindowController.decreaseListLevel(_:)), keyEquivalent: "")
+        lists.addItem(.separator())
+        // Una voce di più capoversi: i capoversi dopo il primo si segnano qui, e non consumano un numero.
+        lists.addItem(withTitle: "Continue Previous Item", action: #selector(EditorWindowController.toggleListContinuation(_:)), keyEquivalent: "")
+        lists.addItem(.separator())
+        // Due elenchi della stessa Lista, e uno che riprende il primo.
+        lists.addItem(withTitle: "Restart Numbering", action: #selector(EditorWindowController.restartListNumbering(_:)), keyEquivalent: "")
+        lists.addItem(withTitle: "Resume Numbering…", action: #selector(EditorWindowController.resumeListNumbering(_:)), keyEquivalent: "")
         format.addItem(withTitle: "List", action: nil, keyEquivalent: "").submenu = lists
         // Gli stili si scelgono nel righello (paragrafo) e nel Ribbon (parola e carattere); Liste e stili di flottante si
         // definiscono nelle schede dell'avanzata, le formule contestuali nel compositore degli stili; le misure di un'immagine con un doppio clic su di lei.

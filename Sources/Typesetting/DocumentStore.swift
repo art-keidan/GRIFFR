@@ -98,6 +98,26 @@ public final class DocumentStore: NSMutableAttributedString {
     /// Le identità dei paragrafi, nell'ordine del testo.
     public var paragraphIDs: [ParagraphID] { paragraphs.map(\.id) }
 
+    /// Gli intervalli dei paragrafi con la loro identità, nell'ordine del testo (compreso il paragrafo finale vuoto):
+    /// serve a chi compone senza leggere il deposito, per riconoscere i tratti delle Liste.
+    public var paragraphSpans: [(range: NSRange, id: ParagraphID)] {
+        paragraphs.indices.map { index in (NSRange(location: starts[index], length: paragraphs[index].text.length), paragraphs[index].id) }
+    }
+
+    /// Una copia indipendente del testo con le identità dei paragrafi, per comporre il PDF o stampare senza leggere il
+    /// deposito (che può cambiare mentre il pannello di salvataggio è aperto).
+    public var identifiedCopy: NSAttributedString {
+        let copy = NSMutableAttributedString(attributedString: self)
+        for span in paragraphSpans {
+            if span.range.length > 0 {
+                copy.addAttribute(.paragraphIdentity, value: span.id.persistent.uuidString, range: NSRange(location: span.range.location, length: 1))
+            } else if span.range.location > 0 {
+                copy.addAttribute(.finalParagraphIdentity, value: span.id.persistent.uuidString, range: NSRange(location: span.range.location - 1, length: 1))
+            }
+        }
+        return copy
+    }
+
     /// Il frammento degli appunti porta le identità dei soli capoversi interamente selezionati.
     public func identifiedFragment(in range: NSRange) -> NSAttributedString {
         let fragment = NSMutableAttributedString(attributedString: attributedSubstring(from: range))

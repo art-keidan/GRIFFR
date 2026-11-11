@@ -136,7 +136,7 @@ extension TypesettingSuite {
         private let options = LayoutOptions(appliesFontTracking: false, usesOpticalMargins: false, lineBreaking: .firstFit, lists: ListDefinition.builtIn)
 
         private func item(_ text: String, _ list: String?) -> Block {
-            .paragraph(Paragraph(list: list.map(ListItem.init(listName:)), inlines: [.text(TextRun(text, style: body))]))
+            .paragraph(Paragraph(list: list.map { ListItem(listName: $0) }, inlines: [.text(TextRun(text, style: body))]))
         }
 
         @Test("Nella pagina, voci ed esempi prendono segno e rientro dalla loro Lista")

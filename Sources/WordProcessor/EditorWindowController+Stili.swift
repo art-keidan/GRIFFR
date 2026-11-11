@@ -283,6 +283,132 @@ extension EditorWindowController {
         return TextStyling.listItem(in: storage, at: selection.range.location)
     }
 
+    /// La voce del paragrafo prima di quello in cui comincia la selezione: è la voce che il paragrafo potrebbe
+    /// continuare.
+    func previousListItem() -> ListItem? {
+        guard let storage = textStorage, storage.length > 0 else { return nil }
+        // Nel paragrafo vuoto finale il paragrafo prima è quello che finisce con l'ultimo a capo.
+        if selection.range.location >= storage.length { return TextStyling.listItem(in: storage, at: storage.length - 1) }
+        let paragraph = TextStyling.bodyParagraph(in: storage, at: selection.range.location)
+        guard paragraph.range.location > 0 else { return nil }
+        return TextStyling.listItem(in: storage, at: paragraph.range.location - 1)
+    }
+
+    /// Vero se il paragrafo in cui comincia la selezione è una voce e può continuare quella prima (o la continua già).
+    func canContinuePreviousItem() -> Bool {
+        guard let item = selectionListItem() else { return false }
+        if item.continuesPreviousItem { return true }
+        return previousListItem().map { item.belongsToSameItem(as: $0) } ?? false
+    }
+
+    /// Fa dei paragrafi selezionati un altro capoverso della voce prima (nessun segno, nessun numero) oppure, se già
+    /// la continuano, voci nuove.
+    @objc func toggleListContinuation(_ sender: Any?) {
+        guard let item = selectionListItem() else { return }
+        let continues = !item.continuesPreviousItem
+        guard !continues || canContinuePreviousItem() else { NSSound.beep(); return }
+        changeList(actionName: continues ? "Continue Previous Item" : "New Item") { current in
+            current.map { var updated = $0; updated.continuesPreviousItem = continues; return updated }
+        }
+    }
+
+    // MARK: Tratti di una Lista (ripartenze e riprese)
+
+    /// Il capoverso in cui comincia la selezione, se è una voce di una Lista con un nome e non continua la voce prima:
+    /// è il capoverso che può aprire o riprendere un tratto.
+    func selectionSequenceItem() -> (item: ListItem, range: NSRange)? {
+        guard let storage = textStorage, storage.length > 0, let item = selectionListItem(), let name = item.listName,
+              !item.continuesPreviousItem, settings.lists.contains(where: { $0.name == name }) else { return nil }
+        let range: NSRange
+        if selection.range.location >= storage.length, TextStyling.hasEmptyFinalParagraph(storage) {
+            range = NSRange(location: max(storage.length - 1, 0), length: min(1, storage.length))
+        } else {
+            range = TextStyling.bodyParagraph(in: storage, at: min(selection.range.location, storage.length - 1)).range
+        }
+        return (item, range)
+    }
+
+    var canStartSequence: Bool { selectionSequenceItem() != nil }
+
+    /// I tratti della Lista già cominciati prima del capoverso scelto, per il menu delle riprese. Le etichette sono il
+    /// testo della prima voce; l'identità è quella del capoverso che apre il tratto.
+    func earlierSequences(of name: String, before location: Int, in layout: DocumentLayout?) -> [(identity: UUID, label: String)] {
+        guard let layout, let storage = textStorage else { return [] }
+        return layout.sequences.filter { $0.listName == name && $0.start < location }.map { sequence in
+            var label = ""
+            if sequence.start < storage.length {
+                let paragraph = TextStyling.bodyParagraph(in: storage, at: sequence.start).range
+                label = (storage.string as NSString).substring(with: paragraph).replacingOccurrences(of: "\n", with: " ")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            if label.isEmpty { label = "…" }
+            if label.count > 60 { label = String(label.prefix(60)) + "…" }
+            return (sequence.identity, label)
+        }
+    }
+
+    /// Riparte la numerazione della Lista dal suo valore iniziale sul capoverso scelto: apre un tratto nuovo.
+    @objc func restartListNumbering(_ sender: Any?) { applyListSequenceStart() }
+
+    @discardableResult
+    func applyListSequenceStart() -> Bool {
+        guard let (item, _) = selectionSequenceItem(), let name = item.listName else { NSSound.beep(); return false }
+        let start = settings.lists.first { $0.name == name }?.start ?? 1
+        return changeSelectionListItem(actionName: "Restart Numbering") { current in
+            var updated = current
+            updated.sequenceStart = start
+            updated.sequenceResume = nil
+            return updated
+        }
+    }
+
+    /// Riprende il tratto che comincia con il capoverso `identity`: la numerazione continua da dove era arrivato.
+    @discardableResult
+    func applyListSequenceResume(from identity: UUID) -> Bool {
+        guard let (item, _) = selectionSequenceItem(), let name = item.listName else { return false }
+        guard currentLayout()?.sequences.contains(where: { $0.identity == identity && $0.listName == name }) == true else { return false }
+        return changeSelectionListItem(actionName: "Resume Numbering") { current in
+            var updated = current
+            updated.sequenceResume = identity
+            updated.sequenceStart = nil
+            return updated
+        }
+    }
+
+    /// Sceglie il tratto da riprendere fra quelli già cominciati: il testo della prima voce dice quale.
+    @objc func resumeListNumbering(_ sender: Any?) {
+        guard let (item, range) = selectionSequenceItem(), let name = item.listName else { NSSound.beep(); return }
+        let choices = earlierSequences(of: name, before: range.location, in: currentLayout() ?? pagesView.layout)
+        guard !choices.isEmpty else { NSSound.beep(); return }
+        if let chooseSequenceForTests { chooseSequenceForTests(choices.map(\.identity)); return }
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.messageText = "Resume Numbering"
+        alert.informativeText = "The sequence continues the numbering of the item chosen here. The items of that sequence, before and after this point, keep one numbering."
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 26), pullsDown: false)
+        for choice in choices { popup.addItem(withTitle: choice.label) }
+        alert.accessoryView = popup
+        alert.addButton(withTitle: "Resume")
+        alert.addButton(withTitle: "Cancel")
+        alert.beginSheetModal(for: window) { [weak self] response in
+            MainActor.assumeIsolated {
+                guard response == .alertFirstButtonReturn, let self, popup.indexOfSelectedItem >= 0 else { return }
+                _ = self.applyListSequenceResume(from: choices[popup.indexOfSelectedItem].identity)
+            }
+        }
+    }
+
+    /// Cambia l'elenco del solo capoverso scelto (annullabile): le scelte che valgono per un'apertura di tratto.
+    @discardableResult
+    func changeSelectionListItem(actionName: String, _ transform: (ListItem) -> ListItem) -> Bool {
+        guard let storage = textStorage, storage.length > 0, let item = selectionListItem(), item.listName != nil else { return false }
+        endUndoStep(next: .none)
+        let location = selection.range.location
+        writeStore(actionName: actionName) { TextStyling.setListItem(in: $0, at: location, transform) }
+        syncListTypingAttributes()
+        return true
+    }
+
     /// Cambia l'elenco dei paragrafi toccati dalla selezione (annullabile).
     @discardableResult
     func changeList(actionName: String, _ transform: (ListItem?) -> ListItem?) -> Bool {

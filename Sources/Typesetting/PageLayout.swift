@@ -426,6 +426,9 @@ public struct DocumentLayout {
     /// nota o figura numerata (chiave: la posizione del richiamo). Per l'albero degli oggetti.
     public var listMarks: [Int: String] = [:]
     public var noteMarks: [Int: String] = [:]
+    /// I tratti delle Liste con un nome, nell'ordine in cui cominciano: la loro identità è quella del capoverso che
+    /// li apre, e serve a riprenderli.
+    public var sequences: [ListSequence] = []
 }
 
 /// Le scelte tipografiche che valgono per tutto il documento.
@@ -527,11 +530,32 @@ public enum PageLayout {
         layout(source, setup: setup, options: LayoutOptions(appliesFontTracking: appliesFontTracking, usesOpticalMargins: false, lineBreaking: .firstFit))
     }
 
+    /// Le identità dei capoversi del testo, per posizione. Il testo dell'editor può essere un deposito, che le tiene nel
+    /// suo modello e non nei caratteri; una copia le porta negli attributi (`.paragraphIdentity`,
+    /// `.finalParagraphIdentity`).
+    private static func paragraphIdentities(in text: NSAttributedString) -> [Int: UUID] {
+        var result: [Int: UUID] = [:]
+        if let store = text as? DocumentStore {
+            for span in store.paragraphSpans { result[span.range.location] = span.id.persistent }
+            return result
+        }
+        let all = NSRange(location: 0, length: text.length)
+        text.enumerateAttribute(.paragraphIdentity, in: all) { value, range, _ in
+            if let value = value as? String, let id = UUID(uuidString: value) { result[range.location] = id }
+        }
+        text.enumerateAttribute(.finalParagraphIdentity, in: all) { value, range, _ in
+            if let value = value as? String, let id = UUID(uuidString: value) { result[range.location + range.length] = id }
+        }
+        return result
+    }
+
     public static func layout(_ source: NSAttributedString, setup: PageSetup = .a4, options originalOptions: LayoutOptions) -> DocumentLayout {
         var options = originalOptions
         let compiled = options.styles.compilingStyleRules()
         options.styles = compiled.sheet
         options.rules = compiled.rules
+        // Le identità dei capoversi si leggono prima: la preparazione del testo toglie i loro attributi.
+        let identities = paragraphIdentities(in: source)
         // Le regole danno il loro aspetto a una copia del testo, prima della spaziatura `trak`, che dipende dal corpo.
         var graphite = (graphite: 0, coreText: 0)
         let text = prepared(Rules.applied(to: source, sheet: options.styles, resolver: FontRoleResolver(table: options.fontRoles)), appliesFontTracking: options.appliesFontTracking,
@@ -539,11 +563,11 @@ public enum PageLayout {
         // Le note numerate pagina per pagina: la prima composizione suppone che ogni nota stia nella pagina dove comincia
         // il suo paragrafo; se non è così, si ricompone con le pagine vere. Il numero cambia la larghezza del richiamo,
         // e quindi forse gli a capo: si ripete finché le pagine non cambiano più, ma non all'infinito.
-        var pass = layoutPass(text, setup: setup, options: options, notePages: nil, pageCount: nil)
+        var pass = layoutPass(text, setup: setup, options: options, notePages: nil, pageCount: nil, identities: identities)
         let pageLists = options.floatStyles.compactMap(\.listName).filter { name in options.lists.first { $0.name == name }?.parent == .page }
         if !pageLists.isEmpty {
             for _ in 0..<3 where pass.assumedNotePages != pass.notePages {
-                pass = layoutPass(text, setup: setup, options: options, notePages: pass.notePages, pageCount: nil)
+                pass = layoutPass(text, setup: setup, options: options, notePages: pass.notePages, pageCount: nil, identities: identities)
             }
         }
         // Le presentazioni possono cambiare gli a capo. Le letture di pagina usano le posizioni
@@ -567,7 +591,7 @@ public enum PageLayout {
             count = total
             referenceValues = values
             pass = layoutPass(text, setup: setup, options: options, notePages: pass.notePages, pageCount: count,
-                              pageNumbers: resolved, referenceValues: referenceValues)
+                              pageNumbers: resolved, referenceValues: referenceValues, identities: identities)
         }
         var layout = pass.layout
         layout.graphiteFallbacks = graphite.coreText
@@ -617,7 +641,7 @@ public enum PageLayout {
     /// `knownPages` indica la pagina supposta di ciascun richiamo di nota.
     private static func layoutPass(_ text: NSAttributedString, setup: PageSetup, options: LayoutOptions, notePages knownPages: [Int: Int]?,
                                    pageCount: Int?, pageNumbers assumedPageNumbers: PresentationPageNumbers = PresentationPageNumbers(),
-                                   referenceValues: [ObjectReference: String] = [:])
+                                   referenceValues: [ObjectReference: String] = [:], identities: [Int: UUID] = [:])
         -> (layout: DocumentLayout, assumedNotePages: [Int: Int], notePages: [Int: Int], pageNumbers: PresentationPageNumbers) {
         let string = text.string as NSString
         var column = setup.textRect
@@ -823,6 +847,12 @@ public enum PageLayout {
         var listMarks: [Int: String] = [:]
         var noteMarks: [Int: String] = [:]
         var numbering = ListNumbering()
+        // L'ultima voce incontrata nel corpo: dice se il paragrafo che segue è un altro capoverso della stessa voce.
+        var lastListItem: ListItem?
+        // I tratti delle Liste con un nome incontrati fin qui, per identità: serve alla vista (il menu delle riprese)
+        // e all'ispettore.
+        var sequences: [ListSequence] = []
+        var sequenceIndex: [UUID: Int] = [:]
         // Le Liste con un nome: una numerazione per il testo e una a parte per le note, perché una nota non
         // interrompe l'elenco in cui sta.
         var named = ListNumberer(definitions: options.lists)
@@ -857,25 +887,55 @@ public enum PageLayout {
             noticeOverflow(mark, in: noteList)
             return mark.text
         }
+        /// Vero se `item` appartiene alla stessa voce di `previous`: la stessa Lista, oppure lo stesso segno allo
+        /// stesso livello per un elenco senza nome.
+        func continuesSameItem(_ previous: ListItem, _ item: ListItem) -> Bool {
+            item.belongsToSameItem(as: previous)
+        }
+        /// La voce come si compone, con le misure risolte: quelle proprie, poi quelle della Lista. Il livello di una
+        /// voce di Lista è la profondità della Lista.
+        func shownItem(_ item: ListItem, marker: String) -> ListItem {
+            guard let name = item.listName else { return item }
+            var shown = ListItem(marker: marker, level: named.depth(of: name) + 1)
+            let measures = item.resolvedMeasures(in: options.lists)
+            shown.textIndent = measures.textIndent
+            shown.markerPosition = measures.markerPosition
+            return shown
+        }
         /// Il segno da comporre davanti a un paragrafo, e la voce da usare per il rientro; `nil` se il paragrafo non
-        /// è una voce. Fa avanzare le numerazioni.
-        func listMarker(for item: ListItem?) -> (item: ListItem, text: String)? {
-            if let item, let name = item.listName {
+        /// è una voce. `marker` è `nil` per un capoverso che continua la voce precedente: ha i suoi rientri e nessun
+        /// segno. Fa avanzare le numerazioni. `identity` è l'identità del capoverso: apre il tratto della Lista, o
+        /// dice quale tratto riprende.
+        func listedParagraph(_ item: ListItem?, identity: UUID?, start: Int) -> (item: ListItem, marker: String?)? {
+            guard let item else {
                 _ = numbering.next(nil)
-                guard let mark = named.next(name) else {
+                named.interrupt()
+                return nil
+            }
+            // Un capoverso che continua la voce precedente non consuma un numero e non interrompe nessuna Lista.
+            if item.continuesPreviousItem, let previous = lastListItem, continuesSameItem(previous, item) {
+                return (item.listName == nil ? item : shownItem(item, marker: ""), nil)
+            }
+            if let name = item.listName {
+                _ = numbering.next(nil)
+                guard let advanced = named.advance(name, id: identity, start: item.sequenceStart, resume: item.sequenceResume) else {
                     named.interrupt()
                     return nil
                 }
+                let mark = advanced.mark
                 noticeOverflow(mark, in: name)
-                // Le misure: quelle della voce, poi quelle della Lista; il livello è la profondità della Lista.
-                var shown = ListItem(marker: mark.text, level: named.depth(of: name) + 1)
-                let measures = item.resolvedMeasures(in: options.lists)
-                shown.textIndent = measures.textIndent
-                shown.markerPosition = measures.markerPosition
-                return (shown, mark.text)
+                if let index = sequenceIndex[advanced.segment] {
+                    sequences[index].lastNumber = mark.value
+                    sequences[index].items += 1
+                } else {
+                    sequenceIndex[advanced.segment] = sequences.count
+                    sequences.append(ListSequence(identity: advanced.segment, listName: name, start: start,
+                                                  firstNumber: mark.value, lastNumber: mark.value, items: 1))
+                }
+                return (shownItem(item, marker: mark.text), mark.text)
             }
             named.interrupt()
-            guard let item, let text = numbering.next(item) else {
+            guard let text = numbering.next(item) else {
                 _ = numbering.next(nil)
                 return nil
             }
@@ -1684,13 +1744,15 @@ public enum PageLayout {
         /// Fotografa lo stato dell'impaginazione; la funzione restituita lo rimette com'era.
         func checkpoint() -> () -> Void {
             let saved = (column, pages, openSections, pageNumbering, pageValue, runningActive, runningFirst, pageRunning, pageSections, openingPages)
-            let savedText = (y, location, noteNumber, notes, listMarks, noteMarks, numbering, named, noteNumberer, floatLists, overflowing)
+            let savedText = (y, location, noteNumber, notes, listMarks, noteMarks, numbering, named, noteNumberer, floatLists, overflowing, lastListItem)
+            let savedSequences = (sequences, sequenceIndex)
             let savedNotes = (assumedNotePages, notePages, pageNotes, carried, marginBoxes, marginConflicts, endNotes)
             let savedFigures = (deferredFigures, hereFigures, bottomFigures, topFigureCount, pageFigureCount)
             let savedRest = (previousParagraphStyle, finalParagraphPlaced, layoutRulesApplied, pageStarts)
             return {
                 (column, pages, openSections, pageNumbering, pageValue, runningActive, runningFirst, pageRunning, pageSections, openingPages) = saved
-                (y, location, noteNumber, notes, listMarks, noteMarks, numbering, named, noteNumberer, floatLists, overflowing) = savedText
+                (y, location, noteNumber, notes, listMarks, noteMarks, numbering, named, noteNumberer, floatLists, overflowing, lastListItem) = savedText
+                (sequences, sequenceIndex) = savedSequences
                 (assumedNotePages, notePages, pageNotes, carried, marginBoxes, marginConflicts, endNotes) = savedNotes
                 (deferredFigures, hereFigures, bottomFigures, topFigureCount, pageFigureCount) = savedFigures
                 (previousParagraphStyle, finalParagraphPlaced, layoutRulesApplied, pageStarts) = savedRest
@@ -1830,8 +1892,10 @@ public enum PageLayout {
             // Un titolo di sezione senza un elenco suo è un elemento della Lista che numera il suo ruolo, se c'è.
             if item == nil, let sectionMark, let numbering = named.list(numbering: sectionMark.role) { item = ListItem(listName: numbering) }
             var marker: ComposedMarker?
-            let listed = listMarker(for: item)
-            if let markerText = listed?.text { listMarks[paragraphRange.location] = markerText }
+            let listed = listedParagraph(item, identity: identities[paragraphRange.location], start: paragraphRange.location)
+            // La voce che il paragrafo dopo può continuare.
+            lastListItem = item
+            if let markerText = listed?.marker { listMarks[paragraphRange.location] = markerText }
             if let (item, markerText) = listed {
                 // Il segno prende l'aspetto del primo carattere del testo della voce (non di una nota che la apre).
                 var first = paragraphRange.location
@@ -2260,7 +2324,7 @@ public enum PageLayout {
             var style = (string.length > 0 ? text.attribute(.paragraphStyle, at: string.length - 1, effectiveRange: nil) as? NSParagraphStyle : nil) ?? .default
             // Anche una voce di elenco ancora vuota mostra il suo segno.
             var marker: ComposedMarker?
-            if let (item, markerText) = listMarker(for: TextStyling.finalParagraphListItem(in: text)) {
+            if let (item, markerText) = listedParagraph(TextStyling.finalParagraphListItem(in: text), identity: identities[string.length], start: string.length) {
                 (style, marker) = listLayout(item: item, markerText: markerText, attributes: text.attributes(at: string.length - 1, effectiveRange: nil), style: style)
             }
             let ascent = CTFontGetAscent(font), descent = CTFontGetDescent(font), leading = CTFontGetLeading(font)
@@ -2408,6 +2472,7 @@ public enum PageLayout {
         layout.layoutRulesApplied = layoutRulesApplied
         layout.listMarks = listMarks
         layout.noteMarks = noteMarks
+        layout.sequences = sequences
         return (layout, assumedNotePages, notePages, pageNumbers)
     }
 
@@ -2737,25 +2802,31 @@ public enum PageLayout {
     /// Dispone una voce di elenco: ogni livello rientra di due volte il corpo, il testo comincia alla fine del
     /// rientro e il segno gli sta davanti, allineato a destra (così i punti di «9.» e «10.» cadono uno sotto
     /// l'altro) e staccato di mezzo corpo. Un segno più largo del rientro comincia all'inizio del livello e
-    /// sposta a destra la sola prima riga.
+    /// sposta a destra la sola prima riga. Un capoverso che continua la voce precedente ha gli stessi rientri e
+    /// nessun segno: `markerText` è `nil`.
     ///
     /// Il segno prende font, corpo e funzioni dal primo carattere della voce.
-    private static func listLayout(item: ListItem, markerText: String, attributes: [NSAttributedString.Key: Any], style: NSParagraphStyle)
-        -> (style: NSParagraphStyle, marker: ComposedMarker) {
-        var markerAttributes = attributes
-        for key in [NSAttributedString.Key.footnote, .paragraphStyle, .listItem, .finalParagraphList] { markerAttributes[key] = nil }
-        let line = CTLineCreateWithAttributedString(NSAttributedString(string: markerText, attributes: markerAttributes))
-        // La spaziatura aggiunta dopo l'ultimo glifo non fa parte della larghezza visibile del segno.
-        let width = CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil)) - CGFloat((markerAttributes[.kern] as? NSNumber)?.doubleValue ?? 0)
+    private static func listLayout(item: ListItem, markerText: String?, attributes: [NSAttributedString.Key: Any], style: NSParagraphStyle)
+        -> (style: NSParagraphStyle, marker: ComposedMarker?) {
         // Misure fisse in punti (scelte di Artemij Keidan, 17 ottobre 2026): dove comincia il testo e dove finisce il segno,
         // due posizioni indipendenti; il segno si allinea a destra sulla sua. Senza misure proprie, il testo a 24 pt per
         // livello e il segno che finisce 6 pt prima, come prima a corpo 12.
         let measures = item.resolvedMeasures(in: [])
         let textStart = style.headIndent + CGFloat(measures.textIndent)
-        let markerEnd = style.headIndent + CGFloat(measures.markerPosition)
-        let x = max(markerEnd - width, 0)
         let result = style.mutableCopy() as! NSMutableParagraphStyle
         result.headIndent = textStart
+        guard let markerText, !markerText.isEmpty else {
+            // Un altro capoverso della voce: il testo resta rientrato come la voce, ma senza segno.
+            result.firstLineHeadIndent = textStart
+            return (result, nil)
+        }
+        var markerAttributes = attributes
+        for key in [NSAttributedString.Key.footnote, .paragraphStyle, .listItem, .finalParagraphList] { markerAttributes[key] = nil }
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string: markerText, attributes: markerAttributes))
+        // La spaziatura aggiunta dopo l'ultimo glifo non fa parte della larghezza visibile del segno.
+        let width = CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil)) - CGFloat((markerAttributes[.kern] as? NSNumber)?.doubleValue ?? 0)
+        let markerEnd = style.headIndent + CGFloat(measures.markerPosition)
+        let x = max(markerEnd - width, 0)
         // Un segno che arriva oltre l'inizio del testo spinge solo la prima riga.
         result.firstLineHeadIndent = max(textStart, x + width + CGFloat(ListItem.minimumMarkerSpace))
         return (result, ComposedMarker(line: line, x: x))
