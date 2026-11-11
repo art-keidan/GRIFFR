@@ -57,7 +57,7 @@ public struct HeadingComposition: Hashable, Sendable, Codable {
 
     /// Vero se una parte «risultato» legge il numero delle pagine, che si sa solo a composizione finita.
     var readsPageCount: Bool {
-        parts.contains { if case .result(let formula, _, _, _, _) = $0 { formula.reading == .pageCount } else { false } }
+        parts.contains { if case .result(let formula, _, _, _, _) = $0 { formula.presentationRead == .pageCount } else { false } }
     }
 
     /// Un problema della testata, se c'è: più di un titolo, misure non valide.
@@ -108,6 +108,22 @@ public enum HeadingPart: Hashable, Sendable, Codable {
     case rule(thickness: Double, length: Double?, alignment: HeadingAlignment)
     /// Uno spazio verticale.
     case space(Double)
+
+    /// Il testo della parte, nel contesto del titolo e della pagina che la ospita.
+    public func presentationText(in context: FieldContext, openedNumber: String?) -> String? {
+        let write: PresentationWrite?
+        switch self {
+        case .label(let text, _, _, _):
+            write = PresentationWrite(expression: .literal(text))
+        case .number(let prefix, _, _, _), .numberBeside(let prefix, _, _, _):
+            write = PresentationWrite(expression: .read(.openedSectionNumber), prefix: prefix)
+        case .result(let formula, let prefix, _, _, _):
+            write = formula.presentationWrite(prefix: prefix)
+        case .title, .rule, .space:
+            return nil
+        }
+        return write?.text(in: context, openedNumber: openedNumber)
+    }
 
     public var title: String {
         switch self {

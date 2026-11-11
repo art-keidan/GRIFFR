@@ -83,6 +83,35 @@ struct WrittenResultTests {
         #expect(lines.first?.range.location == start)
     }
 
+    @Test("Un risultato scritto può leggere il totale delle pagine da solo")
+    func standalonePageCount() throws {
+        let write = WrittenResult(formula: .documentPageCount, place: .after, prefix: " (totale ", suffix: ")")
+        var source = document([write])
+        source.pageSetup = PageSetup(paperSize: CGSize(width: 280, height: 100), top: 20, bottom: 20, left: 20, right: 28, facing: true)
+        let xml = DocumentFormat.string(for: source)
+        let composed = layout(try DocumentFormat.document(from: xml))
+        #expect(composed.pages.count > 1)
+        let rendered = try pdfText(composed)
+        #expect(rendered.components(separatedBy: "(totale \(composed.pages.count))").count == 3)
+        #expect(!composed.text.string.contains("(totale"))
+    }
+
+    @Test("Se il paragrafo slitta di pagina, il risultato scritto legge dove inizia davvero")
+    func paragraphMovesToNextPage() throws {
+        let write = WrittenResult(formula: .pageContainingNumber, place: .after, prefix: " (p. ", suffix: ")")
+        var sheet = StyleSheet.builtIn
+        sheet.styles.append(NamedStyle(name: "Rimando", target: .paragraph, basedOn: "Body", writes: [write]))
+        var source = Document(styles: sheet, blocks: [
+            .paragraph(Paragraph(inlines: [.text(TextRun("Prima", style: body))])),
+            .paragraph(Paragraph(styleName: "Rimando", inlines: [.text(TextRun("Seconda", style: body))]))
+        ])
+        source.pageSetup = PageSetup(paperSize: CGSize(width: 280, height: 62), top: 20, bottom: 20, left: 20, right: 28, facing: true)
+        let composed = layout(source)
+        let index = (composed.text.string as NSString).range(of: "Seconda").location
+        #expect(composed.caret(at: index)?.page == 1)
+        #expect(try pdfText(composed).contains("Seconda (p. 2)"))
+    }
+
     @Test("Le azioni si salvano nel formato 16 e rileggono uguali; le versioni di prima non le accettano")
     func format() throws {
         let writes = [WrittenResult(formula: .sectionContainingNumber(role: "chapter"), place: .before, prefix: "§ ", suffix: " ", style: "Emphasis"),

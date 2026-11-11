@@ -214,20 +214,25 @@ public struct FieldFormula: Hashable, Sendable {
 
     // MARK: Valore
 
-    /// Il testo che la formula scrive, in un punto della composizione. Una catena che non dà risultato scrive niente.
+    /// Traduce la catena salvata in una lettura tipizzata.
+    var presentationRead: PresentationRead? {
+        guard problem == nil else { return nil }
+        switch (origin, steps.first, reading) {
+        case (.document, nil, .pageCount): return .pageCount
+        case (.position, .containingPage?, .number): return .pageNumber
+        case (.position, .containingSection(let role)?, .title): return .sectionTitle(role: role)
+        case (.position, .containingSection(let role)?, .number): return .sectionNumber(role: role)
+        default: return nil
+        }
+    }
+
+    func presentationWrite(prefix: String = "", suffix: String = "") -> PresentationWrite? {
+        presentationRead.map { PresentationWrite(expression: .read($0), prefix: prefix, suffix: suffix) }
+    }
+
+    /// Il testo che la formula scrive nel punto della composizione.
     public func value(in context: FieldContext) -> String {
-        guard problem == nil else { return "" }
-        var section: FieldContext.Section?
-        for step in steps {
-            if case .containingSection(let role) = step { section = context.sections.last { $0.role == role } }
-        }
-        switch (lastSubject, reading) {
-        case (.document?, .pageCount): return context.pageCount
-        case (.page?, .number): return context.pageNumber
-        case (.section?, .title): return section?.title ?? ""
-        case (.section?, .number): return section?.number ?? ""
-        default: return ""
-        }
+        presentationWrite()?.text(in: context) ?? ""
     }
 }
 
@@ -282,7 +287,11 @@ public struct FieldContext: Sendable {
 extension DocumentLayout {
     /// Ciò che un campo nella posizione `index` legge in questa composizione: per l'anteprima del suo editor.
     public func fieldContext(at index: Int) -> FieldContext {
-        let page = locatedLine(for: index, affinity: .downstream)?.page ?? 0
+        // Un campo può cadere al confine fra righe: si cerca la prima pagina che lo disegna.
+        let fieldPage = (0..<text.length).contains(index) && text.attribute(.field, at: index, effectiveRange: nil) != nil
+            ? pages.firstIndex { $0.fieldRects.contains { $0.location == index } }
+            : nil
+        let page = fieldPage ?? locatedLine(for: index, affinity: .downstream)?.page ?? 0
         let sections = SectionEditing.enclosing(in: text, at: index).map { title in
             FieldContext.Section(role: title.mark.role, title: SectionEditing.titleText(of: title, in: text), number: listMarks[title.range.location])
         }

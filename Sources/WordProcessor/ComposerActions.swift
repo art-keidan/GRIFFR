@@ -176,9 +176,13 @@ extension ComposerBoardModel {
     }
 
     /// Il risultato di una formula nel campione del compositore: pagina 1, e ogni sezione con il titolo del campione.
+    var sampleFieldContext: FieldContext {
+        FieldContext(pageNumber: "1", pageCount: "1",
+                     sections: sectionRoles.map { FieldContext.Section(role: $0, title: sample, number: "1") })
+    }
+
     func sampleResult(_ formula: FieldFormula) -> String {
-        formula.value(in: FieldContext(pageNumber: "1", pageCount: "1",
-                                       sections: sectionRoles.map { FieldContext.Section(role: $0, title: sample, number: "1") }))
+        formula.value(in: sampleFieldContext)
     }
 
     /// L'editor della catena di una parte «risultato»: lo stesso dei campi, con il risultato nel campione. OK scrive la
@@ -267,8 +271,9 @@ extension ComposerBoardModel {
     /// Il campione con ciò che lo stile scrive prima e dopo il testo, come nel documento.
     func writtenSample(_ style: String) -> String {
         let writes = sheet.writtenResults(ofParagraphStyle: style)
+        let context = sampleFieldContext
         func text(_ place: WrittenResult.Place) -> String {
-            writes.filter { $0.place == place }.map { $0.text(for: sampleResult($0.formula)) }.joined()
+            writes.filter { $0.place == place }.map { $0.text(in: context) }.joined()
         }
         return text(.before) + sample + text(.after)
     }

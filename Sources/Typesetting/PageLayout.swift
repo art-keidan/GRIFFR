@@ -545,21 +545,55 @@ public enum PageLayout {
                 pass = layoutPass(text, setup: setup, options: options, notePages: pass.notePages, pageCount: nil)
             }
         }
-        // Un campo con il numero delle pagine: lo si sa solo a composizione finita, e scriverlo può cambiarlo.
-        if usesPageCount(text) || options.styles.styles.contains(where: { $0.heading?.readsPageCount == true }) {
-            var count: Int?
-            for _ in 0..<3 where count != pass.layout.pages.count {
-                count = pass.layout.pages.count
-                pass = layoutPass(text, setup: setup, options: options, notePages: pass.notePages, pageCount: count)
-            }
+        // Le presentazioni possono cambiare gli a capo. Le letture di pagina usano le posizioni
+        // osservate nel passaggio precedente, anche quando il numero totale di pagine non cambia.
+        let readsPageCount = usesPageCount(text) || options.styles.styles.contains {
+            $0.heading?.readsPageCount == true || $0.writes.contains { $0.formula.presentationRead == .pageCount }
+        }
+        var count: Int?
+        for _ in 0..<3 {
+            let resolved = pass.pageNumbers.resolved(in: pass.layout)
+            let total = readsPageCount ? pass.layout.pages.count : nil
+            guard count != total || resolved != pass.pageNumbers else { break }
+            count = total
+            pass = layoutPass(text, setup: setup, options: options, notePages: pass.notePages, pageCount: count, pageNumbers: resolved)
         }
         var layout = pass.layout
         layout.graphiteFallbacks = graphite.coreText
         return layout
     }
 
-    /// Una composizione completa. `notePages` dà, per ogni nota (chiave: la posizione del suo richiamo), la pagina
-    /// in cui la si suppone; restituisce le pagine supposte e quelle in cui le note sono finite davvero.
+    private struct PresentationPageNumbers: Equatable {
+        var fields: [Int: String] = [:]
+        var paragraphs: [Int: String] = [:]
+
+        func resolved(in layout: DocumentLayout) -> Self {
+            var result = self
+            var remainingFields = Set(fields.keys)
+            var remainingParagraphs = Set(paragraphs.keys)
+            for page in layout.pages {
+                if remainingFields.isEmpty && remainingParagraphs.isEmpty { break }
+                if !remainingFields.isEmpty {
+                    for field in page.fieldRects where remainingFields.remove(field.location) != nil {
+                        result.fields[field.location] = page.number
+                    }
+                }
+                if !remainingParagraphs.isEmpty {
+                    for line in page.lines where !line.isNote && remainingParagraphs.remove(line.paragraphLocation) != nil {
+                        result.paragraphs[line.paragraphLocation] = page.number
+                    }
+                }
+            }
+            // Una numerazione senza testo può lasciare un campo senza glifi.
+            for location in remainingFields where fields[location] == "" {
+                if let page = layout.locatedLine(for: location, affinity: .downstream)?.page {
+                    result.fields[location] = layout.pages[page].number
+                }
+            }
+            return result
+        }
+    }
+
     /// Vero se nel testo c'è un campo con il numero delle pagine.
     private static func usesPageCount(_ text: NSAttributedString) -> Bool {
         var found = false
@@ -569,9 +603,10 @@ public enum PageLayout {
         return found
     }
 
+    /// `knownPages` indica la pagina supposta di ciascun richiamo di nota.
     private static func layoutPass(_ text: NSAttributedString, setup: PageSetup, options: LayoutOptions, notePages knownPages: [Int: Int]?,
-                                   pageCount: Int?)
-        -> (layout: DocumentLayout, assumedNotePages: [Int: Int], notePages: [Int: Int]) {
+                                   pageCount: Int?, pageNumbers assumedPageNumbers: PresentationPageNumbers = PresentationPageNumbers())
+        -> (layout: DocumentLayout, assumedNotePages: [Int: Int], notePages: [Int: Int], pageNumbers: PresentationPageNumbers) {
         let string = text.string as NSString
         var column = setup.textRect
         var pages = [LaidOutPage()]
@@ -579,6 +614,12 @@ public enum PageLayout {
         // dispari e pari si ereditano, la prima pagina vale solo per la sezione che la indica).
         let namedTypes = Dictionary(options.pageTypes.map { ($0.name, $0.setup) }, uniquingKeysWith: { first, _ in first })
         var openSections: [(declared: Int, mark: SectionMark, title: String, number: String?)] = []
+        var pageNumbers = PresentationPageNumbers()
+        func fieldContext() -> FieldContext {
+            FieldContext(pageNumber: pages[pages.count - 1].number,
+                         pageCount: pageCount.map(String.init) ?? "?",
+                         sections: openSections.map { FieldContext.Section(role: $0.mark.role, title: $0.title, number: $0.number) })
+        }
         // I paragrafi che dopo una sezione interna tornano a quella esterna (vuoto: fuori da ogni sezione), solo quelli che
         // contano: da lì valgono di nuovo il tipo di pagina, le testatine e i campi della sezione esterna. Il testo continua
         // sulla stessa pagina.
@@ -645,20 +686,21 @@ public enum PageLayout {
                 return HeadingPiece(kind: .text(line, descent: descent, leading: leading, width: width),
                                     height: max(natural, CGFloat(minHeight ?? 0)), alignment: alignment)
             }
+            let context = fieldContext()
             func composedPiece(_ part: HeadingPart) -> HeadingPiece? {
                 switch part {
-                case .label(let string, let style, let alignment, let minHeight): text(string, style, alignment, minHeight)
-                // Una sezione senza numero: la parte sparisce con la sua fascia.
-                case .number(let prefix, let style, let alignment, let minHeight): number.isEmpty ? nil : text(prefix + number, style, alignment, minHeight)
-                // «Scrivi risultato»: la formula nel punto del titolo, sulla pagina in corso. Vuoto: la parte sparisce.
-                case .result(let formula, let prefix, let style, let alignment, let minHeight):
-                    { value in value.isEmpty ? nil : text(prefix + value, style, alignment, minHeight) }(
-                        formula.value(in: FieldContext(pageNumber: pages[pages.count - 1].number, pageCount: pageCount.map(String.init) ?? "?",
-                                                       sections: openSections.map { FieldContext.Section(role: $0.mark.role, title: $0.title, number: $0.number) })))
-                case .title, .numberBeside: nil
+                case .label(_, let style, let alignment, let minHeight),
+                     .number(_, let style, let alignment, let minHeight),
+                     .result(_, _, let style, let alignment, let minHeight):
+                    return part.presentationText(in: context, openedNumber: number).map { text($0, style, alignment, minHeight) }
+                case .numberBeside(_, let style, let side, _):
+                    return part.presentationText(in: context, openedNumber: number).map { text($0, style, side, nil) }
+                case .title:
+                    return nil
                 case .rule(let thickness, let length, let alignment):
-                    HeadingPiece(kind: .rule(length: length.map { CGFloat($0) }), height: CGFloat(thickness), alignment: alignment)
-                case .space(let length): HeadingPiece(kind: .space, height: CGFloat(length), alignment: .left)
+                    return HeadingPiece(kind: .rule(length: length.map { CGFloat($0) }), height: CGFloat(thickness), alignment: alignment)
+                case .space(let length):
+                    return HeadingPiece(kind: .space, height: CGFloat(length), alignment: .left)
                 }
             }
             return parts.enumerated().compactMap { offset, part -> HeadingPiece? in
@@ -728,9 +770,18 @@ public enum PageLayout {
             }
         }
         /// Il testo di un campo, nel punto della composizione in cui si è.
-        func fieldText(_ field: Field) -> String {
-            field.asFormula.value(in: FieldContext(pageNumber: pages[pages.count - 1].number, pageCount: pageCount.map(String.init) ?? "?",
-                                                   sections: openSections.map { FieldContext.Section(role: $0.mark.role, title: $0.title, number: $0.number) }))
+        func fieldText(_ field: Field, at location: Int) -> String {
+            guard let write = field.asFormula.presentationWrite() else { return "" }
+            var context = fieldContext()
+            if case .read(.pageNumber) = write.expression {
+                let style = text.attribute(.footnote, at: location, effectiveRange: nil) as? String
+                // Le testatine ripetute vengono risolte di nuovo sulla pagina di ciascuna copia.
+                if !options.floatStyles.contains(where: { $0.name == style && $0.placement.isRunning }) {
+                    context.pageNumber = assumedPageNumbers.fields[location] ?? context.pageNumber
+                    pageNumbers.fields[location] = context.pageNumber
+                }
+            }
+            return write.text(in: context) ?? ""
         }
         /// Il tipo della pagina `number`: il nome (`nil` per il predefinito) e le misure.
         func pageType(number: Int, sectionFirst: Bool) -> (name: String?, setup: PageSetup) {
@@ -1761,11 +1812,6 @@ public enum PageLayout {
                 named.passSection(role: sectionMark.role)
                 noteNumberer.passSection(role: sectionMark.role)
             }
-            // Il corpo del paragrafo, con i numeri di richiamo al posto delle note, e le note da comporre a parte.
-            var body = composedBody(of: text.attributedSubstring(from: paragraphRange), location: paragraphRange.location, field: fieldText,
-                                    floatStyles: options.floatStyles, noteMark: noteMark)
-            notes.append(contentsOf: body.notes.map(\.range))
-            endNotes += body.notes.filter { $0.style.placement == .documentEnd }.map { ($0, style) }
             // Una voce di elenco: il testo rientra secondo il livello, e il segno va accanto alla prima riga.
             var item = (text.attribute(.listItem, at: paragraphRange.location, effectiveRange: nil) as? String).flatMap(ListItem.init(encoded:))
             // Un titolo di sezione senza un elenco suo è un elemento della Lista che numera il suo ruolo, se c'è.
@@ -1779,10 +1825,6 @@ public enum PageLayout {
                 while first < NSMaxRange(paragraphRange) - 1, text.attribute(.footnote, at: first, effectiveRange: nil) != nil { first += 1 }
                 (style, marker) = listLayout(item: item, markerText: markerText, attributes: text.attributes(at: first, effectiveRange: nil), style: style)
             }
-            var bodyText = body.text
-            var lineRules = bodyText.length > 0 ? bodyText.attribute(.lineRules, at: 0, effectiveRange: nil) as? LineRuleSpec : nil
-            // Le regole che dipendono dalla composizione: si compone il paragrafo al naturale, si controllano le condizioni
-            // (e se comincia una pagina), e si applicano quelle che valgono.
             // Il titolo di una sezione che comincia su una pagina nuova (o dispari): si apre la pagina, e il titolo apre una
             // sequenza, come l'inizio del documento.
             if let sectionMark {
@@ -1791,6 +1833,15 @@ public enum PageLayout {
                 let titleText = BodyText(text, paragraph: paragraphRange).string.trimmingCharacters(in: .whitespacesAndNewlines)
                 openSections.append((sectionMark.depth, sectionMark, titleText, listMarks[paragraphRange.location]))
             }
+            // Il corpo del paragrafo, con i numeri di richiamo al posto delle note, e le note da comporre a parte.
+            var body = composedBody(of: text.attributedSubstring(from: paragraphRange), location: paragraphRange.location, field: fieldText,
+                                    floatStyles: options.floatStyles, noteMark: noteMark)
+            notes.append(contentsOf: body.notes.map(\.range))
+            endNotes += body.notes.filter { $0.style.placement == .documentEnd }.map { ($0, style) }
+            var bodyText = body.text
+            var lineRules = bodyText.length > 0 ? bodyText.attribute(.lineRules, at: 0, effectiveRange: nil) as? LineRuleSpec : nil
+            // Le regole che dipendono dalla composizione: si compone il paragrafo al naturale, si controllano le condizioni
+            // (e se comincia una pagina), e si applicano quelle che valgono.
             if sectionStart != .continuous {
                 if !pageIsEmpty { startNewPage(sectionFirst: true) }
                 // La pagina dispari: se questa è pari, resta bianca (con il tipo delle pagine normali) e si va alla prossima.
@@ -1820,7 +1871,13 @@ public enum PageLayout {
             // la pagina e le sezioni del paragrafo sono già quelle giuste.
             let writes = options.styles.writtenResults(ofParagraphStyle: paragraphStyleName)
             if !writes.isEmpty {
-                body = writingResults(writes, into: body, value: { fieldText(.formula($0)) }, sheet: options.styles,
+                let location = paragraphRange.location
+                var context = fieldContext()
+                if writes.contains(where: { $0.formula.presentationRead == .pageNumber }) {
+                    context.pageNumber = assumedPageNumbers.paragraphs[location] ?? context.pageNumber
+                    pageNumbers.paragraphs[location] = context.pageNumber
+                }
+                body = writingResults(writes, into: body, context: context, sheet: options.styles,
                                       retracks: options.appliesFontTracking, resolver: FontRoleResolver(table: options.fontRoles))
                 bodyText = body.text
             }
@@ -1900,13 +1957,13 @@ public enum PageLayout {
             if heading?.showsNumber == true { marker = nil }
             let headingNumber = listMarks[paragraphRange.location] ?? ""
             let headingBefore = heading.map { headingPieces($0.split.before, number: headingNumber, titleStyle: paragraphStyleName) } ?? []
-            let headingAfter = heading.map { headingPieces($0.split.after, number: headingNumber, titleStyle: paragraphStyleName) } ?? []
             // Il numero accanto al titolo, sulla sua prima riga: le righe del titolo si scostano della sua larghezza più
             // la distanza (al massimo metà della misura). Senza numero, il titolo occupa tutta la misura.
             let beside = heading?.numberBeside
-            let besidePiece = beside.flatMap { beside in
-                headingNumber.isEmpty ? nil : headingPieces([.number(prefix: beside.prefix, style: beside.style, alignment: beside.side, minHeight: nil)],
-                                                            number: headingNumber, titleStyle: paragraphStyleName).first
+            let besidePiece = heading.flatMap { heading in
+                heading.numberBesideIndex.flatMap {
+                    headingPieces([heading.parts[$0]], number: headingNumber, titleStyle: paragraphStyleName).first
+                }
             }
             var titleReserve: CGFloat = 0
             if let besidePiece, let beside, case .text(_, _, _, let width) = besidePiece.kind {
@@ -2279,14 +2336,12 @@ public enum PageLayout {
                 let pageSetup = pages[index].setup
                 let area = pageSetup.textRect
                 let sections = index < pageSections.count ? pageSections[index] : []
-                func value(_ field: Field) -> String {
-                    field.asFormula.value(in: FieldContext(pageNumber: pages[index].number, pageCount: pageCount.map(String.init) ?? String(pages.count),
-                                                           sections: sections.map { FieldContext.Section(role: $0.role, title: $0.title, number: $0.number) }))
-                }
+                let context = FieldContext(pageNumber: pages[index].number, pageCount: pageCount.map(String.init) ?? String(pages.count),
+                                           sections: sections.map { FieldContext.Section(role: $0.role, title: $0.title, number: $0.number) })
                 var note = entry.note
                 let resolved = NSMutableAttributedString()
                 var segments: [TextMap.Segment] = []
-                appendResolvingFields(text, range: note.textRange, documentStart: 0, into: resolved, segments: &segments, field: value)
+                appendResolvingFields(text, range: note.textRange, documentStart: 0, into: resolved, segments: &segments) { field, _ in field.asFormula.value(in: context) }
                 note.text = resolved
                 note.map = TextMap(segments: segments)
                 let lines = noteLines(note, paragraphStyle: entry.paragraphStyle, width: area.width)
@@ -2335,7 +2390,7 @@ public enum PageLayout {
         layout.layoutRulesApplied = layoutRulesApplied
         layout.listMarks = listMarks
         layout.noteMarks = noteMarks
-        return (layout, assumedNotePages, notePages)
+        return (layout, assumedNotePages, notePages, pageNumbers)
     }
 
     // MARK: Composizione di un paragrafo
@@ -2715,7 +2770,7 @@ public enum PageLayout {
     /// Aggiunge a `result` il tratto `range` di `source`, con i campi sostituiti dal loro testo: i tratti di testo vero
     /// entrano nella mappa (dal composto al documento, che comincia in `documentStart`), il testo dei campi no.
     private static func appendResolvingFields(_ source: NSAttributedString, range: NSRange, documentStart: Int, into result: NSMutableAttributedString,
-                                              segments: inout [TextMap.Segment], field: (Field) -> String) {
+                                              segments: inout [TextMap.Segment], field: (Field, Int) -> String) {
         var cursor = range.location
         func flush(upTo end: Int) {
             guard end > cursor else { return }
@@ -2730,14 +2785,14 @@ public enum PageLayout {
                 var attributes = source.attributes(at: index, effectiveRange: nil)
                 attributes[.field] = nil
                 attributes[.composedField] = documentStart + index
-                result.append(NSAttributedString(string: field(found), attributes: attributes))
+                result.append(NSAttributedString(string: field(found, documentStart + index), attributes: attributes))
                 cursor = index + 1
             }
         }
         flush(upTo: NSMaxRange(range))
     }
 
-    private static func composedBody(of paragraph: NSAttributedString, location: Int, field: (Field) -> String = { _ in "" }, floatStyles: [FloatStyle],
+    private static func composedBody(of paragraph: NSAttributedString, location: Int, field: (Field, Int) -> String, floatStyles: [FloatStyle],
                                      noteMark: (_ anchor: Int) -> String)
         -> (text: NSAttributedString, map: TextMap, notes: [ComposedNote]) {
         let length = paragraph.length
@@ -2780,6 +2835,7 @@ public enum PageLayout {
             // Il richiamo prende l'aspetto del testo che lo precede; in testa al paragrafo, quello della nota.
             var bodyAttributes = body.length > 0 ? body.attributes(at: body.length - 1, effectiveRange: nil) : noteAttributes
             bodyAttributes[.footnote] = nil
+            bodyAttributes[.composedField] = nil
             let marker = body.length
             let text = NSMutableAttributedString()
             switch isFigure ? .none : floatStyle.reference {
@@ -2816,7 +2872,7 @@ public enum PageLayout {
     /// non ha posto nella mappa: per il cursore è materiale composto, come un numero di richiamo. Prende l'aspetto del
     /// carattere vicino (il primo, o l'ultimo prima della fine del paragrafo) e, sopra, quello del suo stile.
     private static func writingResults(_ writes: [WrittenResult], into body: (text: NSAttributedString, map: TextMap, notes: [ComposedNote]),
-                                       value: (FieldFormula) -> String, sheet: StyleSheet, retracks: Bool, resolver: FontRoleResolver)
+                                       context: FieldContext, sheet: StyleSheet, retracks: Bool, resolver: FontRoleResolver)
         -> (text: NSAttributedString, map: TextMap, notes: [ComposedNote]) {
         let text = NSMutableAttributedString(attributedString: body.text)
         let string = text.string as NSString
@@ -2824,7 +2880,7 @@ public enum PageLayout {
         var end = string.length
         while end > 0, let scalar = Unicode.Scalar(string.character(at: end - 1)), CharacterSet.newlines.contains(scalar) { end -= 1 }
         func piece(_ written: WrittenResult, near index: Int) -> NSAttributedString? {
-            let string = written.text(for: value(written.formula))
+            let string = written.text(in: context)
             guard !string.isEmpty else { return nil }
             var attributes = text.length > 0 ? text.attributes(at: min(max(index, 0), text.length - 1), effectiveRange: nil) : [:]
             for key in [NSAttributedString.Key.field, .composedField, .footnote, .link] { attributes[key] = nil }

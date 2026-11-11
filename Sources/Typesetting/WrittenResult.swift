@@ -34,7 +34,11 @@ public struct WrittenResult: Hashable, Sendable, Codable {
 
     /// Il testo da scrivere, dato il risultato: vuoto se il risultato è vuoto (l'azione allora non scrive niente).
     public func text(for value: String) -> String {
-        value.isEmpty ? "" : prefix + value + suffix
+        PresentationWrite.decorate(value, prefix: prefix, suffix: suffix) ?? ""
+    }
+
+    public func text(in context: FieldContext) -> String {
+        formula.presentationWrite(prefix: prefix, suffix: suffix)?.text(in: context) ?? ""
     }
 
     public var problem: String? {

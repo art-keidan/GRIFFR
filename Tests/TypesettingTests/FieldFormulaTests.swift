@@ -115,6 +115,38 @@ struct FieldFormulaTests {
         #expect(end.sections == [FieldContext.Section(role: "chapter", title: "Il mare", number: "1")])
     }
 
+    @Test("Il campo in un capoverso spezzato legge la pagina della propria riga")
+    func fieldAfterPageBreak() throws {
+        let field = Inline.text(TextRun(Field.placeholder, style: body, field: .page))
+        var document = Document(blocks: [.paragraph(Paragraph(inlines: [
+            .text(TextRun("Prima \u{2028}Seconda ", style: body)), field
+        ]))])
+        document.pageSetup = PageSetup(paperSize: CGSize(width: 280, height: 62), top: 20, bottom: 20, left: 20, right: 28, facing: true)
+        let text = document.attributedString().text
+        let layout = PageLayout.layout(text, setup: document.pageSetup, options: document.layoutOptions)
+        #expect(layout.pages.count == 2)
+        let index = (text.string as NSString).range(of: Field.placeholder).location
+        #expect(layout.pages.firstIndex { $0.fieldRects.contains { $0.location == index } } == 1)
+        #expect(layout.fieldContext(at: index).pageNumber == "2")
+        let pdf = try #require(PDFDocument(data: PDFRenderer.pdfData(for: layout)))
+        #expect(pdf.page(at: 1)?.string?.contains("Seconda 2") == true)
+    }
+
+    @Test("Un campo alla fine del capoverso scrive il numero una sola volta")
+    func fieldBeforeParagraphSeparator() throws {
+        let document = Document(blocks: [
+            .paragraph(Paragraph(inlines: [.text(TextRun("Pagina ", style: body)),
+                                           .text(TextRun(Field.placeholder, style: body, field: .page))])),
+            .paragraph(Paragraph(inlines: [.text(TextRun("Segue.", style: body))]))
+        ])
+        let source = document.attributedString().text
+        let end = (source.string as NSString).range(of: "\n").location
+        #expect(source.attribute(.field, at: end, effectiveRange: nil) == nil)
+        let layout = PageLayout.layout(source, setup: document.pageSetup, options: document.layoutOptions)
+        let pdf = try #require(PDFDocument(data: PDFRenderer.pdfData(for: layout)))
+        #expect(pdf.page(at: 0)?.string?.contains("Pagina 1\nSegue.") == true)
+    }
+
     @Test("Il segnaposto di un campo non è una sostituzione del font; il testo calcolato ha la sua cornice e non è un richiamo")
     func placeholderAndFrame() throws {
         func text(_ string: String) -> Inline { .text(TextRun(string, style: body)) }

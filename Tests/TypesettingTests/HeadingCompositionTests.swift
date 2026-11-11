@@ -97,6 +97,35 @@ struct HeadingCompositionTests {
         #expect(all.contains("1\nIl mare") && all.contains("2\nIl mare"), "il numero, poi il titolo")
     }
 
+    @Test("Una testata sulle pagine affacciate distingue numero della pagina, numero del capitolo e risultato assente")
+    func facingPresentationReads() throws {
+        let heading = HeadingComposition(parts: [
+            .number(prefix: "CAPITOLO ", style: nil, alignment: .inside, minHeight: nil),
+            .result(formula: .pageContainingNumber, prefix: "PAGINA ", style: nil, alignment: .outside, minHeight: nil),
+            .result(formula: .sectionContainingNumber(role: "appendix"), prefix: "ASSENTE ", style: nil, alignment: .left, minHeight: 40),
+            .plainTitle
+        ])
+        var document = book(title: "Il mare", heading: heading, facing: true, chapters: 2)
+        document.lists.append(ListDefinition(name: "Pagine romane", counter: .lowerRoman, continues: true))
+        document.pageNumbering = "Pagine romane"
+        let composed = layout(document)
+        let pdf = try #require(PDFDocument(data: PDFRenderer.pdfData(for: composed)))
+        for chapter in 0..<2 {
+            let (index, _) = try bodyTop(composed, chapter: chapter)
+            let page = composed.pages[index]
+            let string = try #require(pdf.page(at: index)?.string)
+            #expect(string.contains("CAPITOLO \(chapter + 1)"))
+            #expect(string.contains("PAGINA \(page.number)"))
+            #expect(!string.contains("ASSENTE"))
+            #expect(page.headingParts.map(\.part) == [0, 1])
+            let marker = try #require(page.markers.last)
+            let column = page.setup.textRect(forPage: index)
+            let width = CGFloat(CTLineGetTypographicBounds(marker.line, nil, nil, nil))
+            let outside = index % 2 == 1 ? column.minX : column.maxX - width
+            #expect(abs(marker.origin.x - outside) < 0.01)
+        }
+    }
+
     @Test("Con la distanza d'apertura di 30 mm la testata comincia a 30 mm, il suo filetto a 45 mm: conta il blocco intero")
     func openingDistance() throws {
         let composed = layout(book(title: "Il mare", heading: .standard, opening: 30 * mm))

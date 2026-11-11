@@ -1025,7 +1025,7 @@ struct WritesBlock: View {
                 if let problem = written.problem {
                     Text(problem).font(.caption).foregroundStyle(Color(nsColor: Theme.warn)).lineLimit(2)
                 } else {
-                    Text("sample: " + written.text(for: model.sampleResult(written.formula)).debugDescription)
+                    Text("sample: " + written.text(in: model.sampleFieldContext).debugDescription)
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
@@ -1060,20 +1060,19 @@ struct HeadingPreview: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(heading.parts.enumerated()), id: \.offset) { _, part in
                 switch part {
-                case .label(let text, let style, let value, let minHeight):
-                    line(text, character(style), value, minHeight)
-                case .number(let prefix, let style, let value, let minHeight):
-                    line(prefix + "1", character(style), value, minHeight)
-                case .result(let formula, let prefix, let style, let value, let minHeight):
-                    // Come nel documento: un risultato vuoto non occupa posto.
-                    let result = model.sampleResult(formula)
-                    if !result.isEmpty { line(prefix + result, character(style), value, minHeight) }
+                case .label(_, let style, let value, let minHeight),
+                     .number(_, let style, let value, let minHeight),
+                     .result(_, _, let style, let value, let minHeight):
+                    if let result = part.presentationText(in: model.sampleFieldContext, openedNumber: "1") {
+                        line(result, character(style), value, minHeight)
+                    }
                 case .numberBeside:
                     EmptyView()
                 case .title(let value, let minHeight):
                     // Il numero accanto al titolo, dal suo lato, sulla prima riga.
-                    if let beside = heading.numberBeside {
-                        let number = text(beside.prefix + "1", character(beside.style)).fixedSize()
+                    if let beside = heading.numberBeside, let index = heading.numberBesideIndex,
+                       let result = heading.parts[index].presentationText(in: model.sampleFieldContext, openedNumber: "1") {
+                        let number = text(result, character(beside.style)).fixedSize()
                         let right = beside.side.resolved(onLeftPage: false) == .right
                         HStack(alignment: .firstTextBaseline, spacing: min(CGFloat(beside.gap), 40)) {
                             if !right { number }

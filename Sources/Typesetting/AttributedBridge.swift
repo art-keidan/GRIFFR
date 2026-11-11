@@ -247,6 +247,7 @@ extension Document {
                     var attributes = last.isEmpty ? textAttributes(for: paragraph.inlines.lazy.compactMap { if case .text(let run) = $0 { run } else { nil } }.first?.style
                                                                    ?? TextStyling.styleBase) : last
                     attributes[.paragraphStyle] = paragraphStyle
+                    attributes[.field] = nil
                     attributes[.inlineImage] = ImageAttachment(image)
                     result.append(NSAttributedString(string: String(utf16CodeUnits: [FloatingObject.anchorCharacter], count: 1), attributes: attributes))
                 case .floating(let note):
@@ -275,6 +276,7 @@ extension Document {
                 }
             }
             if index < items.count - 1 {
+                last[.field] = nil
                 last[.paragraphStyle] = paragraphStyle
                 result.append(NSAttributedString(string: "\n", attributes: last))
             }

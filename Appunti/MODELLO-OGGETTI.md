@@ -1,6 +1,6 @@
 # Modello unico di oggetti, relazioni e formule
 
-Documento di progetto, 11 novembre 2026. Il piano è nella sezione 9. Le appendici C e D registrano rispettivamente il riferimento della tappa 0 e l’implementazione della tappa 1.
+Documento di progetto, 11 novembre 2026. Il piano è nella sezione 9. Le appendici C, D ed E registrano il riferimento della tappa 0 e l’implementazione delle tappe 1 e 2.
 
 ## 0. Principio, decisioni ed evidenze
 
@@ -1348,3 +1348,17 @@ Nella selezione delle prove sono passati 86 degli 88 test Typesetting e tutti i 
 Nel sandbox, la suite completa ha riportato le stesse 30 segnalazioni negli stessi punti prima e dopo la tappa, compresi i problemi di schermo e font. In entrambe le build Typesetting si interrompe in `GraphiteTests.swift:259`. La build Release è stata confezionata in `build/GRIFFR.app` con l’autorizzazione per la generazione dei simboli. Nella release aperta sul campione delle formule riutilizzabili ho verificato la bacheca, aggiunto `Set Size` in bozza, selezionato `First 2 words` e ripristinato le definizioni con `Reload`. Per impaginazione e navigazione PDF vale il confronto automatizzato delle schede.
 
 La suite integrale eseguita con accesso ai servizi di macOS è terminata con codice 0. Il riepilogo riporta 233 test WordProcessor e 522 test Typesetting, compresi i casi saltati in base alla configurazione. Passano le prove del formato con Vulcanius, quelle di Graphite con Padauk e Annapurna SIL e quelle sulle finestre. Swift Testing registra il problema già dichiarato in `PDFExportTests.swift:75` per l’estrazione del testo gotico da PDFKit. Questi font servono ai campioni delle prove.
+
+## Appendice E. Letture e presentazioni comuni
+
+`PresentationRead` e `PresentationWrite` rappresentano i testi letterali, le letture contestuali e gli affissi di campi, parti di testata e risultati scritti. Le anteprime del compositore usano gli stessi nodi. Il numero già formattato dalla Lista si conserva e un risultato vuoto omette anche gli affissi. Il numero della testata usa il numero assegnato al titolo, mentre la formula di pagina usa la pagina della parte. Il titolo originale continua a fornire le proprie righe e posizioni di cursore. Il formato `.grx` resta alla versione 18.
+
+La composizione include nel ricalcolo i risultati scritti che leggono il totale delle pagine. Per il numero di pagina dei campi usa la pagina in cui è disegnato il campo e per i risultati scritti usa quella in cui inizia il capoverso. Il ricalcolo ha il limite esistente di tre tentativi. Nel passaggio da documento a testo attribuito, il separatore di paragrafo e il segnaposto dell’immagine non ricevono l’attributo del campo precedente.
+
+Sono passati 61 test mirati. Il confronto con la tappa 1 coincide per i 10 documenti e le 12 pagine registrate. Nel campione affacciato ho controllato il PDF renderizzato su entrambe le pagine: numero del capitolo sul lato interno, numero romano sul lato esterno, campo di pagina e totale nel testo. Nel PDF risultano due segnalibri e i due collegamenti di ciascuna nota. Le prove del compositore e del cursore sono automatizzate.
+
+Un caso precedente alla tappa resta riproducibile nel PDF: se il richiamo segue immediatamente un campo, il richiamo e il testo della nota sono visibili ma mancano i due collegamenti.
+
+La suite integrale con accesso ai servizi di macOS è terminata con codice 0. Il riepilogo riporta 233 test WordProcessor e 527 test Typesetting, compresi i casi saltati in base alla configurazione. Swift Testing registra ancora il caso dichiarato di estrazione del testo gotico in `PDFExportTests.swift:75`.
+
+La build Release è stata confezionata e verificata in `build/GRIFFR.app`.
