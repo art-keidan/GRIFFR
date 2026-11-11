@@ -39,7 +39,7 @@ The app is created in `build/GRIFFR.app`.
 swift test
 ```
 
-Some tests use fonts installed on the development machine.
+Sample documents for automated and manual testing are in [Tests/Fixtures](Tests/Fixtures/). Some tests use fonts installed on the development machine.
 
 ## Documents
 

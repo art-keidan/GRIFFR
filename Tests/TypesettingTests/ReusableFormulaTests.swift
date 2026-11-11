@@ -96,7 +96,7 @@ extension ReusableFormulaTests {
     @Test("Il campione distribuito si apre e risolve il rientro")
     func sample() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let data = try Data(contentsOf: root.appendingPathComponent("Appunti/prova-formule-riutilizzabili.grx"))
+        let data = try Data(contentsOf: root.appendingPathComponent("Tests/Fixtures/prova-formule-riutilizzabili.grx"))
         let document = try DocumentFormat.document(from: data)
         #expect(document.styles.resolveParagraph(styleName: "Citazione calcolata").leftIndent == 18)
     }
