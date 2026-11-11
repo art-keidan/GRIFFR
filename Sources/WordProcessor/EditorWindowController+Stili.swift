@@ -294,9 +294,16 @@ extension EditorWindowController {
         return TextStyling.listItem(in: storage, at: paragraph.range.location - 1)
     }
 
+    /// Vero se la selezione comincia in una cella di tabella: gli elenchi non si disegnano nelle celle, quindi le
+    /// scelte di voce e di tratto non avrebbero un risultato. Resta possibile togliere una continuazione rimasta.
+    var selectionInTableCell: Bool {
+        guard let storage = textStorage, storage.length > 0 else { return false }
+        return TableEditing.cell(at: min(selection.range.location, storage.length - 1), in: storage) != nil
+    }
+
     /// Vero se il paragrafo in cui comincia la selezione è una voce e può continuare quella prima (o la continua già).
     func canContinuePreviousItem() -> Bool {
-        guard let item = selectionListItem() else { return false }
+        guard !selectionInTableCell, let item = selectionListItem() else { return false }
         if item.continuesPreviousItem { return true }
         return previousListItem().map { item.belongsToSameItem(as: $0) } ?? false
     }
@@ -317,8 +324,9 @@ extension EditorWindowController {
     /// Il capoverso in cui comincia la selezione, se è una voce di una Lista con un nome e non continua la voce prima:
     /// è il capoverso che può aprire o riprendere un tratto.
     func selectionSequenceItem() -> (item: ListItem, range: NSRange)? {
-        guard let storage = textStorage, storage.length > 0, let item = selectionListItem(), let name = item.listName,
-              !item.continuesPreviousItem, settings.lists.contains(where: { $0.name == name }) else { return nil }
+        guard !selectionInTableCell, let storage = textStorage, storage.length > 0, let item = selectionListItem(),
+              let name = item.listName, !item.continuesPreviousItem,
+              settings.lists.contains(where: { $0.name == name }) else { return nil }
         let range: NSRange
         if selection.range.location >= storage.length, TextStyling.hasEmptyFinalParagraph(storage) {
             range = NSRange(location: max(storage.length - 1, 0), length: min(1, storage.length))

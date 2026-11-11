@@ -125,6 +125,78 @@ struct ListSequenceEditorTests {
         #expect(!h.editor.canStartSequence)
     }
 
+    @Test("Una continuazione rimasta senza voce compare fra gli avvisi della composizione")
+    func orphanWarning() throws {
+        let (h, spots) = harness()
+        defer { h.close() }
+        h.select(spots["A due"]!)
+        h.editor.toggleListContinuation(nil)
+        #expect(h.editor.selectionListItem()?.continuesPreviousItem == true)
+        #expect(!h.editor.warningTitles.contains { $0.contains("continues an item") })
+        // Tolta la voce che la precede, la continuazione resta senza voce.
+        h.select(location(of: "A uno", in: h))
+        h.editor.applyListMarker(nil)
+        _ = h.editor.currentLayout()
+        #expect(h.editor.warningTitles.contains { $0.contains("A list item continues an item that isn't there") },
+                "\(h.editor.warningTitles)")
+    }
+
+    @Test("Dentro una cella di tabella i comandi dei tratti sono spenti")
+    func tableCells() throws {
+        let h = EditorHarness(paragraphs: ["Prima."])
+        defer { h.close() }
+        h.select(0)
+        h.editor.insertTable(nil)
+        h.step()
+        h.type("Uno")
+        h.step()
+        #expect(h.editor.selectionInTableCell)
+        h.editor.applyListMarker("1.")
+        #expect(h.editor.selectionListItem() != nil)
+        #expect(!h.editor.canContinuePreviousItem())
+        #expect(!h.editor.canStartSequence)
+        let continuation = NSMenuItem(title: "", action: #selector(EditorWindowController.toggleListContinuation(_:)), keyEquivalent: "")
+        let restart = NSMenuItem(title: "", action: #selector(EditorWindowController.restartListNumbering(_:)), keyEquivalent: "")
+        let resume = NSMenuItem(title: "", action: #selector(EditorWindowController.resumeListNumbering(_:)), keyEquivalent: "")
+        #expect(!h.editor.validateMenuItem(continuation))
+        #expect(!h.editor.validateMenuItem(restart))
+        #expect(!h.editor.validateMenuItem(resume))
+        #expect(!h.editor.applyListSequenceStart())
+        #expect(h.editor.selectionListItem()?.sequenceStart == nil)
+    }
+
+    @Test("Una ripresa copiata senza il tratto che la apre diventa un avviso, non un numero silenzioso")
+    func copiedResumeWithoutSequence() throws {
+        let a = EditorHarness(paragraphs: ["A uno", "Ripresa"])
+        defer { a.close() }
+        let b = EditorHarness(paragraphs: ["Testo."])
+        defer { b.close() }
+        b.editor.pasteboard = a.editor.pasteboard
+        a.select(0, length: a.text.utf16.count)
+        let menu = NSMenuItem(title: "", action: #selector(EditorWindowController.setNamedList(_:)), keyEquivalent: "")
+        menu.representedObject = "Examples"
+        a.editor.setNamedList(menu)
+        let aID = a.editor.store.paragraphID(at: 0).persistent
+        let resume = (a.text as NSString).range(of: "Ripresa").location
+        a.select(resume)
+        #expect(a.editor.applyListSequenceResume(from: aID))
+        #expect(a.editor.currentLayout()?.listMarks[resume] == "(2)")
+
+        // Si copiano il capoverso che apre il tratto e quello che lo riprende: il frammento conserva l'elenco, ma
+        // l'identità del capoverso copiato cambia, quindi la ripresa resta senza tratto.
+        let start = (a.text as NSString).range(of: "A uno").location
+        let end = NSMaxRange(TextStyling.bodyParagraph(in: a.editor.editingText, at: resume).range)
+        a.select(start, length: end - start)
+        #expect(a.menu(#selector(NSText.copy(_:))))
+        b.select(b.text.utf16.count)
+        b.press(#selector(NSResponder.insertNewline(_:)))
+        #expect(b.menu(#selector(NSText.paste(_:))))
+        _ = b.editor.currentLayout()
+        #expect(b.editor.warningTitles.contains { $0.contains("resumes a sequence that isn't there") },
+                "\(b.editor.warningTitles)")
+        #expect(try #require(b.editor.currentLayout()).listMarks.values.contains("(1)"), "la voce copiata riparte dalla definizione")
+    }
+
     @Test("La ripartenza e la ripresa restano nel file e tornano aprendolo")
     func fileRoundTrip() throws {
         let (h, spots) = harness()

@@ -760,6 +760,16 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         guard let layout = pagesView.layout else { return [] }
         var result: [(String, NSRange?)] = layout.marginConflicts.map { ("Overlapping margin note", $0) }
         result += layout.listsNeedingOverflowChoice.map { ("The list “\($0)” has run out of markers", nil) }
+        // Una continuazione o una ripresa rimasta senza voce: si compone lo stesso, ma l'autore deve poterla correggere.
+        result += layout.listWarnings.map { warning in
+            let title = switch warning.kind {
+            case .continuationWithoutItem: "A list item continues an item that isn't there"
+            case .resumeWithoutSequence: "The list “\(warning.list)” resumes a sequence that isn't there"
+            }
+            guard documentText.length > 0 else { return (title, nil) }
+            let paragraph = TextStyling.bodyParagraph(in: documentText, at: min(warning.paragraph, documentText.length - 1)).range
+            return (title, paragraph as NSRange?)
+        }
         // Un foglio con formule non risolvibili si compone senza di esse: lo si dice, invece di tacerlo.
         if let problem = formulaProblem() { result.append(("Style formulas: " + problem, nil)) }
         if layout.graphiteFallbacks > 0 {

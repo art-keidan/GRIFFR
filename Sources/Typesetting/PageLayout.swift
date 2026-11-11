@@ -429,6 +429,8 @@ public struct DocumentLayout {
     /// I tratti delle Liste con un nome, nell'ordine in cui cominciano: la loro identità è quella del capoverso che
     /// li apre, e serve a riprenderli.
     public var sequences: [ListSequence] = []
+    /// Le continuazioni e le riprese rimaste senza voce o senza tratto: si compongono lo stesso, ma vanno dette.
+    public var listWarnings: [ListWarning] = []
 }
 
 /// Le scelte tipografiche che valgono per tutto il documento.
@@ -853,6 +855,7 @@ public enum PageLayout {
         // e all'ispettore.
         var sequences: [ListSequence] = []
         var sequenceIndex: [UUID: Int] = [:]
+        var listWarnings: [ListWarning] = []
         // Le Liste con un nome: una numerazione per il testo e una a parte per le note, perché una nota non
         // interrompe l'elenco in cui sta.
         var named = ListNumberer(definitions: options.lists)
@@ -913,8 +916,14 @@ public enum PageLayout {
                 return nil
             }
             // Un capoverso che continua la voce precedente non consuma un numero e non interrompe nessuna Lista.
-            if item.continuesPreviousItem, let previous = lastListItem, continuesSameItem(previous, item) {
-                return (item.listName == nil ? item : shownItem(item, marker: ""), nil)
+            if item.continuesPreviousItem {
+                if let previous = lastListItem, continuesSameItem(previous, item) {
+                    return (item.listName == nil ? item : shownItem(item, marker: ""), nil)
+                }
+                // La voce prima non c'è: la continuazione non ha effetto, e l'autore deve saperlo.
+                let warning = ListWarning(kind: .continuationWithoutItem, paragraph: start,
+                                          list: item.listName ?? item.marker)
+                if !listWarnings.contains(warning) { listWarnings.append(warning) }
             }
             if let name = item.listName {
                 _ = numbering.next(nil)
@@ -924,6 +933,11 @@ public enum PageLayout {
                 }
                 let mark = advanced.mark
                 noticeOverflow(mark, in: name)
+                // La ripresa non ha trovato il tratto: il capoverso riparte dalla definizione, e va detto.
+                if item.sequenceResume != nil, advanced.isNewSegment {
+                    let warning = ListWarning(kind: .resumeWithoutSequence, paragraph: start, list: name)
+                    if !listWarnings.contains(warning) { listWarnings.append(warning) }
+                }
                 if let index = sequenceIndex[advanced.segment] {
                     sequences[index].lastNumber = mark.value
                     sequences[index].items += 1
@@ -1746,6 +1760,7 @@ public enum PageLayout {
             let saved = (column, pages, openSections, pageNumbering, pageValue, runningActive, runningFirst, pageRunning, pageSections, openingPages)
             let savedText = (y, location, noteNumber, notes, listMarks, noteMarks, numbering, named, noteNumberer, floatLists, overflowing, lastListItem)
             let savedSequences = (sequences, sequenceIndex)
+            let savedWarnings = listWarnings
             let savedNotes = (assumedNotePages, notePages, pageNotes, carried, marginBoxes, marginConflicts, endNotes)
             let savedFigures = (deferredFigures, hereFigures, bottomFigures, topFigureCount, pageFigureCount)
             let savedRest = (previousParagraphStyle, finalParagraphPlaced, layoutRulesApplied, pageStarts)
@@ -1753,6 +1768,7 @@ public enum PageLayout {
                 (column, pages, openSections, pageNumbering, pageValue, runningActive, runningFirst, pageRunning, pageSections, openingPages) = saved
                 (y, location, noteNumber, notes, listMarks, noteMarks, numbering, named, noteNumberer, floatLists, overflowing, lastListItem) = savedText
                 (sequences, sequenceIndex) = savedSequences
+                listWarnings = savedWarnings
                 (assumedNotePages, notePages, pageNotes, carried, marginBoxes, marginConflicts, endNotes) = savedNotes
                 (deferredFigures, hereFigures, bottomFigures, topFigureCount, pageFigureCount) = savedFigures
                 (previousParagraphStyle, finalParagraphPlaced, layoutRulesApplied, pageStarts) = savedRest
@@ -2473,6 +2489,7 @@ public enum PageLayout {
         layout.listMarks = listMarks
         layout.noteMarks = noteMarks
         layout.sequences = sequences
+        layout.listWarnings = listWarnings
         return (layout, assumedNotePages, notePages, pageNumbers)
     }
 

@@ -138,6 +138,14 @@ struct ListItemContinuationTests {
         #expect(Shaper.glyphs(in: page.markers[1].line).map { Int($0.id) } == Shaper.glyphIDs(for: "(2)", font: try! TestFonts.hoefler(size: 12)))
     }
 
+    @Test("Una continuazione rimasta senza voce è un avviso con il suo capoverso, non un silenzio")
+    func orphanWarning() {
+        let orphan = document([paragraph("Prima."), paragraph("Uno", "1.", continues: true)])
+        #expect(layout(orphan).listWarnings == [ListWarning(kind: .continuationWithoutItem, paragraph: 7, list: "1.")])
+        // Con la sua voce, nessun avviso.
+        #expect(layout(document([paragraph("Uno", "1."), paragraph("Continua", "1.", continues: true)])).listWarnings.isEmpty)
+    }
+
     @Test("Una continuazione senza la voce prima, o dopo un paragrafo normale, è una voce intera")
     func orphanContinuations() {
         // In cima al testo non c'è niente da continuare: la voce prende il suo segno e il suo numero.

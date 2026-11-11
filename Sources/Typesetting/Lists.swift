@@ -364,6 +364,30 @@ public struct ListSequence: Hashable, Sendable {
     }
 }
 
+/// Un problema di una voce o di un tratto di Lista, da mostrare all'autore: il capoverso che lo mostra.
+///
+/// Non è un errore di lettura: il documento si compone lo stesso (la voce riparte), ma il silenzio nasconderebbe
+/// una scelta rimasta senza effetto.
+public struct ListWarning: Equatable, Sendable {
+    public enum Kind: Equatable, Sendable {
+        /// Un capoverso che continua la voce precedente, ma la voce non c'è (cancellata, o dopo un altro paragrafo).
+        case continuationWithoutItem
+        /// Un capoverso che riprende un tratto che non c'è (cancellato, o di un'altra Lista).
+        case resumeWithoutSequence
+    }
+    public var kind: Kind
+    /// La posizione nel testo del capoverso.
+    public var paragraph: Int
+    /// La Lista del capoverso; per un elenco senza nome, il suo segno.
+    public var list: String
+
+    public init(kind: Kind, paragraph: Int, list: String) {
+        self.kind = kind
+        self.paragraph = paragraph
+        self.list = list
+    }
+}
+
 /// Il segno del prossimo elemento di una Lista, con il tratto a cui appartiene.
 public struct ListAdvance: Equatable, Sendable {
     public var mark: ListMark

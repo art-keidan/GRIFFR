@@ -229,6 +229,19 @@ struct ListSequenceTests {
         #expect(page.markers.count == 7)
     }
 
+    @Test("Una ripresa senza tratto è un avviso: il capoverso riparte dalla definizione")
+    func resumeWarning() {
+        let edited = document([named("Uno", id: UUID(), start: 1), named("Ripresa", id: UUID(), resume: UUID())])
+        let text = edited.attributedString().text
+        let resume = (text.string as NSString).range(of: "Ripresa").location
+        let warnings = layout(edited).listWarnings
+        #expect(warnings == [ListWarning(kind: .resumeWithoutSequence, paragraph: resume, list: "Examples")])
+        #expect(markerTexts(layout(edited)) == ["(1)", "(1)"], "la voce riparte dalla definizione")
+        // Con il tratto che c'è, nessun avviso.
+        let a = UUID()
+        #expect(layout(document([named("Uno", id: a), named("Ripresa", resume: a)])).listWarnings.isEmpty)
+    }
+
     @Test("Il tratto ripreso resta lo stesso: il suo numero arriva all'ultima voce, anche dopo la ripresa")
     func sequencesInLayout() throws {
         let a = UUID(), b = UUID()

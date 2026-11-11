@@ -190,6 +190,8 @@ extension EditorWindowController {
             return selectionListItem()?.listName == nil && (selectionListItem()?.level ?? 1) > 1
         case #selector(toggleListContinuation(_:)):
             menuItem.state = selectionListItem()?.continuesPreviousItem == true ? .on : .off
+            // Nelle celle si può togliere una continuazione rimasta, ma non se ne aggiungono.
+            if selectionInTableCell { return menuItem.state == .on }
             return canContinuePreviousItem()
         case #selector(restartListNumbering(_:)):
             menuItem.state = selectionListItem()?.sequenceStart != nil ? .on : .off
