@@ -119,7 +119,7 @@ struct FieldFormulaEditorView: View {
             Text("The field starts from an object, moves to the objects that contain it, reads a result and writes it here.")
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 6) {
-                block(number: 1, symbol: "scope", verb: "Start from") {
+                FieldFormulaBlock(number: 1, symbol: "scope", verb: "Start from") {
                     Menu {
                         ForEach(FieldFormula.Origin.allCases, id: \.self) { origin in
                             Button(origin.title) { model.setOrigin(origin) }
@@ -127,7 +127,7 @@ struct FieldFormulaEditorView: View {
                     } label: { ComposerPill(title: model.formula.origin.title) }.fixedSize()
                 }
                 ForEach(Array(model.formula.steps.enumerated()), id: \.offset) { index, step in
-                    block(number: index + 2, symbol: "arrow.turn.down.right", verb: "Go to", removable: index) {
+                    FieldFormulaBlock(number: index + 2, symbol: "arrow.turn.down.right", verb: "Go to", remove: { model.removeStep(at: index) }) {
                         stepControls(step, at: index)
                     }
                 }
@@ -139,7 +139,7 @@ struct FieldFormulaEditorView: View {
                     } label: { Label("Add Step", systemImage: "plus") }
                         .menuStyle(.borderlessButton).hoverable().menuIndicator(.hidden).fixedSize().padding(.leading, 10)
                 }
-                block(number: model.formula.steps.count + 2, symbol: "text.viewfinder", verb: "Read") {
+                FieldFormulaBlock(number: model.formula.steps.count + 2, symbol: "text.viewfinder", verb: "Read") {
                     if model.lastSubject.readings.isEmpty {
                         Text("Add a step: a \(model.lastSubject.title) gives no result.").foregroundStyle(.secondary)
                     } else {
@@ -150,7 +150,7 @@ struct FieldFormulaEditorView: View {
                         } label: { ComposerPill(title: model.formula.reading.title) }.fixedSize()
                     }
                 }
-                block(number: model.formula.steps.count + 3, symbol: "square.and.pencil", verb: "Write result") {
+                FieldFormulaBlock(number: model.formula.steps.count + 3, symbol: "square.and.pencil", verb: "Write result") {
                     Text("Here").foregroundStyle(.secondary)
                 }
             }
@@ -216,17 +216,34 @@ struct FieldFormulaEditorView: View {
         if !role.isEmpty { model.setRole(role, at: index) }
         otherRoleIndex = nil
     }
+}
 
-    private func block<Content: View>(number: Int, symbol: String, verb: String, removable: Int? = nil,
-                                      @ViewBuilder content: () -> Content) -> some View {
+/// Una tappa della catena, condivisa dagli editor di campi e rimandi.
+struct FieldFormulaBlock<Content: View>: View {
+    let number: Int
+    let symbol: String
+    let verb: String
+    let remove: (() -> Void)?
+    @ViewBuilder let content: () -> Content
+
+    init(number: Int, symbol: String, verb: String, remove: (() -> Void)? = nil,
+         @ViewBuilder content: @escaping () -> Content) {
+        self.number = number
+        self.symbol = symbol
+        self.verb = verb
+        self.remove = remove
+        self.content = content
+    }
+
+    var body: some View {
         HStack(spacing: 8) {
             Text("\(number)").font(.caption.monospacedDigit()).foregroundStyle(.secondary).frame(minWidth: 14)
             Image(systemName: symbol).foregroundStyle(Color(nsColor: Theme.glyph)).frame(width: 18)
             Text(verb).fontWeight(.medium).frame(width: 84, alignment: .leading)
             content()
             Spacer(minLength: 6)
-            if let removable {
-                Button { model.removeStep(at: removable) } label: { Image(systemName: "xmark") }
+            if let remove {
+                Button(action: remove) { Image(systemName: "xmark") }
                     .buttonStyle(.hover(.borderless)).accessibilityLabel("Remove step")
             }
         }

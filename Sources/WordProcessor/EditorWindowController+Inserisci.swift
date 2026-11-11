@@ -48,6 +48,7 @@ extension EditorWindowController {
             attributes[.font] = TextStyling.resized(font as CTFont, to: max((font.pointSize * 5 / 6 * 2).rounded() / 2, 4))
         }
         attributes[.footnote] = style
+        attributes[.floatingIdentity] = FloatingIdentity().encoded
         if let image { attributes[.floatImage] = ImageAttachment(image) }
         attributes[.kern] = nil
         attributes[.fontTracking] = nil
@@ -61,9 +62,10 @@ extension EditorWindowController {
     /// Mette nel testo un pezzo già formattato, conservandone tutti gli attributi. Va fatto sostituendo
     /// direttamente i caratteri: il comando di inserimento dell'area di scrittura di Apple terrebbe il nostro
     /// contrassegno di nota ma darebbe al testo il corpo del punto in cui lo si inserisce (provato).
-    func insertFormatted(_ text: NSAttributedString, replacing range: NSRange, actionName: String) {
+    func insertFormatted(_ text: NSAttributedString, replacing range: NSRange, actionName: String,
+                         keepingTableIdentities: Set<String> = []) {
         var start = range.location
-        writeStore(actionName: actionName) { start = TableEditing.replace(range, in: $0, with: text) }
+        writeStore(actionName: actionName) { start = TableEditing.replace(range, in: $0, with: text, keepingTableIdentities: keepingTableIdentities) }
         setSelection(TextSelection(caret: start + text.length))
     }
 
@@ -155,7 +157,12 @@ extension EditorWindowController {
     /// il campo resta lo stesso carattere con il suo aspetto. Si annulla con Annulla.
     @objc func editFieldFormula(_ sender: Any?) {
         guard let (range, field) = selectedField else { return }
-        presentFieldEditor(formula: field.asFormula, at: range.location, editing: true) { [weak self] formula in
+        if case .reference(let reference) = field {
+            presentObjectReference(reference, replacing: range)
+            return
+        }
+        guard let formula = field.asFormula else { return }
+        presentFieldEditor(formula: formula, at: range.location, editing: true) { [weak self] formula in
             guard let self, NSMaxRange(range) <= self.store.length, self.store.attribute(.field, at: range.location, effectiveRange: nil) != nil else { return }
             self.endUndoStep(next: .none)
             self.writeStore(actionName: "Field Formula") { $0.addAttribute(.field, value: Field.formula(formula).encoded, range: range) }

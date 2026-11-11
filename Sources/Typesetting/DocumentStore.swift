@@ -15,6 +15,7 @@ public final class DocumentStore: NSMutableAttributedString {
     /// più del testo di prima), né unendogli il paragrafo seguente.
     public struct ParagraphID: Hashable, Sendable, CustomStringConvertible {
         public let value: UInt64
+        public let persistent: UUID
         public var description: String { "¶\(value)" }
     }
 
@@ -53,14 +54,28 @@ public final class DocumentStore: NSMutableAttributedString {
     }
 
     /// Un deposito con il testo dato.
-    public convenience init(text: NSAttributedString) {
+    public convenience init(text: NSAttributedString, emptyParagraphID: UUID? = nil, identifyFloats: Bool = false) {
         self.init()
-        replaceCharacters(in: NSRange(location: 0, length: 0), with: text)
+        let source = NSMutableAttributedString(attributedString: text)
+        if identifyFloats { FloatingIdentity.identifyMissing(in: source) }
+        replaceCharacters(in: NSRange(location: 0, length: 0), with: source)
+        for index in paragraphs.indices {
+            let start = starts[index]
+            let identity: UUID?
+            if start < source.length {
+                identity = (source.attribute(.paragraphIdentity, at: start, effectiveRange: nil) as? String).flatMap(UUID.init(uuidString:))
+            } else if source.length > 0 {
+                identity = (source.attribute(.finalParagraphIdentity, at: source.length - 1, effectiveRange: nil) as? String).flatMap(UUID.init(uuidString:))
+            } else {
+                identity = emptyParagraphID
+            }
+            if let identity { paragraphs[index].id = ParagraphID(value: paragraphs[index].id.value, persistent: identity) }
+        }
     }
 
     /// Un deposito con il contenuto e le impostazioni di un documento.
     public convenience init(document: Document) {
-        self.init(text: document.attributedString().text)
+        self.init(text: document.attributedString().text, emptyParagraphID: document.flatParagraphs.first?.paragraph.id, identifyFloats: true)
         settings = document.settingsOnly
     }
 
@@ -73,15 +88,30 @@ public final class DocumentStore: NSMutableAttributedString {
         fatalError("il deposito non si legge dagli appunti")
     }
 
-    private func makeID() -> ParagraphID {
+    private func makeID(persistent: UUID = UUID()) -> ParagraphID {
         defer { nextID += 1 }
-        return ParagraphID(value: nextID)
+        return ParagraphID(value: nextID, persistent: persistent)
     }
 
     // MARK: Paragrafi
 
     /// Le identità dei paragrafi, nell'ordine del testo.
     public var paragraphIDs: [ParagraphID] { paragraphs.map(\.id) }
+
+    /// Il frammento degli appunti porta le identità dei soli capoversi interamente selezionati.
+    public func identifiedFragment(in range: NSRange) -> NSAttributedString {
+        let fragment = NSMutableAttributedString(attributedString: attributedSubstring(from: range))
+        let end = NSMaxRange(range)
+        for index in paragraphIndex(at: range.location)..<paragraphs.count {
+            let start = starts[index], length = paragraphs[index].text.length
+            if start >= end { break }
+            if length > 0, start >= range.location, start + length <= end {
+                fragment.addAttribute(.paragraphIdentity, value: paragraphs[index].id.persistent.uuidString,
+                                      range: NSRange(location: start - range.location, length: 1))
+            }
+        }
+        return fragment
+    }
 
     /// I caratteri di un paragrafo, a capo finale compreso; `nil` se non c'è più.
     public func range(of id: ParagraphID) -> NSRange? {
@@ -467,11 +497,22 @@ public final class DocumentStore: NSMutableAttributedString {
         // rimasto senza (scrivendo nel paragrafo finale, è lui).
         if reachesEnd, paragraphs[window.upperBound - 1].text.length == 0, !placed[window.count - 1],
            let lastWithout = ids.lastIndex(where: { $0 == nil }) {
-            ids[lastWithout] = paragraphs[window.upperBound - 1].id
+            let segment = segments[lastWithout]
+            if segment.length == 0 || combined.attribute(.paragraphIdentity, at: segment.location, effectiveRange: nil) == nil {
+                ids[lastWithout] = paragraphs[window.upperBound - 1].id
+            }
         }
 
         let replacements = segments.enumerated().map { index, segment in
-            Paragraph(id: ids[index] ?? makeID(), text: NSMutableAttributedString(attributedString: combined.attributedSubstring(from: segment)))
+            let text = NSMutableAttributedString(attributedString: combined.attributedSubstring(from: segment))
+            var incoming: UUID?
+            if text.length > 0, origin(segment.location) == nil {
+                incoming = (text.attribute(.paragraphIdentity, at: 0, effectiveRange: nil) as? String).flatMap(UUID.init(uuidString:))
+            }
+            for key in [NSAttributedString.Key.paragraphIdentity, .finalParagraphIdentity] {
+                text.removeAttribute(key, range: NSRange(location: 0, length: text.length))
+            }
+            return Paragraph(id: ids[index] ?? incoming.map { makeID(persistent: $0) } ?? makeID(), text: text)
         }
         paragraphs.replaceSubrange(window, with: replacements)
         recomputeStarts(from: window.lowerBound)
@@ -651,11 +692,11 @@ public final class DocumentStore: NSMutableAttributedString {
     /// posizioni giuste, identità diverse, paragrafo finale. Restituisce la descrizione del primo problema, o `nil`.
     public func structuralProblem() -> String? {
         var offset = 0
-        var seen: Set<ParagraphID> = []
+        var seen: Set<UUID> = []
         let joined = NSMutableString()
         for (index, paragraph) in paragraphs.enumerated() {
             if starts[index] != offset { return "il paragrafo \(index) comincia a \(starts[index]) invece che a \(offset)" }
-            if !seen.insert(paragraph.id).inserted { return "identità ripetuta \(paragraph.id)" }
+            if !seen.insert(paragraph.id.persistent).inserted { return "identità ripetuta \(paragraph.id)" }
             let isLast = index == paragraphs.count - 1
             if paragraph.text.length == 0, !isLast { return "paragrafo vuoto in mezzo (\(index))" }
             if !isLast {

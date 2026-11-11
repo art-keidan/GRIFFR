@@ -153,10 +153,21 @@ public enum TableEditing {
         return !pieces.isEmpty
     }
 
+    public static func identities(in text: NSAttributedString) -> Set<String> {
+        let whole = NSRange(location: 0, length: text.length)
+        var ids: Set<String> = []
+        for key in [NSAttributedString.Key.tableCell, .finalParagraphCell] {
+            text.enumerateAttribute(key, in: whole) { value, _, _ in
+                if let mark = (value as? String).flatMap(CellMark.init(encoded:)) { ids.insert(mark.table) }
+            }
+        }
+        return ids
+    }
+
     /// Prepara un pezzo di testo che entra in `location`: in una cella prende il segno di quella cella (una tabella
     /// che contenesse diventa testo della cella); fuori, le sue tabelle prendono identità nuove (una tabella incollata
     /// due volte fa due tabelle).
-    public static func prepared(_ fragment: NSAttributedString, at location: Int, in text: NSAttributedString) -> NSAttributedString {
+    public static func prepared(_ fragment: NSAttributedString, at location: Int, in text: NSAttributedString, keepingIdentities: Set<String> = []) -> NSAttributedString {
         let result = NSMutableAttributedString(attributedString: fragment)
         let all = NSRange(location: 0, length: result.length)
         guard all.length > 0 else { return result }
@@ -170,7 +181,8 @@ public enum TableEditing {
             for key in [NSAttributedString.Key.tableCell, .finalParagraphCell] {
                 var changes: [(NSRange, String)] = []
                 result.enumerateAttribute(key, in: all) { value, range, _ in
-                    guard let encoded = value as? String, var mark = CellMark(encoded: encoded) else { return }
+                    guard let encoded = value as? String, var mark = CellMark(encoded: encoded),
+                          !keepingIdentities.contains(mark.table) else { return }
                     mark.table = renamed[mark.table] ?? { let fresh = Table.newID(); renamed[mark.table] = fresh; return fresh }()
                     changes.append((range, mark.encoded))
                 }
@@ -183,10 +195,10 @@ public enum TableEditing {
     /// Sostituisce un intervallo con un pezzo di testo rispettando le tabelle: cancella ciò che si può (le celle
     /// toccate si svuotano, la loro struttura resta) e mette il pezzo all'inizio. Restituisce dove il pezzo comincia.
     @discardableResult
-    public static func replace(_ range: NSRange, in text: NSMutableAttributedString, with fragment: NSAttributedString) -> Int {
+    public static func replace(_ range: NSRange, in text: NSMutableAttributedString, with fragment: NSAttributedString, keepingTableIdentities: Set<String> = []) -> Int {
         delete(range, in: text)
         let location = min(range.location, text.length)
-        text.replaceCharacters(in: NSRange(location: location, length: 0), with: prepared(fragment, at: location, in: text))
+        text.replaceCharacters(in: NSRange(location: location, length: 0), with: prepared(fragment, at: location, in: text, keepingIdentities: keepingTableIdentities))
         return location
     }
 

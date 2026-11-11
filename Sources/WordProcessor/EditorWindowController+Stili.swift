@@ -1152,9 +1152,9 @@ extension EditorWindowController {
         if probe.length > 0 { typingAttributes = probe.attributes(at: 0, effectiveRange: nil) }
     }
 
-    func show(_ text: NSAttributedString) {
+    func show(_ text: NSAttributedString, emptyParagraphID: UUID? = nil) {
         // Il testo caricato va nel deposito senza diventare un passo da annullare.
-        resetStore(to: text)
+        resetStore(to: text, emptyParagraphID: emptyParagraphID)
         markedRange = nil
         selection = TextSelection(caret: 0)
         typingAttributes = Self.typingAttributes(in: text, at: selection)
@@ -1172,6 +1172,7 @@ extension EditorWindowController {
             : typingSource(in: text, at: range.location).map { text.attributes(at: $0, effectiveRange: nil) } ?? [:]
         // Ciò che si scrive accanto a un campo è testo, non un altro campo.
         attributes[.field] = nil
+        attributes[.floatingIdentity] = nil
         // La cella è quella del cursore (accanto a una tabella il carattere vicino può essere di una cella, il cursore no).
         let cell = TableEditing.cell(at: range.location, in: text)?.encoded
         attributes[.tableCell] = cell

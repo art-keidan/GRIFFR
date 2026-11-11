@@ -90,9 +90,11 @@ extension TypesettingSuite {
         func documentRoundTrip() throws {
             let sheet = StyleSheet.builtIn
             let style = sheet.resolveCharacter(paragraphStyle: "Example", wordStyle: nil, characterStyle: nil, base: TextStyling.styleBase)
+            var note = FloatingObject(runs: [TextRun("Nota", style: style)])
+            note.identity = FloatingIdentity()
             let document = Document(language: "it", styles: sheet, lists: ListDefinition.builtIn, noteList: "Notes", blocks: [
                 .paragraph(Paragraph(styleName: "Example", style: sheet.resolveParagraph(styleName: "Example"), list: ListItem(listName: "Examples"),
-                                     inlines: [.text(TextRun("Un esempio", style: style)), .floating(FloatingObject(runs: [TextRun("Nota", style: style)]))])),
+                                     inlines: [.text(TextRun("Un esempio", style: style)), .floating(note)], id: UUID())),
             ])
             let store = DocumentStore(document: document)
             #expect(store.document == document)

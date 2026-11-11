@@ -251,7 +251,22 @@ extension EditorWindowController: PagesViewEditing {
             guard copySelection() else { return false }
             endUndoStep(next: .none)
             let range = selection.range
+            let fragment = store.identifiedFragment(in: range)
+            let selected = Set(FloatingIdentity.occurrences(in: fragment).map { $0.identity.id })
+            var selectedParagraphs: Set<UUID> = []
+            fragment.enumerateAttribute(.paragraphIdentity, in: NSRange(location: 0, length: fragment.length)) { value, _, _ in
+                if let id = (value as? String).flatMap(UUID.init(uuidString:)) { selectedParagraphs.insert(id) }
+            }
+            let sections = Set(SectionEditing.titles(in: fragment).map { $0.mark.id })
+            let tables = TableEditing.identities(in: fragment)
             writeStore(actionName: "Cut") { TableEditing.delete(range, in: $0) }
+            if !selected.isEmpty {
+                let retained = Set(FloatingIdentity.occurrences(in: store).map { $0.identity.id })
+                objectClipboard?.removed = selected.subtracting(retained)
+            }
+            objectClipboard?.paragraphs = selectedParagraphs.subtracting(store.paragraphIDs.map(\.persistent))
+            if !sections.isEmpty { objectClipboard?.sections = sections.subtracting(SectionEditing.titles(in: store).map { $0.mark.id }) }
+            if !tables.isEmpty { objectClipboard?.tables = tables.subtracting(TableEditing.identities(in: store)) }
             setSelection(TextSelection(caret: range.location))
             return true
         case #selector(NSText.paste(_:)):
@@ -364,22 +379,42 @@ extension EditorWindowController: PagesViewEditing {
     private func copySelection() -> Bool {
         let range = selection.range
         guard range.length > 0, let storage = textStorage else { return false }
-        let fragment = storage.attributedSubstring(from: range)
+        let fragment = storage.identifiedFragment(in: range)
         let flattened = TextStyling.flattenedForExport(fragment)
         let pasteboard = self.pasteboard
         pasteboard.clearContents()
         pasteboard.setData(DocumentFormat.data(for: Document(attributedString: fragment, settings: settings)), forType: Self.fragmentType)
         if let rtf = flattened.rtf(from: NSRange(location: 0, length: flattened.length), documentAttributes: [:]) { pasteboard.setData(rtf, forType: .rtf) }
         pasteboard.setString(flattened.string, forType: .string)
+        objectClipboard = ObjectClipboard(store: ObjectIdentifier(storage), changeCount: pasteboard.changeCount)
         return true
     }
 
     /// Incolla un pezzo che viene da un documento: le definizioni che usa e che qui mancano (o che si è scelto di
     /// copiare con un altro nome) entrano nel documento, e il testo dopo. Un passo solo di «Annulla».
     private func pasteFragment(_ fragment: NSAttributedString, from source: Document, replacing range: NSRange, joinsParagraph: Bool,
-                               policy: DefinitionImport.Policy) {
+                               policy: DefinitionImport.Policy, clipboardCount: Int? = nil) {
         let merged = DefinitionImport.merge(fragment, from: source, into: settings, policy: policy)
         let text = NSMutableAttributedString(attributedString: merged.text)
+        let sameDocument = clipboardCount != nil && objectClipboard?.changeCount == clipboardCount
+            && objectClipboard?.store == ObjectIdentifier(store)
+        let validCut = sameDocument && clipboardCount == pasteboard.changeCount
+        let moving = validCut ? objectClipboard?.removed ?? [] : []
+        let movingParagraphs = validCut ? objectClipboard?.paragraphs ?? [] : []
+        let movingSections = validCut ? objectClipboard?.sections ?? [] : []
+        let movingTables = validCut ? objectClipboard?.tables ?? [] : []
+        if !joinsParagraph {
+            text.renewSectionIdentities(keeping: movingSections)
+            let owners = pasteOwners(at: range.location)
+            text.nestSections(under: owners.last?.mark.id ?? "", depth: owners.count)
+        }
+        FloatingIdentity.preparePaste(text, into: store, sameDocument: sameDocument, moving: moving)
+        var copiedParagraphs: [NSRange] = []
+        text.enumerateAttribute(.paragraphIdentity, in: NSRange(location: 0, length: text.length)) { value, range, _ in
+            guard let id = (value as? String).flatMap(UUID.init(uuidString:)), !movingParagraphs.contains(id) else { return }
+            copiedParagraphs.append(range)
+        }
+        for range in copiedParagraphs { text.removeAttribute(.paragraphIdentity, range: range) }
         if joinsParagraph, let storage = textStorage, let item = TextStyling.listItem(in: storage, at: range.location) {
             text.addAttribute(.listItem, value: item.encoded, range: NSRange(location: 0, length: text.length))
         }
@@ -391,7 +426,10 @@ extension EditorWindowController: PagesViewEditing {
         // La sezione a cui appartiene il testo che seguirà il pezzo, prima di incollare (dopo, il pezzo potrebbe averlo preso).
         let after = min(NSMaxRange(range), store.length)
         let owner = joinsParagraph || store.length == 0 ? nil : SectionEditing.enclosing(in: store, at: after).last?.mark.id ?? ""
-        insertFormatted(text, replacing: range, actionName: "Paste")
+        insertFormatted(text, replacing: range, actionName: "Paste", keepingTableIdentities: movingTables)
+        if validCut, text.length > 0 || range.length > 0 {
+            objectClipboard = ObjectClipboard(store: ObjectIdentifier(store), changeCount: pasteboard.changeCount)
+        }
         // Il testo che seguiva resta alla sua sezione: una sezione incollata porta solo il suo contenuto.
         if let owner, text.string.last.map({ $0.isNewline }) == true {
             let end = range.location + text.length
@@ -445,11 +483,7 @@ extension EditorWindowController: PagesViewEditing {
         guard noteAnchor == nil else { return }
         let fragment = LoremText.document(settings: settings, resolver: fontRoleResolver)
         let text = NSMutableAttributedString(attributedString: fragment.attributedString().text)
-        text.renewSectionIdentities()
-        let range = selection.range
-        let owners = pasteOwners(at: range.location)
-        text.nestSections(under: owners.last?.mark.id ?? "", depth: owners.count)
-        pasteFragment(text, from: fragment, replacing: range, joinsParagraph: false, policy: .keepDestination)
+        pasteFragment(text, from: fragment, replacing: selection.range, joinsParagraph: false, policy: .keepDestination)
         document?.undoManager?.setActionName("Lorem")
         window?.makeFirstResponder(pagesView)
     }
@@ -471,16 +505,13 @@ extension EditorWindowController: PagesViewEditing {
                 text.removeAttribute(.finalParagraphList, range: all)
                 text.removeAttribute(.listItem, range: all)
                 text.removeSectionMarks()
-            } else {
-                // Un titolo incollato apre una sezione nuova, interna a quella in cui si incolla.
-                text.renewSectionIdentities()
-                let owners = pasteOwners(at: range.location)
-                text.nestSections(under: owners.last?.mark.id ?? "", depth: owners.count)
             }
             let conflicts = DefinitionImport.conflicts(of: text, from: fragment, into: settings)
+            let clipboardCount = pasteboard.changeCount
+            let targetStore = ObjectIdentifier(store)
             let finish: (DefinitionImport.Policy?) -> Void = { [weak self] policy in
-                guard let self, let policy else { return }
-                self.pasteFragment(text, from: fragment, replacing: range, joinsParagraph: joinsParagraph, policy: policy)
+                guard let self, let policy, ObjectIdentifier(self.store) == targetStore, self.selection.range == range else { return }
+                self.pasteFragment(text, from: fragment, replacing: range, joinsParagraph: joinsParagraph, policy: policy, clipboardCount: clipboardCount)
             }
             if conflicts.isEmpty {
                 finish(.keepDestination)

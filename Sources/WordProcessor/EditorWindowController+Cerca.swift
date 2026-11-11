@@ -273,9 +273,9 @@ extension EditorWindowController {
         if selectedField == nil, index < store.length, store.attribute(.field, at: index, effectiveRange: nil) != nil {
             apply(TextSelection(anchor: index, head: index + 1))
         }
-        if selectedField != nil {
+        if let selectedField {
             menu.addItem(.separator())
-            menu.addItem(withTitle: "Edit Field Formula…", action: #selector(editFieldFormula(_:)), keyEquivalent: "").target = self
+            menu.addItem(withTitle: selectedField.field.asFormula == nil ? "Edit Object Reference…" : "Edit Field Formula…", action: #selector(editFieldFormula(_:)), keyEquivalent: "").target = self
         }
         return menu
     }

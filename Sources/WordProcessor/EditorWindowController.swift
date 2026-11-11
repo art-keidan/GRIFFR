@@ -79,6 +79,15 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     var textStorage: DocumentStore? { store }
     /// Gli appunti usati da Taglia, Copia e Incolla: quelli del sistema, o uno privato nelle prove.
     var pasteboard = NSPasteboard.general
+    struct ObjectClipboard {
+        let store: ObjectIdentifier
+        let changeCount: Int
+        var removed: Set<UUID> = []
+        var paragraphs: Set<UUID> = []
+        var sections: Set<String> = []
+        var tables: Set<String> = []
+    }
+    var objectClipboard: ObjectClipboard?
     /// Nelle prove: la scelta da fare quando il testo incollato porta definizioni diverse da quelle del documento.
     var choosePasteConflictPolicy: (([DefinitionImport.Conflict], @escaping (DefinitionImport.Policy?) -> Void) -> Void)?
     /// L'ultima specie di modifica fatta dalla tastiera: serve a decidere dove finisce un passo di «Annulla».
@@ -182,7 +191,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         var missingFonts: [String] = []
         if let content {
             let (text, missing) = content.attributedString()
-            show(text)
+            show(text, emptyParagraphID: content.flatParagraphs.first?.paragraph.id)
             missingFonts = missing
         } else {
             loadEmptyDocument()
@@ -1486,7 +1495,7 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
         discardPendingChanges()
         settings = content.settingsOnly
         let (text, missingFonts) = content.attributedString()
-        show(text)
+        show(text, emptyParagraphID: content.flatParagraphs.first?.paragraph.id)
         definitionsPanel?.documentChanged()
         showSettingsInPanel()
         refreshFromSelection()
@@ -2186,14 +2195,15 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
 
     /// Il testo è stato sostituito per intero (apertura, «Ripristina»): un deposito nuovo, con gli stessi collegamenti.
     /// I passi da annullare del deposito di prima si buttano: si riferivano a lui.
-    func resetStore(to text: NSAttributedString) {
+    func resetStore(to text: NSAttributedString, emptyParagraphID: UUID? = nil) {
         let old = store
         old.onEdit = nil
         old.onRevert = nil
         old.currentSelection = nil
         old.undoManager?.removeAllActions(withTarget: old)
         old.undoManager = nil
-        store = DocumentStore(text: text)
+        objectClipboard = nil
+        store = DocumentStore(text: text, emptyParagraphID: emptyParagraphID, identifyFloats: true)
         connectStore()
     }
 
@@ -2274,6 +2284,21 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     /// Dopo «Annulla» o «Ripeti»: se è stato aggiunto o tolto testo, il cursore va alla fine del punto cambiato, come
     /// dopo aver scritto; se è cambiato solo l'aspetto (uno stile, il grassetto), il testo toccato resta selezionato.
     private func storeDidRevert(_ range: NSRange, restoring remembered: NSRange?) {
+        if let clipboard = objectClipboard {
+            if !clipboard.removed.isEmpty,
+               FloatingIdentity.occurrences(in: store).contains(where: { clipboard.removed.contains($0.identity.id) }) {
+                objectClipboard?.removed = []
+            }
+            if !clipboard.paragraphs.isEmpty, store.paragraphIDs.contains(where: { clipboard.paragraphs.contains($0.persistent) }) {
+                objectClipboard?.paragraphs = []
+            }
+            if !clipboard.sections.isEmpty, SectionEditing.titles(in: store).contains(where: { clipboard.sections.contains($0.mark.id) }) {
+                objectClipboard?.sections = []
+            }
+            if !clipboard.tables.isEmpty, !clipboard.tables.isDisjoint(with: TableEditing.identities(in: store)) {
+                objectClipboard?.tables = []
+            }
+        }
         let clamped = NSIntersectionRange(range, NSRange(location: 0, length: store.length))
         if store.lastRevertChangedStyles { stylesChangedInStore() }
         markedRange = nil

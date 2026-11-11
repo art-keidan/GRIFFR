@@ -215,6 +215,14 @@ final class FieldMenuFiller: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         for role in roles { add(.sectionContainingNumber(role: role)) }
         menu.addItem(.separator())
+        if let editor = NSApp.mainWindow?.windowController as? EditorWindowController {
+            if !FloatingIdentity.occurrences(in: editor.documentText).isEmpty {
+                menu.addItem(withTitle: "Object Reference…", action: #selector(EditorWindowController.insertObjectReference(_:)), keyEquivalent: "").target = editor
+            }
+            if editor.objectAnchorForLabel != nil {
+                menu.addItem(withTitle: "Object Label…", action: #selector(EditorWindowController.editObjectLabel(_:)), keyEquivalent: "").target = editor
+            }
+        }
         menu.addItem(withTitle: "Other Field…", action: #selector(EditorWindowController.insertCustomField(_:)), keyEquivalent: "")
             .toolTip = "Compose the field's formula: start, steps, result"
     }

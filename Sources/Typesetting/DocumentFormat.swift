@@ -121,11 +121,10 @@ import Foundation
 /// - Variabili degli stili: `<variable id="…" name="Distanza" expression="…"/>` dentro `style`, prima delle formule: un
 ///   risultato con un nome che le formule dello stile richiamano per identità (`binding` con una variabile).
 ///
-/// Il programma scrive la versione `DocumentFormat.version` e legge le versioni da `oldestReadableVersion` in poi: la 18 è
-/// la prima dopo la pulizia dello sviluppo, e le successive la devono leggere. La lettura è severa: elementi o attributi sconosciuti sono un errore con il numero di riga, non vengono
-/// ignorati, così un refuso in un file corretto a mano non fa perdere contenuto in silenzio.
+/// Il programma legge le versioni da `oldestReadableVersion` a `version`. Il writer usa il formato 19 per identità
+/// e rimandi, e il 18 per i documenti privi di questi dati. Un elemento o attributo sconosciuto produce un errore con il numero di riga.
 public enum DocumentFormat {
-    public static let version = 18
+    public static let version = 19
     /// La versione più vecchia che il programma legge. Le versioni dello sviluppo, prima della 18, non si leggono più.
     public static let oldestReadableVersion = 18
 
@@ -139,6 +138,16 @@ public enum DocumentFormat {
 
     public static func string(for document: Document) -> String {
         let paragraphs = document.flatParagraphs.map(\.paragraph)
+        let usesIdentities = paragraphs.contains { paragraph in
+            paragraph.id != nil || paragraph.inlines.contains { inline in
+                switch inline {
+                case .floating(let object): object.identity != nil || object.runs.contains { if case .reference? = $0.field { true } else { false } }
+                case .text(let run): if case .reference? = run.field { true } else { false }
+                case .image: false
+                }
+            }
+        }
+        let writtenVersion = usesIdentities ? version : oldestReadableVersion
         // Lo stile più usato diventa quello del documento, così la maggior parte dei paragrafi non lo ripete.
         var base = dominantStyle(paragraphs.flatMap { paragraph in runs(of: paragraph).map { ($0.style, $0.text.utf16.count + 1) } })
         if document.styles.styles.contains(where: { !$0.formulas.isEmpty }) {
@@ -150,7 +159,7 @@ public enum DocumentFormat {
         base?.hyphenates = true
         let sheet = document.styles
 
-        var out = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<document version=\"\(version)\""
+        var out = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<document version=\"\(writtenVersion)\""
         if let base { out += styleAttributes(base, relativeTo: nil) }
         if let language = document.language { out += " lang=\"\(escapedAttribute(language))\"" }
         if !document.hyphenates { out += " hyphenation=\"off\"" }
@@ -359,6 +368,7 @@ public enum DocumentFormat {
             let plain = runs.filter { $0.wordStyleName == nil && $0.characterStyleName == nil }
             let local = dominantStyle((plain.isEmpty ? runs : plain).map { ($0.style, $0.text.utf16.count) }) ?? paragraphBase
             out += "<p"
+            if let id = paragraph.id { out += " id=\"\(id.uuidString)\"" }
             if let styleName { out += " style=\"\(escapedAttribute(styleName))\"" }
             // Il livello di un titolo è la profondità della sua sezione: lo dice già l'annidamento, non si ripete.
             var titleAware = paragraph.style
@@ -410,6 +420,10 @@ public enum DocumentFormat {
                     var attributes = noteStyle.map { styleAttributes($0, relativeTo: local) } ?? ""
                     if note.style != FloatStyle.footnoteName, document.floatStyles.contains(where: { $0.name == note.style }) {
                         attributes = " style=\"\(escapedAttribute(note.style))\"" + attributes
+                    }
+                    if let identity = note.identity {
+                        attributes += " id=\"\(identity.id.uuidString)\""
+                        if let label = identity.label { attributes += " label=\"\(escapedAttribute(label))\"" }
                     }
                     // Una nota di un solo paragrafo si scrive di seguito; con più paragrafi, ciascuno nel suo `p`.
                     let text = note.paragraphs.count == 1
@@ -759,9 +773,12 @@ public enum DocumentFormat {
 
     /// Il tipo di un campo: `kind` e, per quelli di una sezione, `role`.
     private static func fieldAttributes(_ field: Field) -> String {
-        // Si scrivono soltanto formule: i campi storici diventano quelle equivalenti.
-        let formula = field.asFormula
-        return " kind=\"formula\" expression=\"\(formula.expression)\"" + (formula.role.map { " role=\"\(escapedAttribute($0))\"" } ?? "")
+        switch field {
+        case .formula(let formula):
+            return " kind=\"formula\" expression=\"\(formula.expression)\"" + (formula.role.map { " role=\"\(escapedAttribute($0))\"" } ?? "")
+        case .reference(let reference):
+            return " kind=\"reference\" target=\"\(reference.target.uuidString)\" read=\"\(reference.reading.rawValue)\""
+        }
     }
 
     /// Gli attributi di una pagina: formato, margini, pagine affacciate.
@@ -984,6 +1001,10 @@ public enum DocumentFormat {
 
     private final class Reader: NSObject, XMLParserDelegate {
         var error: DocumentFormatError?
+        private var version = 18
+        private var floatingIDs: Set<UUID> = []
+        private var paragraphIDs: Set<UUID> = []
+        private var floatingLabels: Set<String> = []
         var sawDocument = false
         var settings = Document()
         var pageSetup: PageSetup {
@@ -1175,6 +1196,7 @@ public enum DocumentFormat {
                     guard let version = attributes["version"].flatMap(Int.init) else { throw DocumentFormatError.missingAttribute(line: line, attribute: "version") }
                     guard version <= DocumentFormat.version else { throw DocumentFormatError.newerVersion(version) }
                     guard version >= DocumentFormat.oldestReadableVersion else { throw DocumentFormatError.olderVersion(version) }
+                    self.version = version
                     sawDocument = true
                     documentStyle = try PartialStyle().applying(attributes, line: line)
                     // La lingua del documento è un'impostazione, non uno stile: il testo che non ne dichiara una resta senza.
@@ -1468,7 +1490,7 @@ public enum DocumentFormat {
                         titleHasParagraph = true
                     }
                     let measures = ["first-indent", "left-indent", "right-indent", "space-before", "space-after", "line-spacing", "line-height"]
-                    guard check(attributes, allowed: Set(measures + ["align", "font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "list", "level", "style", "in-list", "list-indent", "list-marker", "list-gap", "opening-distance", "outline-level", "rules"] + LineKeeping.attributeNames), element: name, parser) else { return }
+                    guard check(attributes, allowed: Set(measures + ["align", "font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "list", "level", "style", "in-list", "list-indent", "list-marker", "list-gap", "opening-distance", "outline-level", "rules"] + LineKeeping.attributeNames + (version >= 19 ? ["id"] : [])), element: name, parser) else { return }
                     let styleName = try namedStyle(attributes["style"], target: .paragraph, attribute: "style", line: line)
                     var list: ListItem?
                     if let marker = attributes["list"] {
@@ -1533,7 +1555,14 @@ public enum DocumentFormat {
                         guard let gap = DocumentFormat.parseLength(text), gap >= 0 else { throw DocumentFormatError.invalidValue(line: line, attribute: "list-gap", value: text) }
                         if let item = list { list?.markerPosition = item.resolvedMeasures(in: settings.lists).textIndent - Double(gap) }
                     }
-                    paragraph = Paragraph(styleName: styleName, style: style, list: list)
+                    var id: UUID?
+                    if let value = attributes["id"] {
+                        guard let parsed = UUID(uuidString: value), paragraphIDs.insert(parsed).inserted else {
+                            throw DocumentFormatError.invalidValue(line: line, attribute: "id", value: value)
+                        }
+                        id = parsed
+                    }
+                    paragraph = Paragraph(styleName: styleName, style: style, list: list, id: id)
                     if let text = attributes["opening-distance"] {
                         guard let value = DocumentFormat.parseLength(text), value >= 0 else {
                             throw DocumentFormatError.invalidValue(line: line, attribute: "opening-distance", value: text)
@@ -1548,19 +1577,34 @@ public enum DocumentFormat {
                     paragraphLine = line
 
                 case ("field", "p"), ("field", "note"):
-                    guard check(attributes, allowed: ["kind", "role", "font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines",
-                                                      "graphite", "word-style", "char-style", "rules-off", "expression"], element: name, parser) else { return }
-                    guard attributes["kind"] == "formula" else {
+                    let styleKeys: Set<String> = ["font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation",
+                                                  "color", "vertical", "lines", "graphite", "word-style", "char-style", "rules-off"]
+                    let field: Field
+                    var runAttributes = attributes
+                    switch attributes["kind"] {
+                    case "formula":
+                        guard check(attributes, allowed: styleKeys.union(["kind", "role", "expression"]), element: name, parser) else { return }
+                        guard let expression = attributes["expression"], let formula = FieldFormula(expression: expression, role: attributes["role"]) else {
+                            throw DocumentFormatError.invalidValue(line: line, attribute: "expression", value: attributes["expression"] ?? "")
+                        }
+                        field = .formula(formula)
+                        runAttributes["role"] = nil
+                        runAttributes["expression"] = nil
+                    case "reference" where version >= 19:
+                        guard check(attributes, allowed: styleKeys.union(["kind", "target", "read"]), element: name, parser) else { return }
+                        guard let target = attributes["target"].flatMap(UUID.init(uuidString:)) else {
+                            throw DocumentFormatError.invalidValue(line: line, attribute: "target", value: attributes["target"] ?? "")
+                        }
+                        guard let reading = attributes["read"].flatMap(ObjectReference.Reading.init(rawValue:)) else {
+                            throw DocumentFormatError.invalidValue(line: line, attribute: "read", value: attributes["read"] ?? "")
+                        }
+                        field = .reference(ObjectReference(target: target, reading: reading))
+                        runAttributes["target"] = nil
+                        runAttributes["read"] = nil
+                    default:
                         throw DocumentFormatError.invalidValue(line: line, attribute: "kind", value: attributes["kind"] ?? "")
                     }
-                    guard let expression = attributes["expression"], let formula = FieldFormula(expression: expression, role: attributes["role"]) else {
-                        throw DocumentFormatError.invalidValue(line: line, attribute: "expression", value: attributes["expression"] ?? "")
-                    }
-                    let field = Field.formula(formula)
-                    var runAttributes = attributes
                     runAttributes["kind"] = nil
-                    runAttributes["role"] = nil
-                    runAttributes["expression"] = nil
                     try startRun(from: note != nil ? noteStyle : paragraphStyle, runAttributes, line: line)
                     if note != nil, noteUsesParagraphs, !noteParagraphOpen {
                         throw DocumentFormatError.malformed(line: line, detail: "in a note with paragraphs a field goes inside <p>")
@@ -1574,14 +1618,31 @@ public enum DocumentFormat {
                     runStartLine = line
 
                 case ("note", "p"):
-                    guard check(attributes, allowed: ["font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation", "color", "vertical", "lines", "graphite", "small-caps", "style"], element: name, parser) else { return }
+                    var allowed: Set<String> = ["font", "size", "features", "axes", "variable", "font-role", "optical", "lang", "hyphenation",
+                                                "color", "vertical", "lines", "graphite", "small-caps", "style"]
+                    if version >= 19 { allowed.formUnion(["id", "label"]) }
+                    guard check(attributes, allowed: allowed, element: name, parser) else { return }
                     var noteAttributes = attributes
+                    let label = noteAttributes.removeValue(forKey: "label")
+                    var identity: FloatingIdentity?
+                    if let value = noteAttributes.removeValue(forKey: "id") {
+                        guard let id = UUID(uuidString: value), floatingIDs.insert(id).inserted else {
+                            throw DocumentFormatError.invalidValue(line: line, attribute: "id", value: value)
+                        }
+                        if let label, !FloatingIdentity.validLabel(label) || !floatingLabels.insert(label).inserted {
+                            throw DocumentFormatError.invalidValue(line: line, attribute: "label", value: label)
+                        }
+                        identity = FloatingIdentity(id: id, label: label)
+                    } else if label != nil {
+                        throw DocumentFormatError.missingAttribute(line: line, attribute: "id")
+                    }
                     let floatStyle = noteAttributes.removeValue(forKey: "style") ?? FloatStyle.footnoteName
                     guard settings.floatStyles.contains(where: { $0.name == floatStyle }) else {
                         throw DocumentFormatError.invalidValue(line: line, attribute: "style", value: floatStyle)
                     }
                     noteStyle = try paragraphStyle.applying(noteAttributes, line: line)
                     note = FloatingObject(paragraphs: [[]], style: floatStyle)
+                    note?.identity = identity
                     noteLine = line
                     noteUsesParagraphs = false
                     noteParagraphOpen = false

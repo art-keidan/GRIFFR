@@ -561,6 +561,7 @@ public struct CellMark: Equatable, Sendable {
 }
 
 public struct Paragraph: Equatable, Sendable {
+    public var id: UUID?
     /// Lo stile di paragrafo con un nome, se il paragrafo ne usa uno.
     public var styleName: String?
     /// Lo stile del paragrafo già risolto: i valori dello stile con un nome, più quelli dati a mano.
@@ -576,7 +577,8 @@ public struct Paragraph: Equatable, Sendable {
     public var rules: ParagraphRules?
 
     public init(styleName: String? = nil, style: ParagraphStyle = ParagraphStyle(), list: ListItem? = nil, inlines: [Inline] = [], openingDistance: Double? = nil,
-                keeping: LineKeeping = LineKeeping(), rules: ParagraphRules? = nil) {
+                keeping: LineKeeping = LineKeeping(), rules: ParagraphRules? = nil, id: UUID? = nil) {
+        self.id = id
         self.rules = rules
         self.styleName = styleName
         self.style = style
@@ -780,6 +782,7 @@ public struct FloatStyle: Hashable, Sendable {
 ///
 /// Il contenuto può avere più paragrafi; non ha uno stile di paragrafo proprio, e non contiene altri flottanti.
 public struct FloatingObject: Equatable, Sendable {
+    public var identity: FloatingIdentity?
     /// I paragrafi del contenuto, ciascuno come sequenza di tratti di testo. Un paragrafo vuoto contiene un tratto
     /// vuoto, che ne conserva lo stile.
     public var paragraphs: [[TextRun]]
@@ -811,6 +814,8 @@ public enum Field: Hashable, Sendable {
     /// Una formula salvata nel punto del testo in cui ne viene scritto il risultato.
     case formula(FieldFormula)
 
+    case reference(ObjectReference)
+
     /// Il carattere che tiene il posto del campo nel testo.
     public static let placeholder = "\u{FFFC}"
 
@@ -824,20 +829,28 @@ public enum Field: Hashable, Sendable {
     public static func sectionNumber(role: String) -> Field { .formula(.sectionContainingNumber(role: role)) }
 
     /// La formula che il campo calcola.
-    public var asFormula: FieldFormula {
-        switch self {
-        case .formula(let formula): formula
-        }
+    public var asFormula: FieldFormula? {
+        if case .formula(let formula) = self { return formula }
+        return nil
     }
 
-    /// Il campo come valore di un attributo: «formula», l'espressione e, per le sezioni, il ruolo, separati da a capo.
+    /// Il campo come valore di un attributo del testo.
     public var encoded: String {
-        let formula = asFormula
-        return "formula\n" + formula.expression + (formula.role.map { "\n" + $0 } ?? "")
+        switch self {
+        case .formula(let formula):
+            return "formula\n" + formula.expression + (formula.role.map { "\n" + $0 } ?? "")
+        case .reference(let reference):
+            return "reference\n" + reference.target.uuidString + "\n" + reference.reading.rawValue
+        }
     }
 
     public init?(encoded: String) {
         let parts = encoded.split(separator: "\n", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
+        if parts.first == "reference", parts.count == 3, let id = UUID(uuidString: parts[1]),
+           let reading = ObjectReference.Reading(rawValue: parts[2]) {
+            self = .reference(ObjectReference(target: id, reading: reading))
+            return
+        }
         guard parts.first == "formula", parts.count == 2 || parts.count == 3,
               let formula = FieldFormula(expression: parts[1], role: parts.count == 3 ? parts[2] : nil) else { return nil }
         self = .formula(formula)

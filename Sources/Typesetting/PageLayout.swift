@@ -390,6 +390,7 @@ public struct PlacedFill {
 public struct PlacedImage {
     public let image: ImageObject
     public internal(set) var rect: CGRect
+    var floatingAnchor: Int? = nil
 }
 
 public struct PageStartPlacement {
@@ -550,13 +551,23 @@ public enum PageLayout {
         let readsPageCount = usesPageCount(text) || options.styles.styles.contains {
             $0.heading?.readsPageCount == true || $0.writes.contains { $0.formula.presentationRead == .pageCount }
         }
+        var references: Set<ObjectReference> = []
+        text.enumerateAttribute(.field, in: NSRange(location: 0, length: text.length)) { value, _, _ in
+            if let encoded = value as? String, encoded.hasPrefix("reference\n"), case .reference(let reference)? = Field(encoded: encoded) {
+                references.insert(reference)
+            }
+        }
+        var referenceValues: [ObjectReference: String] = [:]
         var count: Int?
         for _ in 0..<3 {
             let resolved = pass.pageNumbers.resolved(in: pass.layout)
             let total = readsPageCount ? pass.layout.pages.count : nil
-            guard count != total || resolved != pass.pageNumbers else { break }
+            let values = pass.layout.values(for: references)
+            guard count != total || resolved != pass.pageNumbers || values != referenceValues else { break }
             count = total
-            pass = layoutPass(text, setup: setup, options: options, notePages: pass.notePages, pageCount: count, pageNumbers: resolved)
+            referenceValues = values
+            pass = layoutPass(text, setup: setup, options: options, notePages: pass.notePages, pageCount: count,
+                              pageNumbers: resolved, referenceValues: referenceValues)
         }
         var layout = pass.layout
         layout.graphiteFallbacks = graphite.coreText
@@ -605,7 +616,8 @@ public enum PageLayout {
 
     /// `knownPages` indica la pagina supposta di ciascun richiamo di nota.
     private static func layoutPass(_ text: NSAttributedString, setup: PageSetup, options: LayoutOptions, notePages knownPages: [Int: Int]?,
-                                   pageCount: Int?, pageNumbers assumedPageNumbers: PresentationPageNumbers = PresentationPageNumbers())
+                                   pageCount: Int?, pageNumbers assumedPageNumbers: PresentationPageNumbers = PresentationPageNumbers(),
+                                   referenceValues: [ObjectReference: String] = [:])
         -> (layout: DocumentLayout, assumedNotePages: [Int: Int], notePages: [Int: Int], pageNumbers: PresentationPageNumbers) {
         let string = text.string as NSString
         var column = setup.textRect
@@ -771,7 +783,8 @@ public enum PageLayout {
         }
         /// Il testo di un campo, nel punto della composizione in cui si è.
         func fieldText(_ field: Field, at location: Int) -> String {
-            guard let write = field.asFormula.presentationWrite() else { return "" }
+            if case .reference(let reference) = field { return referenceValues[reference] ?? "?" }
+            guard let write = field.asFormula?.presentationWrite() else { return "" }
             var context = fieldContext()
             if case .read(.pageNumber) = write.expression {
                 let style = text.attribute(.footnote, at: location, effectiveRange: nil) as? String
@@ -1072,7 +1085,7 @@ public enum PageLayout {
             if let image = info.image {
                 pages[pages.count - 1].images.append(PlacedImage(image: image, rect: CGRect(
                     x: column.minX + (column.width - block.imageSize.width) / 2, y: column.maxY - top - block.imageSize.height,
-                    width: block.imageSize.width, height: block.imageSize.height)))
+                    width: block.imageSize.width, height: block.imageSize.height), floatingAnchor: info.range.location))
             }
             top += block.imageSize.height
             if block.style.caption == .below, !block.captionLines.isEmpty {
@@ -2341,7 +2354,12 @@ public enum PageLayout {
                 var note = entry.note
                 let resolved = NSMutableAttributedString()
                 var segments: [TextMap.Segment] = []
-                appendResolvingFields(text, range: note.textRange, documentStart: 0, into: resolved, segments: &segments) { field, _ in field.asFormula.value(in: context) }
+                appendResolvingFields(text, range: note.textRange, documentStart: 0, into: resolved, segments: &segments) { field, _ in
+                    switch field {
+                    case .formula(let formula): formula.value(in: context)
+                    case .reference(let reference): referenceValues[reference] ?? "?"
+                    }
+                }
                 note.text = resolved
                 note.map = TextMap(segments: segments)
                 let lines = noteLines(note, paragraphStyle: entry.paragraphStyle, width: area.width)
@@ -2836,6 +2854,7 @@ public enum PageLayout {
             var bodyAttributes = body.length > 0 ? body.attributes(at: body.length - 1, effectiveRange: nil) : noteAttributes
             bodyAttributes[.footnote] = nil
             bodyAttributes[.composedField] = nil
+            bodyAttributes[.floatingIdentity] = nil
             let marker = body.length
             let text = NSMutableAttributedString()
             switch isFigure ? .none : floatStyle.reference {
@@ -3306,6 +3325,9 @@ public enum PageLayout {
                          graphite counts: inout (graphite: Int, coreText: Int)) -> NSAttributedString {
         let text = NSMutableAttributedString(attributedString: source)
         let all = NSRange(location: 0, length: text.length)
+        // I segni del file si fermano al deposito: un attributo sul primo carattere separa i glifi del tratto.
+        text.removeAttribute(.paragraphIdentity, range: all)
+        text.removeAttribute(.finalParagraphIdentity, range: all)
         text.removeAttribute(.backgroundColor, range: all)
         text.enumerateAttribute(.foregroundColor, in: all) { value, range, _ in
             guard let color = value as? NSColor else { return }

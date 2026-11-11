@@ -20,6 +20,17 @@ extension Document {
         var location = 0
         var endsWithTerminator = true  // un testo vuoto è un solo paragrafo vuoto
 
+        func paragraphIdentity(at location: Int) -> UUID? {
+            if let store = text as? DocumentStore { return store.paragraphID(at: location).persistent }
+            if location < text.length {
+                return (text.attribute(.paragraphIdentity, at: location, effectiveRange: nil) as? String).flatMap(UUID.init(uuidString:))
+            }
+            if text.length > 0 {
+                return (text.attribute(.finalParagraphIdentity, at: text.length - 1, effectiveRange: nil) as? String).flatMap(UUID.init(uuidString:))
+            }
+            return nil
+        }
+
         func style(at index: Int) -> CharacterStyle {
             guard index < string.length, let font = text.attribute(.font, at: index, effectiveRange: nil) as? NSFont else {
                 // Il font che AppKit sottintende quando l'attributo manca.
@@ -148,6 +159,7 @@ extension Document {
                     flushPiece(upTo: index)
                     closeNote()
                     note = FloatingObject(paragraphs: [[]], style: text.attribute(.footnote, at: index, effectiveRange: nil) as? String ?? FloatStyle.footnoteName)
+                    note?.identity = FloatingIdentity.at(index, in: text)
                     note?.image = (text.attribute(.floatImage, at: index, effectiveRange: nil) as? ImageAttachment)?.image
                     anchorStyle = style(at: index)
                     pieceStart = index + 1
@@ -173,7 +185,7 @@ extension Document {
             paragraphs.append(FlatParagraph(Paragraph(styleName: styleName, style: resolvedParagraph, list: list, inlines: runs,
                                                       openingDistance: TextStyling.openingDistance(in: text, at: start),
                                                       keeping: TextStyling.lineKeeping(in: text, at: start),
-                                                      rules: TextStyling.paragraphRules(in: text, at: start)),
+                                                      rules: TextStyling.paragraphRules(in: text, at: start), id: paragraphIdentity(at: start)),
                                             section: section,
                                             cell: (text.attribute(.tableCell, at: start, effectiveRange: nil) as? String).flatMap(CellMark.init(encoded:)),
                                             sectionReturn: text.attribute(.sectionReturn, at: start, effectiveRange: nil) as? String))
@@ -198,7 +210,7 @@ extension Document {
             }
             paragraphs.append(FlatParagraph(Paragraph(styleName: styleName, style: resolvedParagraph,
                                                       list: TextStyling.finalParagraphListItem(in: text),
-                                                      inlines: [.text(TextRun("", style: style(at: max(last, 0))))]),
+                                                      inlines: [.text(TextRun("", style: style(at: max(last, 0))))], id: paragraphIdentity(at: text.length)),
                                             section: finalSection,
                                             cell: last >= 0 ? (text.attribute(.finalParagraphCell, at: last, effectiveRange: nil) as? String).flatMap(CellMark.init(encoded:)) : nil,
                                             sectionReturn: last >= 0 ? text.attribute(.finalParagraphSectionReturn, at: last, effectiveRange: nil) as? String : nil))
@@ -265,6 +277,7 @@ extension Document {
                         attributes[.paragraphStyle] = paragraphStyle
                         attributes[.footnote] = note.style
                         // L'immagine di una figura sta sul suo segnaposto.
+                        if position == 0, let identity = note.identity { attributes[.floatingIdentity] = identity.encoded }
                         if position == 0, let image = note.image { attributes[.floatImage] = ImageAttachment(image) }
                         result.append(NSAttributedString(string: run.text, attributes: attributes))
                     }
@@ -279,6 +292,13 @@ extension Document {
                 last[.field] = nil
                 last[.paragraphStyle] = paragraphStyle
                 result.append(NSAttributedString(string: "\n", attributes: last))
+            }
+            if let id = paragraph.id {
+                if result.length > paragraphStart {
+                    result.addAttribute(.paragraphIdentity, value: id.uuidString, range: NSRange(location: paragraphStart, length: 1))
+                } else if paragraphStart > 0 {
+                    result.addAttribute(.finalParagraphIdentity, value: id.uuidString, range: NSRange(location: paragraphStart - 1, length: 1))
+                }
             }
             // Lo stile di paragrafo con un nome vale per tutto il paragrafo, a capo finale compreso.
             if let name = paragraph.styleName, result.length > paragraphStart {
@@ -346,13 +366,13 @@ extension Document {
 extension NSMutableAttributedString {
     /// Dà un'identità nuova alle sezioni i cui titoli stanno in questo testo: un titolo incollato apre una sezione nuova,
     /// non una seconda copia della stessa.
-    public func renewSectionIdentities() {
+    public func renewSectionIdentities(keeping: Set<String> = []) {
         var renamed: [String: String] = [:]
         let all = NSRange(location: 0, length: length)
         for key in [NSAttributedString.Key.sectionTitle, .finalParagraphSection] {
             var changes: [(NSRange, String)] = []
             enumerateAttribute(key, in: all) { value, range, _ in
-                guard let encoded = value as? String, var mark = SectionMark(encoded: encoded) else { return }
+                guard let encoded = value as? String, var mark = SectionMark(encoded: encoded), !keeping.contains(mark.id) else { return }
                 mark.id = renamed[mark.id] ?? { let fresh = Section.newID(); renamed[mark.id] = fresh; return fresh }()
                 changes.append((range, mark.encoded))
             }
