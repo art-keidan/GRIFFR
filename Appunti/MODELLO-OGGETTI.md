@@ -12,7 +12,7 @@ Fonti locali lette: `CLAUDE.md`, memoria del progetto, `Appunti/OGGETTI-EDITORIA
 
 Vincoli fissi: Core Text, AAT prioritario, PDF di sistema, niente docx/HarfBuzz/Typst come motore, Graphite soltanto se installata nel sistema e richiesta. Nessuna modifica dei font. Identificatori invariati: `local.griffr`, `local.griffr.document`, `.grx`. UI in inglese. Annulla/Ripeti, bozze concorrenti, eredità, importazione e provenienza restano requisiti del modello.
 
-Per la discussione, le sezioni 3, 7 e 10 raccolgono rispettivamente la proposta, i casi osservabili e le decisioni ancora aperte. Le tabelle di conversione e l’appendice servono alla verifica tecnica.
+Per la discussione, le sezioni 3, 7 e 10 raccolgono rispettivamente la proposta, i casi osservabili e le decisioni confermate. Le tabelle di conversione e l’appendice servono alla verifica tecnica.
 
 ## 1. Inventario attuale
 
@@ -271,11 +271,11 @@ Una dichiarazione che crea una nota possiede uno slot con chiave `(occorrenza, d
 
 Prima dell’editing, una nota vuota può essere una proiezione virtuale deterministica; al primo contenuto o riferimento durevole viene materializzata nel registro persistente. Se viene materializzata durante applicazione dello stile, avviene nella transazione dell’editor, una volta sola. Entrambe le strategie devono dare la stessa identità logica dello slot. Il layout e l’anteprima non modificano il documento. Le transazioni riconciliano il registro dopo le modifiche; non rivalutano ricorsivamente altre azioni editoriali senza evento.
 
-Quinta parola assente: slot e contenuto rimangono, presentazione sospesa; ritorno del bersaglio: riuso dello slot. Rimozione della regola o cambio stile: raccomandazione di conservare contenuto inattivo accessibile, senza cancellazione implicita. Il punto finale va deciso nella sezione 10.
+Quando manca la quinta parola, lo slot conserva il contenuto e la presentazione è sospesa. Al ritorno del bersaglio si riusa lo slot. Se un’azione dell’editor toglie lo stile o la formula che genera una nota con testo, GRIFFR chiede se conservare il contenuto come nota inattiva o eliminarlo. La scelta entra nella stessa transazione della modifica, così Annulla può ripristinare anche il contenuto. L’eventuale nota inattiva rimane accessibile dall’ispettore.
 
-I segni fissi seguono il testo e conservano affinità/ordine quando coalescono; eliminando il supporto migrano al successore, compreso il terminatore di flusso. La ricerca relativa rimane relativa al suo proprietario. Spezzare prima della quinta parola lascia la nota originaria al primo paragrafo, sospesa; il nuovo ha il suo slot vuoto. Unendo, si presenta il testo delle componenti in una nota sola, con avviso e confini d’origine persistenti. Spezzando davanti al testo originario del secondo, la sua componente segue quel testo. Le regole complete devono essere verificate nel modello del testo: gli esperimenti astratti non bastano.
+I segni fissi seguono il testo e conservano affinità/ordine quando coalescono; eliminando il supporto migrano al successore, compreso il terminatore di flusso. La ricerca relativa rimane relativa al suo proprietario. Spezzare prima della quinta parola lascia la nota originaria al primo paragrafo, sospesa; il nuovo ha il suo slot vuoto. Unendo, si presenta il testo delle componenti in una nota sola, con avviso e confini d’origine persistenti. Spezzando davanti al testo originario del secondo, la sua componente segue quel testo. Quando più confini cancellati coincidono, Invio ne ripristina uno alla volta da sinistra a destra. Un rimando conserva l’identità della componente d’origine e legge il numero del raggruppamento visibile. Dopo la separazione legge quello della nota originaria. Il testo inserito esattamente al confine segue la componente indicata dall’affinità del cursore.
 
-Copiando si assegnano nuovi ID agli oggetti copiati e si rimappano soltanto i riferimenti interni alla copia; quelli esterni mantengono il bersaglio. Spostando/tagliando all’interno del documento si conserva l’identità mediante un’operazione editoriale esplicita; l’eventuale riuso di un contenuto di clipboard dopo il primo incolla deve generare una copia. ID non duplicati nel documento. Per incolla fra documenti, importazione delle definizioni e identità delle occorrenze sono due operazioni distinte. È una politica proposta da formalizzare, non un comportamento provato.
+Copiando si assegnano nuovi ID agli oggetti copiati e si rimappano soltanto i riferimenti interni alla copia; quelli esterni mantengono il bersaglio. Spostando/tagliando all’interno del documento si conserva l’identità mediante un’operazione editoriale esplicita; l’eventuale riuso di un contenuto di clipboard dopo il primo incolla deve generare una copia. ID non duplicati nel documento. Per incolla fra documenti, importazione delle definizioni e identità delle occorrenze sono due operazioni distinte. La sezione 8 verifica queste regole per copia e spostamento nello stesso documento. L’assegnazione di un nuovo ID deve escludere anche le identità conservate dagli appunti o da uno stato ripristinabile. Una chiave assente dal documento aperto può ancora essere il bersaglio di un riferimento.
 
 ### 3.6 Fasi, disponibilità e convergenza
 
@@ -481,7 +481,7 @@ Nodi indispensabili: letterali tipizzati con unità, radici, riferimenti, relazi
 2. **Costruzione dei proprietari.** Conservare ID esistenti di sezioni/tabelle, UUID delle selezioni, funzioni, parametri, variabili e formule nel loro ambito. Assegnare ID a definizioni, flussi e occorrenze che ne sono prive. Si possono generare deterministicamente durante la conversione da una chiave locale del documento e percorso sorgente; diventano durevoli col primo salvataggio nuovo. Nessuna corrispondenza esterna viene dedotta da un offset o da un nome.
 3. **Risoluzione dei riferimenti in un secondo passaggio.** Nomi di stili/Liste/tipi/placement → ID nella categoria corretta; distinguere nome vuoto di cancellazione, assenza e default. Non scambiare stili diversi con lo stesso UUID locale della formula. Non sostituire riferimenti rotti con un oggetto arbitrario. I default impliciti del 18 devono essere materializzati semanticamente, non persi perché omessi nell’XML.
 4. **Traduzione con la tabella 4.** Conservare valori storici e loro ordine, misure naturali, regole sui segni, stile dei risultati, le diverse politiche di eredità. Per elenchi automatici mantenere la politica legacy anziché indovinare le intenzioni di ripresa. Campi trasformati in Write con letture e fallback compatibili. Non reintrodurre `<rule>`, `.wpx` o formati 1–17.
-5. **Verifica e scrittura.** Validare il modello convertito, tenendo distinti diagnosi di file invalido, riferimento a oggetto cancellato e risultato ancora indisponibile. Aprire non riscrive il file; il salvataggio esplicito scrive il nuovo schema quando il writer è pronto. Un’app che legge solo il 18 rifiuterà la versione nuova. Raccomandazione: avviso e opzione di salvare una copia al primo passaggio; nessun downgrade implicito. Durante le tappe interne senza nuovi dati, mantenere writer 18.
+5. **Verifica e scrittura.** Validare il modello convertito distinguendo file invalido, riferimento a oggetto cancellato e risultato ancora indisponibile. La conversione all’apertura avviene in memoria. Il primo salvataggio esplicito con il nuovo writer aggiorna direttamente il file aperto. Un’app che legge soltanto il 18 rifiuterà il file aggiornato. Durante le tappe interne senza nuovi dati si mantiene il writer 18.
 
 Criterio di equivalenza: testo dell’autore e valori propri/ereditati, ordine delle azioni, contatori e segni, posizione dei campi, stile e geometria, comportamento di editing e PDF, con i medesimi font disponibili. Non basta uguaglianza dell’XML o del numero di pagine. Prove `18 → modello → 19 → modello`, e confronto con la composizione 18 sui documenti campione: `prova-bacheca-stili.grx`, `prova-condizioni-comportamenti.grx`, `prova-apertura-pagina.grx`, `prova-sottrai.grx`, `prova-stili-formule.grx`, `prova-compositore.grx`, `prova-formule-riutilizzabili.grx`, `annapurna-sil-tabelle.grx`, `Campione-font.grx` se i font richiesti sono disponibili. Controllare la versione dei campioni prima di congelarli come fixture; non convertire in-place gli originali dell’autore. Aggiungere casi minimi sintetici per copertura dei costrutti assenti dai campioni.
 
@@ -539,7 +539,7 @@ Preview   Sample / Document selection
 Cancel    Apply
 ```
 
-`Title` è lo slot dell’originale; `Result` apre lo stesso editor del campo. Particolari di impaginazione, come `Outside` e `Min. height`, appartengono a Place. `Marker` rende esplicita la scelta che oggi dipende da HeadingPart. La bozza applica una sola transazione a stili/campi/testate, con controlli di conflitto equivalenti a quelli esistenti. Campione e selezione del documento devono essere distinguibili; la prima versione può continuare a mostrare soltanto `Sample` dove non dispone di un contesto reale.
+`Title` è lo slot dell’originale; `Result` apre lo stesso editor del campo. Particolari di impaginazione, come `Outside` e `Min. height`, appartengono a Place. `Marker` rende esplicita la scelta che oggi dipende da HeadingPart. La bozza applica una sola transazione a stili/campi/testate, con controlli di conflitto equivalenti a quelli esistenti. L’anteprima distingue `Sample` da `Document selection`. Se manca una selezione utilizzabile, offre il campione. Quando la selezione è disponibile, l’utente può scegliere entrambe le modalità.
 
 ```text
 Inspector · Note
@@ -584,26 +584,64 @@ Casi nuovi e prove trasversali:
 
 ## 8. Alloy: risultati e lavoro necessario prima del codice d’identità
 
-Sono stati eseguiti tre modelli temporanei con **Alloy 6.2.0, Glucose**. I sorgenti sono in appendice A per riproducibilità senza aggiungere altri file al commit. Per gli esperimenti precedenti sul testo e l’anteprima, vedi `Appunti/Alloy/RISULTATI.md`.
+Sono stati eseguiti sette modelli temporanei con **Alloy 6.2.0, Glucose**. I sorgenti sono in appendice A per riproducibilità senza aggiungere altri file al commit. Per gli esperimenti precedenti sul testo e l’anteprima, vedi `Appunti/Alloy/RISULTATI.md`.
 
 | Modello e limite | Risultati osservati | Interpretazione e limiti |
 |---|---|---|
 | `generation.als`, al più 5 elementi per firma, 5 stati espliciti | Preserve, Idempotent, SingleVisible, Suspension senza controesempi. TwoDeclarationsSameLocalID, RepeatedEnsure, SuspendAndReturn raggiungibili. NakedLocalIDUnique ha controesempio atteso. | Ensure riusa lo slot e non perde riferimenti nel registro. Visibilità è proiezione del registro, non un renderer verificato. Nessuna prova su testo, eredità eseguibile, serializzazione o transazioni. |
 | `legacy-collision.als`, tre origini, cinque stati | CollisionReachable raggiungibile; ReSeparateAll impossibile; ThreeOriginsRecovered ha controesempio. | Riproduce le sole equazioni home/FromBreak del modello precedente nel caso di paragrafi vuoti. Non estende tutto il modello del testo. |
 | `ordered-boundaries.als`, 5 origini ordinate per i controlli generali; scenario e controlli specifici con 3 | Partition, MergeKeepsOthers, ExactInverse, SingleMissingInverse, RestoreThree senza controesempi. ThreeNotesReappear raggiungibile. ManualEnterIsUndo ha controesempio con 3 e 5 origini. | Conservare confini individuali e ordine consente il recupero nello scenario. Le origini sono tutte sullo stesso supporto astratto. Non prova migrazione dei segni durante editing o persistenza nel file. |
+| `merged-note-text.als`, 3 componenti, al più 5 occorrenze di carattere e 3 stati espliciti | InsertFollowsAffinityOnSplit, DeleteKeepsSurvivorsAndBoundary e ReferenceFollowsGrouping senza controesempi. InsertAndSplit, DeleteBothComponentsAndSplit e MergeAndSplit raggiungibili. VisibleTextDeterminesInsertedOwner ha controesempio. | Il modello conserva le componenti e il loro ordine. La stessa stringa visibile può risultare da due inserimenti con diversa appartenenza. I rimandi sono verificati come risoluzione del gruppo di una componente. Restano da provare numerazione, agganci al corpo del documento, cursore AppKit e serializzazione. |
+| `text-anchors.als`, 3 origini, 2 confini, 2 caratteri e terminatore. Fino a 3 stati per i check, 6 stati per la traccia completa | EveryHiddenMarkHasCarrier, RestoreMovesOnlyMarksBeforeTheCut, DeletingSupportMovesToSuccessor, MergingMovesMarksToSuccessor, RestoresExactlyOneInOrder e TwoReturnsRestoreCoincidentBoundaries senza controesempi. MigrateToTerminator e MergeDeleteRestore raggiungibili. CarrierIdentifiesInactiveBoundary ha controesempio. | L’ordine logico dei segni sopravvive alla cancellazione del carattere su cui ricadono. Un medesimo supporto può portare più confini. Il modello usa un ordine fisso di elementi e verifica cancellazione, fusione e riattivazione. Inserimento di nuovo testo, taglia e incolla, persistenza e ricostruzione in AppKit richiedono verifiche proprie. |
+| `persistent-identity.als`, fino a 6 ID e 8 istanze. Fino a 3 stati per le operazioni singole, 4 per le tracce composte | ReopenPreservesIDsLinksAndOrder, MovePreservesTargets, CopyRemapsOnlyInternalTargets, DeletedTargetStaysUnresolvedThroughCopy e RetainedTargetStaysUnresolved senza controesempi. Cinque scenari raggiungibili. Tre controesempi deliberati: PositionIdentifiesTargetAfterMove, DroppingUnresolvedLinksIsLossless, DocumentAloneProtectsClipboardTargets. | Il file astratto conserva la sequenza degli ID e gli archi dei rimandi, inclusi quelli verso oggetti assenti. La riapertura può ricreare le istanze in memoria. La copia in coda rimappa solo i bersagli copiati con la sorgente. Il modello verifica la riserva esplicita dell’ID conservato negli appunti. L’XML, la storia di Annulla e il trasferimento fra documenti restano da verificare. |
+| `cut-paste.als`, fino a 5 ID e 4 stati | KeepsOnlyIDsActuallyRemoved, SuccessfulPasteConsumesCut, UndoCutInvalidatesMoveAfterLaterDeletion, CrossDocumentPasteUsesFreshIDs e CancelLeavesEligibility senza controesempi. Quattro scenari raggiungibili. AbsenceAloneIdentifiesAValidCut ha controesempio. | Il modello distingue selezione, rimozione effettiva e struttura che sopravvive alla destinazione. Conserva un ID solo da un taglio ancora valido dello stesso documento aperto. Rappresenta la cancellazione del dialogo come transazione senza effetti. Restano da provare gli appunti effettivi, le modifiche concorrenti e la storia reale di Annulla e Ripeti. |
 
 Controesempio: A su N1, B su N2, C su N3, nessun FromBreak. Unire N1 a N2 porta A su N2 e lo marca. Unire N2 a N3 porta A e B su N3 e li marca entrambi. Dividere davanti a N3 porta A e B insieme su R1 e cancella entrambi i flag. Un altro Invio, davanti a R1 o N3, non li separa. Il booleano utile con due note perde informazioni nel caso a tre.
 
-Alternativa: ogni confine mantiene identità, posizione logica e ordine anche quando è inattivo. Fusione lo disattiva; ripristino esatto lo riattiva. Quando più confini coincidono, Invio da solo non determina quale recuperare. Con la politica proposta, `AB|C → ABC → A|BC` dopo Invio, mentre Annulla torna a `AB|C`. Dopo due Invio si recuperano tutti e tre i gruppi nello scenario. ManualEnterIsUndo è volutamente troppo forte, non una decisione editoriale già approvata.
+Ogni confine mantiene identità, posizione logica e ordine anche quando è inattivo. La fusione lo disattiva e il ripristino lo riattiva. La regola confermata per Invio sceglie il primo confine da sinistra. Nello scenario `AB|C → ABC`, Invio produce `A|BC` e Annulla ripristina `AB|C`. Due Invio recuperano tutti e tre i gruppi.
 
-Prima di modificare le identità nel codice:
+Nel quarto modello, inserire X fra A e B dà lo stesso testo visibile AXB sia con X alla fine di A sia con X all’inizio di B. Dopo la separazione si ottengono rispettivamente AX e B oppure A e XB. L’operazione di inserimento deve quindi conservare il lato logico del cursore oltre alla posizione visiva. La prova di cancellazione confronta anche la sequenza visibile dei caratteri superstiti. Nel caso raggiungibile in cui due componenti diventano vuote, il confine resta separabile.
+
+Nel quinto modello i segni d’origine e i confini inattivi occupano posizioni logiche ordinate a larghezza zero. Il loro supporto è il primo elemento visibile successivo, con un terminatore che resta disponibile anche nel testo vuoto. Cancellare il supporto sposta la posizione visibile senza alterare quell’ordine. La traccia con tre origini parte da due confini attivi, li fonde e cancella il carattere che teneva distinti i punti ricordati. I due confini finiscono sullo stesso supporto. Due Invio li riattivano da sinistra a destra e ricostituiscono i gruppi originari. Il controesempio a CarrierIdentifiesInactiveBoundary mostra che una posizione di testo non basta a identificare un confine. Il formato deve poter conservare le due identità e il loro ordine anche quando la posizione visibile coincide.
+
+Nel sesto modello, un rimando da A a B e C copia A e B in A′ e B′. A′ punta a B′ e a C. A mantiene i propri rimandi e un rimando da C a B continua a indicare B. Uno spostamento cambia la sequenza senza modificare gli ID. Salvare il numero di posizione al posto dell’ID perde il bersaglio quando quell’ordine cambia. Se B è stato cancellato, la riapertura conserva il rimando irrisolto a B. Scrivere solo i rimandi risolvibili perderebbe questa informazione.
+
+La riserva dei soli ID presenti nel documento è insufficiente per gli appunti. Se gli appunti conservano il rimando A → B e in seguito cancelli entrambi gli oggetti, un allocatore che cerca un ID libero nel solo documento potrebbe assegnare B a una copia di C. Il rimando conservato negli appunti risulterebbe così collegato a un oggetto diverso. Nel modello, riservare anche B impedisce l’errore. Un allocatore che garantisce ID nuovi per tutta la vita dei riferimenti soddisfa lo stesso vincolo. La verifica non richiede di salvare nel file un registro di tutti gli oggetti cancellati.
+
+### Riscontro sul formato 18 e sulle operazioni dell’editor
+
+Il lettore 18 valida gli ID di sezioni e tabelle in due insiemi distinti. Lo stesso valore testuale può identificare una sezione e una tabella. Un duplicato dentro lo stesso tipo è un errore. Quando il file non contiene l’attributo, il lettore assegna un ID e il writer lo conserva. La migrazione deve portare con sé il tipo dell’oggetto oltre all’ID. Un indice che usasse il solo valore testuale perderebbe un caso valido. [DocumentFormat.swift](../Sources/Typesetting/DocumentFormat.swift#L1311)
+
+Taglia chiama oggi `copySelection` e poi cancella ciò che `TableEditing.delete` può rimuovere. Il frammento nativo degli appunti usa lo stesso writer dei documenti, affiancato da RTF e testo semplice. Incolla rinnova gli ID delle sezioni quando inserisce una struttura e aggiorna i ritorni interni. `TableEditing.prepared` rinnova gli ID delle tabelle fuori da una cella. Dentro una cella usa il contrassegno della cella ricevente. Incolla nel testo di una nota usa il testo semplice. [EditorWindowController+Pagine.swift](../Sources/WordProcessor/EditorWindowController+Pagine.swift#L247) · [AttributedBridge.swift](../Sources/Typesetting/AttributedBridge.swift#L347) · [TableEditing.swift](../Sources/Typesetting/TableEditing.swift#L140)
+
+Il lettore del nuovo schema può validare la coppia tipo/ID prima di costruire l’indice e conservare gli ID dei bersagli irrisolti. Nell’inserimento del frammento, la struttura della destinazione determina quali oggetti sopravvivono prima di assegnare gli ID. La stessa mappa serve a riscrivere i rimandi del frammento e a inserire gli oggetti. Le trasformazioni delle definizioni restano nel percorso di `DefinitionImport`. Inserimento, trasformazioni e aggiornamento dei rimandi appartengono allo stesso passo di Annulla. [EditorWindowController+Pagine.swift](../Sources/WordProcessor/EditorWindowController+Pagine.swift#L379)
+
+Per conservare l’identità al primo incolla dopo un taglio nello stesso documento, serve distinguere la provenienza del frammento. La proposta è che Taglia registri il documento aperto di origine, gli oggetti effettivamente rimossi e una chiave d’uso singolo associata al contenuto degli appunti. Il primo incolla idoneo conserva quegli ID. Gli incolla successivi creano copie con ID nuovi. L’editor verifica l’idoneità al momento di inserire il frammento, anche dopo il dialogo sulle definizioni. Annulla Taglia ripristina gli ID e invalida la chiave di spostamento. Se gli stessi oggetti vengono cancellati di nuovo, il vecchio frammento rimane una copia. L’annullamento del dialogo di Incolla lascia la chiave utilizzabile. Il modello Alloy adotta il consumo al primo incolla riuscito del frammento. Ogni nuovo comando Taglia deve emettere una chiave nuova. I frammenti legacy e quelli provenienti da un altro documento seguono il percorso di copia. La prova del modello precedente copre copia e spostamento come operazioni astratte. Queste regole propongono l’integrazione nell’editor.
+
+| Prova da aggiungere quando il nuovo modello è disponibile | Risultato atteso |
+|---|---|
+| Migrazione da v18 con sezione e tabella che condividono un valore testuale di ID | Due chiavi distinte per tipo. Gli ID già presenti sopravvivono a salvataggio e riapertura. |
+| Lettura del nuovo schema con duplicato nello stesso tipo o rimando a oggetto assente | Duplicato rifiutato. Il rimando con bersaglio assente mantiene la chiave e mostra l’avviso previsto. |
+| Copia di due oggetti con un rimando interno e uno verso l’esterno | Il rimando interno segue la copia. Il riferimento esterno conserva il bersaglio. |
+| Taglia e incolla nello stesso documento con due incolla consecutivi | Il primo conserva gli ID rimossi. Il secondo ne assegna di nuovi. |
+| Annulla Taglia prima di Incolla, anche se poi cancelli di nuovo l’originale | Annulla ripristina gli ID e invalida la chiave del taglio. Incolla dal vecchio frammento assegna nuovi ID agli oggetti inseriti. |
+| Taglio parziale di una tabella oppure incolla dentro una cella | Si misura la rimozione effettiva nel deposito. L’ID della tabella rimasta è ancora occupato. All’interno di una cella il frammento assume la struttura della destinazione. |
+| Conflitto di definizioni durante Incolla e scelta Annulla | Testo, riferimenti e definizioni restano nello stato precedente al tentativo di incolla. |
+
+**Eseguito sul codice attuale.** Tre test Swift mirati del formato sono passati. Una prova Swift in memoria, collegata al modulo Typesetting, ha verificato sei casi: conservazione della coppia tipo/ID, rifiuto dei duplicati per sezioni e tabelle, stabilità degli ID assegnati all’apertura senza attributo, rinnovo dell’ID della sezione copiata e rinnovo distinto dell’ID in due preparazioni dello stesso frammento di tabella. Tutte le nove fixture `.grx` in `Appunti` sono in formato 18. Ciascuna si legge, si riscrive in memoria e si rilegge ottenendo una seconda serializzazione identica alla prima. I test di WordProcessor selezionati si sono interrotti con segnale 6 e un puntatore nullo in `NSPasteboard`. La prova in memoria copre lettore, writer e trasformazioni chiamate dall’editor. I gesti di Taglia, Copia e Incolla restano da verificare attraverso l’app.
+
+**Taglio e Annulla nel motore attuale.** Una prova Swift in memoria ha usato una tabella a due celle tra due paragrafi. Cancellando solo il testo della prima cella, l’ID della tabella rimane. Cancellando l’intera tabella, l’ID scompare. Annulla ripristina testo, ID di paragrafo e ID della tabella in entrambi i casi. Ripeti rimuove di nuovo la tabella. La prova esercita `TableEditing.delete` e `DocumentStore` con un `UndoManager`. Non esegue il comando AppKit con gli appunti di sistema.
+
+Nel settimo modello il controesempio segue la sequenza Taglia A, Annulla, Cancella A. Il documento torna privo di A, come subito dopo Taglia. Gli appunti possono ancora contenere lo stesso frammento. L’assenza di A è quindi insufficiente per riconoscere un taglio ancora valido. La revoca della chiave in Annulla permette di distinguere i due stati e impedisce il riuso dell’ID da un frammento superato.
+
+Verifiche da completare prima di modificare le identità nel codice.
 
 | Verifica da aggiungere | Invariante / scenario e prova di raggiungibilità |
 |---|---|
-| Testo e confini in un solo modello | Tre origini, supporti vuoti e non vuoti, segno migrato al successore, segni coincidenti, divisione davanti a un confine o altrove. Conservazione ordine e contenuto; riattivazione solo del confine scelto. Run per ogni caso limite, check dopo ogni operazione. |
-| Identità persistenti e riferimenti | Unicità per tipo/documento; cambio di nome non altera bersaglio; cancellazione non ritargetta; serializza/ricarica conserva le relazioni; copia rimappa gli ID interni, spostamento li conserva. Modellare snapshot distinti e almeno un rimando interno e uno esterno alla selezione. |
+| Testo e confini in un solo modello | Estendere il caso verificato di fusione, cancellazione e ripristino a inserimenti, divisioni ordinarie fuori dai confini ricordati e spostamenti. Collegare i segni ai contenuti delle note e controllare conservazione e ordine dopo le operazioni composte. |
+| Identità persistenti e riferimenti | Tradurre le proprietà già verificate nel lettore e writer XML e provare duplicati e riferimenti irrisolti. Estendere il modello a identità qualificate per documento/tipo, rinomina, appunti con taglia e incolla, più incolla dalla stessa selezione e ripristino di snapshot con Annulla/Ripeti. |
 | Note generate ed ereditarietà | Riapplicazione, cambio stile, modifica/rimozione dichiarazione, sospensione, fusioni, più dichiarazioni con stesso ID locale. Una nota per slot, contenuto inattivo preservato, zero nuove scritture durante valutazione. Aggiungere scenari con bozza respinta e undo/redo. |
-| Fusione e modifica del contenuto | Due e tre componenti, aggiunta e cancellazione a cavallo del confine. Stabilire a chi appartiene il testo inserito e cosa leggono i rimandi. Verificare che ripristino non duplichi o scarti contenuto. |
+| Fusione e modifica del contenuto | Collegare la verifica su tre componenti al modello degli agganci e delle operazioni complete dell’editor. Provare sostituzioni, migrazione dei confini, posizione visiva del cursore, persistenza e Annulla/Ripeti. |
 | Voci, istanze e presentazioni | Voci con più capoversi, due sequenze della stessa definizione, ripresa, frammenti su più pagine. Continuazione e ripetizione non incrementano; lo spostamento di un membro non cambia le altre sequenze. |
 | Disponibilità delle letture | Grafo delle fasi con proprietà/effetti e una dipendenza di layout ammessa. Nessun arco proibito fra fase e lettura; cicli non autorizzati rilevati. Modellare limiti e non pretendere prova di convergenza di Core Text. |
 
@@ -626,20 +664,18 @@ L’ordine privilegia parità del modello e delle letture prima delle nuove funz
 
 Controlli a vista per le tappe che modificano la resa: apri un campione 18, verifica un titolo e un campo su due pagine affacciate, confronta valore e origine nell’ispettore, cambia una formula e usa Annulla/Ripeti, esporta il PDF e controlla segnalibri/richiami. Per modifiche tipografiche controlla Hoefler Text face 0 e Vulcanius già installati, se disponibili, senza sostituire font o ritoccare fixture. Le tappe possono essere divise in commit più piccoli quando ciascuno mantiene un comportamento completo; nessuna riscrittura unica obbligatoria.
 
-## 10. Domande aperte per Artemij
+## 10. Decisioni editoriali confermate
 
-Le raccomandazioni sono proposte. Non riapro le decisioni già prese il 7 novembre.
-
-| Domanda | Raccomandazione e conseguenza |
+| Caso | Comportamento concordato |
 |---|---|
-| Più a capo cancellati coincidono nello stesso punto: in quale ordine deve recuperarli Invio? | Da sinistra verso destra, uno per pressione. È prevedibile dal testo; Annulla mantiene il ripristino storico esatto. Alloy distingue i due comportamenti. |
-| Che cosa mostra un rimando a una componente di una nota fusa? | Il numero della nota visibile comune, conservando l’ID della componente. Dopo separazione il rimando segue la sua nota. Una componente sospesa senza presentazione ha diagnosi specifica, non viene dichiarata cancellata. |
-| Se modifichi una nota fusa proprio fra due componenti, a quale appartiene il testo aggiunto? | Rendere ispezionabile il confine e usare l’affinità del cursore; come default al pezzo seguente a inizio componente, al precedente alla sua fine. Formalizzare cancellazioni che attraversano il confine prima del codice. |
-| Se togli lo stile o la formula che generava una nota con testo scritto, che cosa deve accadere? | Conserva il contenuto inattivo nell’ispettore, con eliminazione esplicita e annullabile. Riattivando la stessa dichiarazione si riusa lo slot. |
-| Quando un capoverso di continuazione rimane senza la sua voce dopo un taglio, come si comporta? | Avviso e conversione esplicita a nuova voce; non associarlo silenziosamente a un elenco diverso. Il normale interruttore continua a riferirsi alla voce compatibile precedente nello stesso flusso. |
-| Quanto deve mostrare l’anteprima del compositore? | Campione indicato come tale, più anteprima sul documento quando c’è un oggetto selezionato. La seconda deve usare contesto e bozza coerenti; non mostrare il numero d’esempio come valore reale. |
-| Al primo salvataggio in una versione successiva al 18, vuoi conservare facilmente l’originale? | Avviso esplicito e possibilità di `Save a Copy`; l’apertura da sola non scrive. Nessun obbligo di salvare nel vecchio formato dopo avere usato dati nuovi. |
-| Una formula nuova può selezionare il testo generato? | Solo scegliendo esplicitamente la vista di presentazione, e per letture/resa compatibili. Agganci persistenti e regole sul testo sorgente continuano a usare il testo dell’autore. |
+| Invio con più confini coincidenti | Ripristina un confine per pressione, da sinistra a destra. Annulla recupera lo stato precedente. |
+| Rimando a una componente fusa | Mostra il numero della nota visibile comune. Il riferimento conserva l’ID originario e dopo la separazione segue la propria nota. |
+| Inserimento al confine di una nota fusa | Il testo appartiene alla parte in cui è collocato il cursore. Fine della prima parte e inizio della seconda sono due posizioni logiche. |
+| Rimozione della formula o dello stile con nota scritta | Chiede se conservare il testo come nota inattiva o eliminarlo. La decisione è annullabile insieme alla modifica che l’ha provocata. |
+| Continuazione rimasta senza voce | Mostra un avviso e lascia all’utente la scelta di creare una nuova voce. |
+| Anteprima del compositore | Offre il campione dichiarato e la selezione del documento con il suo contesto reale. |
+| Primo salvataggio dopo il formato 18 | Il salvataggio esplicito aggiorna direttamente il file aperto. L’apertura converte in memoria. |
+| Selezione del testo generato | Richiede la scelta esplicita della vista di presentazione e resta limitata a letture e resa compatibili. Gli agganci persistenti seguono il testo sorgente. |
 
 ## Appendice A. Modelli Alloy eseguiti
 
@@ -753,6 +789,548 @@ check RestoreThree for exactly 3 Piece, 5 State
 check ManualEnterIsUndo for exactly 3 Piece, 5 State
 ```
 
+### `merged-note-text.als`
+
+```alloy
+module mergedNoteText
+open util/ordering[Part] as po
+
+// Model of three persistent note components. A cut separates two visible notes.
+// A glyph atom identifies an occurrence, not a Unicode value.
+sig Part {}
+sig Glyph {}
+abstract sig Affinity {}
+one sig EndPrevious, StartNext extends Affinity {}
+sig State { cuts: set Part, body: Part -> Int -> lone Glyph }
+
+fun text[s: State, p: Part]: seq Glyph { p.(s.body) }
+fun visibleText[s: State]: seq Glyph {
+  text[s,po/first].append[text[s,po/next[po/first]]].append[text[s,po/last]]
+}
+pred valid[s: State] {
+  po/first not in s.cuts
+  all g: Glyph | lone s.body.g
+  all p: Part | all i: text[s,p].inds | i >= 0 and i < #text[s,p]
+  #s.body <= 5
+}
+fact ValidStates { all s: State | valid[s] }
+
+pred mergeAt[s,t: State, p: Part] {
+  p in s.cuts
+  t.cuts = s.cuts - p
+  t.body = s.body
+}
+pred separateAt[s,t: State,p: Part] {
+  p in Part - po/first - s.cuts
+  t.cuts = s.cuts + p
+  t.body = s.body
+}
+pred insertAtBoundary[s,t: State, a,b: Part,g: Glyph,f: Affinity] {
+  b = po/next[a] and b not in s.cuts
+  no s.body.g
+  #s.body < 5
+  t.cuts = s.cuts
+  f = EndPrevious implies t.body = s.body ++ (a -> text[s,a].add[g])
+  f = StartNext implies t.body = s.body ++ (b -> text[s,b].insert[0,g])
+}
+
+fun prefix[ts: seq Glyph, n: Int]: Int -> Glyph {
+  { i: Int, g: Glyph | i < n and i->g in ts }
+}
+fun dropPrefix[ts: seq Glyph, n: Int]: Int -> Glyph {
+  { i: Int, g: Glyph | i >= 0 and i < (#ts).sub[n] and i.add[n]->g in ts }
+}
+pred deleteAcross[s,t: State,a,b: Part,x,y: Int] {
+  b = po/next[a] and b not in s.cuts
+  x > 0 and x <= #text[s,a]
+  y > 0 and y <= #text[s,b]
+  t.cuts = s.cuts
+  t.body = (s.body - (a -> Int -> Glyph + b -> Int -> Glyph))
+         + (a -> prefix[text[s,a],(#text[s,a]).sub[x]])
+         + (b -> dropPrefix[text[s,b],y])
+}
+fun groupStart[s: State,p: Part]: one Part {
+  po/max[{ q: s.cuts + po/first | po/lte[q,p] }]
+}
+
+assert InsertFollowsAffinityOnSplit {
+  all s,t,u: State, a,b: Part, g: Glyph, f: Affinity |
+    insertAtBoundary[s,t,a,b,g,f] and separateAt[t,u,b] implies {
+      #u.body = (#s.body).add[1]
+      f = EndPrevious implies g in text[u,a].elems and g not in text[u,b].elems
+      f = StartNext implies g in text[u,b].elems and g not in text[u,a].elems
+      all p: Part | text[s,p].elems in text[u,p].elems
+      all p: Part - a - b | text[u,p] = text[s,p]
+      let offset = (a = po/first => #text[s,a] else (#text[s,po/first]).add[#text[s,a]]) |
+        visibleText[u] = visibleText[s].insert[offset,g]
+    }
+}
+assert DeleteKeepsSurvivorsAndBoundary {
+  all s,t,u: State,a,b: Part,x,y: Int |
+    deleteAcross[s,t,a,b,x,y] and separateAt[t,u,b] implies {
+      #u.body = (#s.body).sub[x.add[y]]
+      all p: Part | text[u,p].elems in text[s,p].elems
+      all p: Part - a - b | text[u,p] = text[s,p]
+      u.cuts = s.cuts + b
+      let offset = (a = po/first => #text[s,a] else (#text[s,po/first]).add[#text[s,a]]) |
+        visibleText[u] = prefix[visibleText[s],offset.sub[x]].append[dropPrefix[visibleText[s],offset.add[y]]]
+    }
+}
+assert ReferenceFollowsGrouping {
+  all s,t,u: State,p: Part |
+    mergeAt[s,t,p] and separateAt[t,u,p] implies {
+      groupStart[t,p] = groupStart[t,po/prev[p]]
+      groupStart[u,p] = p
+      s.body = u.body and s.cuts = u.cuts
+    }
+}
+// Deliberately false: rendered text alone loses cursor affinity.
+assert VisibleTextDeterminesInsertedOwner {
+  all s,t,u: State,a,b: Part,g: Glyph |
+    some text[s,a] and some text[s,b] and
+    insertAtBoundary[s,t,a,b,g,EndPrevious] and
+    insertAtBoundary[s,u,a,b,g,StartNext] and visibleText[t] = visibleText[u]
+    implies t.body = u.body
+}
+run InsertAndSplit {
+  some s,t,u: State,a,b: Part,g: Glyph |
+    some text[s,a] and some text[s,b] and
+    insertAtBoundary[s,t,a,b,g,StartNext] and separateAt[t,u,b]
+} for 3 but exactly 3 Part, 5 Glyph, 5 seq, 4 Int
+run DeleteBothComponentsAndSplit {
+  some s,t,u: State,a,b: Part |
+    deleteAcross[s,t,a,b,#text[s,a],#text[s,b]] and separateAt[t,u,b] and
+    no text[u,a] and no text[u,b] and some text[u,Part-a-b]
+} for 3 but exactly 3 Part, 5 Glyph, 5 seq, 4 Int
+run MergeAndSplit {
+  some s,t,u: State,p: Part |
+    mergeAt[s,t,p] and separateAt[t,u,p] and some text[s,p] and some text[s,po/prev[p]]
+} for 3 but exactly 3 Part, 5 Glyph, 5 seq, 4 Int
+check InsertFollowsAffinityOnSplit for 3 but exactly 3 Part, 5 Glyph, 5 seq, 4 Int
+check DeleteKeepsSurvivorsAndBoundary for 3 but exactly 3 Part, 5 Glyph, 5 seq, 4 Int
+check ReferenceFollowsGrouping for 3 but exactly 3 Part, 5 Glyph, 5 seq, 4 Int
+check VisibleTextDeterminesInsertedOwner for 3 but exactly 3 Part, 5 Glyph, 5 seq, 4 Int
+```
+
+### `text-anchors.als`
+
+```alloy
+module textAnchors
+open util/ordering[Element] as order
+
+abstract sig Element {}
+sig Character, Boundary, Origin extends Element {}
+one sig End extends Element {}
+fact EndIsLast { End = order/last }
+
+sig State { chars: set Character, cuts: set Boundary }
+
+fun visible[s: State]: set Element { s.chars + s.cuts + End }
+fun carrier[s: State, m: Element]: lone Element {
+  order/min[visible[s] & order/nexts[m]]
+}
+fun groupStart[s: State, m: Origin]: lone Boundary {
+  order/max[s.cuts & order/prevs[m]]
+}
+fun rememberedAt[s: State, c: Element]: set Boundary {
+  { b: Boundary - s.cuts | carrier[s,b] = c }
+}
+
+pred deleteCharacter[s,t: State, x: Character] {
+  x in s.chars
+  t.chars = s.chars - x
+  t.cuts = s.cuts
+}
+pred mergeAt[s,t: State,b: Boundary] {
+  b in s.cuts
+  t.chars = s.chars
+  t.cuts = s.cuts - b
+}
+pred restoreHere[s,t: State,c: Element] {
+  some rememberedAt[s,c]
+  t.chars = s.chars
+  t.cuts = s.cuts + order/min[rememberedAt[s,c]]
+}
+fun hidden[s: State]: set Element { Origin + (Boundary - s.cuts) }
+
+assert EveryHiddenMarkHasCarrier {
+  all s: State, m: hidden[s] | one carrier[s,m]
+}
+assert RestoreMovesOnlyMarksBeforeTheCut {
+  all s,t: State,c: Element |
+    restoreHere[s,t,c] implies
+      all restored: t.cuts - s.cuts, m: hidden[t] |
+        (carrier[s,m] = c and order/lt[m,restored] =>
+          carrier[t,m] = restored else carrier[t,m] = carrier[s,m])
+}
+assert DeletingSupportMovesToSuccessor {
+  all s,t: State, x: Character, m: hidden[s] |
+    deleteCharacter[s,t,x] implies {
+      carrier[s,m] = x implies carrier[t,m] = carrier[s,x]
+      carrier[s,m] != x implies carrier[t,m] = carrier[s,m]
+    }
+}
+assert MergingMovesMarksToSuccessor {
+  all s,t: State,b: Boundary |
+    mergeAt[s,t,b] implies {
+      carrier[t,b] = carrier[s,b]
+      all m: hidden[s] |
+        carrier[s,m] = b implies carrier[t,m] = carrier[s,b]
+    }
+}
+assert RestoresExactlyOneInOrder {
+  all s,t: State,c: Element |
+    restoreHere[s,t,c] implies {
+      one t.cuts - s.cuts
+      all restored: t.cuts - s.cuts |
+        no earlier: rememberedAt[s,c] | order/lt[earlier,restored]
+    }
+}
+assert TwoReturnsRestoreCoincidentBoundaries {
+  all s,t,u: State,c: Element |
+    #rememberedAt[s,c] = 2 and restoreHere[s,t,c] and restoreHere[t,u,c]
+    implies u.cuts = s.cuts + rememberedAt[s,c]
+}
+// Deliberately false: two merged boundaries can share one carrier.
+assert CarrierIdentifiesInactiveBoundary {
+  all s: State | all disj a,b: Boundary - s.cuts | carrier[s,a] != carrier[s,b]
+}
+
+run MigrateToTerminator {
+  some s,t: State,x: Character,o: Origin |
+    deleteCharacter[s,t,x] and carrier[s,o] = x and carrier[t,o] = End
+} for 3 but exactly 8 Element, exactly 3 Origin, exactly 2 Boundary, exactly 2 Character, 4 Int
+
+run MergeDeleteRestore {
+  some a,b,c,d,e,f: State, disj n1,n2: Boundary, x: Character |
+    some disj o1,o2,o3: Origin | {
+      order/lt[o1,n1] and order/lt[n1,o2] and order/lt[o2,x]
+      order/lt[x,n2] and order/lt[n2,o3]
+      a.cuts = Boundary and a.chars = Character
+      mergeAt[a,b,n1] and mergeAt[b,c,n2]
+      deleteCharacter[c,d,x]
+      carrier[c,n1] = x and carrier[d,n1] = carrier[d,n2]
+      restoreHere[d,e,carrier[d,n1]] and restoreHere[e,f,carrier[d,n1]]
+      e.cuts = n1 and f.cuts = a.cuts
+      groupStart[f,o1] = groupStart[a,o1]
+      groupStart[f,o2] = groupStart[a,o2]
+      groupStart[f,o3] = groupStart[a,o3]
+    }
+} for 6 but exactly 8 Element, exactly 3 Origin, exactly 2 Boundary, exactly 2 Character, exactly 6 State, 4 Int
+
+check EveryHiddenMarkHasCarrier for 3 but exactly 8 Element, exactly 3 Origin, exactly 2 Boundary, exactly 2 Character, 4 Int
+check RestoreMovesOnlyMarksBeforeTheCut for 3 but exactly 8 Element, exactly 3 Origin, exactly 2 Boundary, exactly 2 Character, 4 Int
+check DeletingSupportMovesToSuccessor for 3 but exactly 8 Element, exactly 3 Origin, exactly 2 Boundary, exactly 2 Character, 4 Int
+check MergingMovesMarksToSuccessor for 3 but exactly 8 Element, exactly 3 Origin, exactly 2 Boundary, exactly 2 Character, 4 Int
+check RestoresExactlyOneInOrder for 3 but exactly 8 Element, exactly 3 Origin, exactly 2 Boundary, exactly 2 Character, 4 Int
+check TwoReturnsRestoreCoincidentBoundaries for 3 but exactly 8 Element, exactly 3 Origin, exactly 2 Boundary, exactly 2 Character, 4 Int
+check CarrierIdentifiesInactiveBoundary for 3 but exactly 8 Element, exactly 3 Origin, exactly 2 Boundary, exactly 2 Character, 4 Int
+```
+
+### `persistent-identity.als`
+
+```alloy
+module persistentIdentity
+
+sig ID, Instance {}
+sig State {
+  key: Instance -> lone ID,
+  links: ID -> ID,
+  precedes: ID -> ID
+}
+sig File { items: seq ID, storedLinks: ID -> ID }
+
+fun live[s: State]: set ID { Instance.(s.key) }
+fun resolve[s: State, id: ID]: lone Instance { (s.key).id }
+fun reserved[s: State]: set ID { live[s] + ID.(s.links) }
+fact ValidStates {
+  all s: State | {
+    all id: ID | lone resolve[s,id]
+    s.links in live[s] -> ID
+    s.precedes in live[s] -> live[s]
+    no id: ID | id->id in s.precedes
+    s.precedes.(s.precedes) in s.precedes
+    all disj a,b: live[s] | a->b in s.precedes or b->a in s.precedes
+  }
+}
+pred encode[s: State, f: File] {
+  f.items.elems = live[s]
+  #f.items = #live[s]
+  all disj a,b: live[s] |
+    (a->b in s.precedes iff f.items.idxOf[a] < f.items.idxOf[b])
+  f.storedLinks = s.links
+}
+pred decode[f: File, t: State] {
+  live[t] = f.items.elems
+  t.links = f.storedLinks
+  t.precedes = { a,b: live[t] | f.items.idxOf[a] < f.items.idxOf[b] }
+}
+pred moveToEnd[s,t: State, picked: set ID] {
+  some picked
+  picked in live[s]
+  let kept = live[s] - picked |
+    t.precedes = (s.precedes - (picked -> kept)) + (kept -> picked)
+  t.key = s.key
+  t.links = s.links
+}
+pred copyToEnd[s,t: State, picked: set ID, remap: ID -> ID] {
+  some picked
+  picked in live[s]
+  let fresh = ID.remap | {
+    remap in picked -> (ID - reserved[s])
+    all a: picked | one a.remap
+    all b: fresh | one remap.b
+    s.key in t.key
+    live[t] = live[s] + fresh
+    let keepTarget = iden & ((ID - picked) -> (ID - picked)) |
+      t.links = s.links + ((~remap).(s.links).(remap + keepTarget))
+    t.precedes = s.precedes + (live[s] -> fresh) + ((~remap).(s.precedes).remap)
+  }
+}
+pred remove[s,t: State, id: ID] {
+  id in live[s]
+  t.key = s.key - (Instance -> id)
+  t.links = s.links - (id -> ID)
+  t.precedes = s.precedes & (live[t] -> live[t])
+}
+
+assert ReopenPreservesIDsLinksAndOrder {
+  all s,t: State, f: File |
+    encode[s,f] and decode[f,t] implies {
+      live[t] = live[s]
+      t.precedes = s.precedes
+      t.links = s.links
+      all a,b: ID | a->b in s.links implies
+        (some resolve[s,b] iff some resolve[t,b])
+    }
+}
+assert MovePreservesTargets {
+  all s,t: State, picked: set ID |
+    moveToEnd[s,t,picked] implies {
+      t.links = s.links
+      all id: ID | resolve[s,id] = resolve[t,id]
+    }
+}
+assert CopyRemapsOnlyInternalTargets {
+  all s,t: State, picked: set ID, remap: ID -> ID |
+    copyToEnd[s,t,picked,remap] implies {
+      all a: live[s] | a.(t.links) = a.(s.links)
+      all a: picked |
+        (a.remap).(t.links) = (a.(s.links) & picked).remap + (a.(s.links) - picked)
+      all b: ID.remap | b not in reserved[s]
+      all a,b: picked | a->b in s.precedes iff a.remap->b.remap in t.precedes
+    }
+}
+assert DeletedTargetStaysUnresolvedThroughCopy {
+  all s,t,r,u: State, f: File, id: ID, picked: set ID, remap: ID -> ID |
+    remove[s,t,id] and encode[t,f] and decode[f,r] and copyToEnd[r,u,picked,remap]
+    implies {
+      all a: live[t] | a->id in t.links implies {
+        a->id in u.links
+        no resolve[u,id]
+        a in picked implies a.remap->id in u.links
+      }
+    }
+}
+// Deliberately false. A reference stored by its original ordinal can hit a different object.
+assert PositionIdentifiesTargetAfterMove {
+  all s,t: State, picked: set ID |
+    moveToEnd[s,t,picked] implies
+      all a,b: ID | a->b in s.links implies #(s.precedes.b) = #(t.precedes.b)
+}
+// Deliberately false. A writer filtering missing targets loses unresolved references.
+assert DroppingUnresolvedLinksIsLossless {
+  all s: State | (s.links & (live[s] -> live[s])) = s.links
+}
+
+run ReopenWithFreshInstances {
+  some s,t: State, f: File, disj a,b,c: ID | {
+    a->b + a->c in s.links
+    b in live[s] and c not in live[s]
+    no (s.key).ID & (t.key).ID
+    encode[s,f] and decode[f,t]
+  }
+} for 3 but 6 ID, 8 Instance, 6 seq, 4 Int
+run CopyWithInternalExternalAndInbound {
+  some s,t: State, disj a,b,c: ID, remap: ID -> ID | {
+    c in live[s]
+    a->b + a->c + c->b in s.links
+    copyToEnd[s,t,a+b,remap]
+  }
+} for 3 but 6 ID, 8 Instance, 6 seq, 4 Int
+run RepeatPasteCreatesDifferentIDs {
+  some s,t,u: State, id: live[s], remap1,remap2: ID -> ID |
+    copyToEnd[s,t,id,remap1] and copyToEnd[t,u,id,remap2] and
+    no (ID.remap1 & ID.remap2)
+} for 3 but 6 ID, 8 Instance, 6 seq, 4 Int
+run DeleteReopenAndCopy {
+  some disj s,t,r,u: State, f: File, disj a,b: ID, remap: ID -> ID |
+    a->b in s.links and remove[s,t,b] and encode[t,f] and decode[f,r] and
+    no (t.key).ID & (r.key).ID and copyToEnd[r,u,a,remap] and a.remap->b in u.links
+} for 4 but 5 ID, 6 Instance, 5 seq, 4 Int
+check ReopenPreservesIDsLinksAndOrder for 3 but 6 ID, 8 Instance, 6 seq, 4 Int
+check MovePreservesTargets for 3 but 6 ID, 8 Instance, 6 seq, 4 Int
+check CopyRemapsOnlyInternalTargets for 3 but 6 ID, 8 Instance, 6 seq, 4 Int
+check DeletedTargetStaysUnresolvedThroughCopy for 4 but 5 ID, 6 Instance, 5 seq, 4 Int
+check PositionIdentifiesTargetAfterMove for 3 but 6 ID, 8 Instance, 6 seq, 4 Int
+check DroppingUnresolvedLinksIsLossless for 3 but 6 ID, 8 Instance, 6 seq, 4 Int
+
+// The clipboard can retain a reference after both its source and target disappear.
+pred retainedClipboardTarget[s,t,r: State,a,b: ID] {
+  a->b in s.links
+  remove[s,t,a]
+  remove[t,r,b]
+  b not in reserved[r]
+}
+pred copyWithRetainedIDs[s,t: State,picked: set ID,remap: ID -> ID,retained: set ID] {
+  copyToEnd[s,t,picked,remap]
+  no (ID.remap & retained)
+}
+assert DocumentAloneProtectsClipboardTargets {
+  all s,t,r,u: State, disj a,b,c: ID, remap: ID -> ID |
+    retainedClipboardTarget[s,t,r,a,b] and copyToEnd[r,u,c,remap]
+    implies no resolve[u,b]
+}
+assert RetainedTargetStaysUnresolved {
+  all s,t,r,u: State, disj a,b,c: ID, remap: ID -> ID |
+    retainedClipboardTarget[s,t,r,a,b] and copyWithRetainedIDs[r,u,c,remap,b]
+    implies no resolve[u,b]
+}
+run CopyWithProtectedClipboardTarget {
+  some s,t,r,u: State, disj a,b,c: ID, remap: ID -> ID |
+    retainedClipboardTarget[s,t,r,a,b] and copyWithRetainedIDs[r,u,c,remap,b]
+} for 4 but exactly 4 ID, 5 Instance, 4 Int
+check DocumentAloneProtectsClipboardTargets for 4 but exactly 4 ID, 5 Instance, 4 Int
+check RetainedTargetStaysUnresolved for 4 but exactly 4 ID, 5 Instance, 4 Int
+```
+
+### `cut-paste.als`
+
+```alloy
+module cutPaste
+
+sig ID, Session {}
+sig Cut {
+  origin: one Session,
+  selected, removed: set ID
+}
+sig State {
+  session: one Session,
+  present: set ID,
+  usable: set Cut
+}
+fact RemovedWasSelected { all c: Cut | c.removed in c.selected }
+
+pred recordCut[s,t: State,c: Cut] {
+  c.origin = s.session
+  c.selected in s.present
+  c not in s.usable
+  t.session = s.session
+  t.present = s.present - c.removed
+  t.usable = s.usable + c
+}
+pred undoCut[s,t: State,c: Cut] {
+  c in s.usable
+  c.origin = s.session
+  no c.removed & s.present
+  t.session = s.session
+  t.present = s.present + c.removed
+  t.usable = s.usable - c
+}
+pred deleteIDs[s,t: State,ids: set ID] {
+  ids in s.present
+  t.session = s.session
+  t.present = s.present - ids
+  t.usable = s.usable
+}
+fun preserve[s: State,c: Cut,surviving: set ID]: set ID {
+  (c in s.usable and c.origin = s.session => (c.removed & surviving) - s.present else none)
+}
+pred paste[s,t: State,c: Cut,surviving: set ID,mapping: ID -> ID] {
+  some surviving
+  surviving in c.selected
+  let kept = preserve[s,c,surviving], copied = surviving-kept, fresh = copied.mapping | {
+    mapping = (iden & (kept -> kept)) + (copied <: mapping)
+    all a: surviving | one a.mapping
+    all b: fresh | one mapping.b
+    no fresh & (s.present + c.selected)
+    t.session = s.session
+    t.present = s.present + kept + fresh
+    t.usable = s.usable - c
+  }
+}
+pred cancelPaste[s,t: State] {
+  t.session = s.session
+  t.present = s.present
+  t.usable = s.usable
+}
+
+assert KeepsOnlyIDsActuallyRemoved {
+  all s,t: State,c: Cut,surviving: set ID,mapping: ID -> ID |
+    paste[s,t,c,surviving,mapping] implies
+      all id: ID | id->id in mapping implies
+        (id in c.removed and id not in s.present and c.origin = s.session)
+}
+assert SuccessfulPasteConsumesCut {
+  all s,t,u: State,c: Cut,keep1,keep2: set ID,m1,m2: ID -> ID |
+    paste[s,t,c,keep1,m1] and paste[t,u,c,keep2,m2]
+    implies no m2 & iden
+}
+assert UndoCutInvalidatesMoveAfterLaterDeletion {
+  all s,t,u,v: State,c: Cut,ids,surviving: set ID,mapping: ID -> ID |
+    undoCut[s,t,c] and deleteIDs[t,u,ids] and paste[u,v,c,surviving,mapping]
+    implies no mapping & iden
+}
+assert CrossDocumentPasteUsesFreshIDs {
+  all s,t: State,c: Cut,surviving: set ID,mapping: ID -> ID |
+    paste[s,t,c,surviving,mapping] and c.origin != s.session implies no mapping & iden
+}
+assert CancelLeavesEligibility {
+  all s,t: State,c: Cut,surviving: set ID |
+    cancelPaste[s,t] implies preserve[s,c,surviving] = preserve[t,c,surviving]
+}
+// Deliberately false. An undone cut followed by deletion can have the same live IDs.
+assert AbsenceAloneIdentifiesAValidCut {
+  all s,t,u: State,c: Cut |
+    undoCut[s,t,c] and deleteIDs[t,u,c.removed] and some c.removed
+    implies (no u.present & c.removed => c in u.usable)
+}
+run PartialCutCopiesTableAndMovesRemovedObject {
+  some s,t,u: State,c: Cut, disj table,child: ID, mapping: ID -> ID |
+    c.selected = table+child and c.removed = child and recordCut[s,t,c] and
+    paste[t,u,c,c.selected,mapping] and table in t.present and
+    child->child in mapping and table->table not in mapping
+} for 3 but 5 ID
+run CancelThenMove {
+  some s,t,u: State,c: Cut,id: ID,mapping: ID -> ID |
+    c.removed = id and cancelPaste[s,t] and paste[t,u,c,id,mapping] and id->id in mapping
+} for 3 but 5 ID
+run FirstMoveThenCopy {
+  some s,t,u: State,c: Cut,id: ID,m1,m2: ID -> ID |
+    c.removed = id and paste[s,t,c,id,m1] and id->id in m1 and
+    paste[t,u,c,id,m2] and id->id not in m2
+} for 3 but 5 ID
+run UndoDeleteThenCopy {
+  some s,t,u,v: State,c: Cut,id: ID,mapping: ID -> ID |
+    c.removed = id and undoCut[s,t,c] and deleteIDs[t,u,id] and
+    paste[u,v,c,id,mapping] and id->id not in mapping
+} for 4 but 5 ID
+check KeepsOnlyIDsActuallyRemoved for 3 but 5 ID
+check SuccessfulPasteConsumesCut for 3 but 5 ID
+check UndoCutInvalidatesMoveAfterLaterDeletion for 4 but 5 ID
+check CrossDocumentPasteUsesFreshIDs for 3 but 5 ID
+check CancelLeavesEligibility for 3 but 5 ID
+check AbsenceAloneIdentifiesAValidCut for 3 but 5 ID
+```
+
 ## Appendice B. Verifica della consegna
 
 Questa è documentazione di progetto, senza codice applicativo. Le verifiche Alloy effettivamente eseguite sono distinte dalle prove future nella sezione 8. La compilazione Swift è riuscita con percorso temporaneo separato dopo un errore di accesso alla cache locale `.build`. L’avvio delle due suite complete ha segnalato problemi di schermo/finestre e di font nell’ambiente; la suite Typesetting si è interrotta in `GraphiteTests.swift:259`. Non si dichiara riuscita la verifica completa. **64 test mirati** sono passati: `FieldFormulaTests`, `ReusableFormulaTests`, `WrittenResultTests`, `HeadingCompositionTests`, `NamedListTests`, `DocumentStoreTests`, `DefinitionImportTests`. Nessuna verifica a schermo delle proposte, che non sono implementate.
+
+## Appendice C. Riferimento per la tappa 1
+
+11 novembre 2026. Prima delle modifiche al motore sono state registrate 12 pagine di 10 documenti in formato 18 sull’albero Sources `5b838f0a8ee54fb5c20a6c767d9be3d3e5a79694`. Nove documenti sono i campioni in Appunti. Un decimo campione combina testata, campo, risultato scritto e nota. Due processi distinti hanno prodotto schede JSON identiche, con testo, misure, righe, glifi, numeri e navigazione PDF. Nel decimo campione si leggono il numero di pagina e il risultato «[Il mare]». Il PDF contiene due collegamenti per la nota e la composizione registra cinque parti della testata.
+
+L’archivio di riferimento `GRIFFR-tappa-0.zip` contiene le schede, il programma Swift che le estrae, il decimo campione e i log. SHA-256 della scheda JSON: `9655544cfd76f1adf60b9d0abc7e885c023c71a4bea299a6bd099f83ee7ea3d2`. Il confronto con la tappa 1 va eseguito con gli stessi campioni, macOS e font. Il campione Annapurna registra il font assente e la resa con i ripieghi disponibili.
+
+Sono passati 62 test mirati a formule, regole, riutilizzabili, variabili e ispettore e 5 test di navigazione PDF. La verifica completa resta aperta per gli errori già osservati con font e interfaccia. Il confronto per catalogo e adattatore della tappa 1 ha un riferimento riproducibile. Le prove sulle transazioni e sulla persistenza restano associate alle tappe che introducono le identità.
