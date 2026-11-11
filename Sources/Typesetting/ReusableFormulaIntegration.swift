@@ -78,18 +78,19 @@ extension ReusableFormulaLibrary {
 }
 
 extension StyleFormula {
-    public var bindingType: FormulaValueType? {
-        switch operation.argument {
-        case .length, .pageStart: .length
-        case .integer: .number
-        case .boolean, .hyphenates: .boolean
-        default: nil
-        }
-    }
+    public var bindingType: FormulaValueType? { operation.argument.bindingType }
+
     public func resolved(in library: ReusableFormulaLibrary, variables: [StyleVariable] = []) throws -> StyleFormula {
+        guard binding != nil else { return self }
+        return try StyleDeclaration(self).resolving(in: library, variables: variables).format18
+    }
+}
+
+extension StyleDeclaration {
+    func resolving(in library: ReusableFormulaLibrary, variables: [StyleVariable]) throws -> StyleDeclaration {
         guard let binding else { return self }
         let value = try library.evaluate(binding.substitutingVariables(variables))
-        guard value.type == bindingType else { throw ReusableFormulaError.incompatibleTypes }
+        guard value.type == operation.argument.bindingType else { throw ReusableFormulaError.incompatibleTypes }
         let argument: StyleArgument
         switch (operation.argument, value) {
         case (.length, .length(let value)): argument = .length(value, .points)
@@ -101,10 +102,8 @@ extension StyleFormula {
         case (.hyphenates, .boolean(let value)): argument = .hyphenates(value)
         default: throw ReusableFormulaError.incompatibleTypes
         }
-        var result = self
-        result.binding = nil
-        result.operation = StylePropertyOperation(operation.predicate, operation.property, argument)
-        return result
+        return StyleDeclaration(id: id, target: target, condition: condition,
+                                operation: StylePropertyOperation(operation.predicate, operation.property, argument), binding: nil)
     }
 }
 

@@ -51,11 +51,8 @@ private struct ComposerLibrary: View {
 
     private func properties(directive: Bool) -> [StyleProperty] {
         guard let style = model.currentStyle else { return [] }
-        return StyleProperty.allCases.filter { property in
-            property.isDirective == directive && matches(property.title) &&
-                (try? StyleFormula(operation: StylePropertyOperation(.set, property, property.initialArgument),
-                                   when: property == .pageStartSpacing ? StyleCondition(position: .firstOnPage) : StyleCondition())
-                    .validate(for: style.target)) != nil
+        return StyleDeclarationCatalog.properties(for: style.target).filter {
+            $0.isDirective == directive && matches($0.title)
         }
     }
 
@@ -417,10 +414,8 @@ private struct ActionBlock: View {
                         } label: { ComposerPill(title: operation.predicate.title) }.fixedSize()
                     }
                     Menu {
-                        ForEach(StyleProperty.allCases.filter { property in
-                            (try? StyleFormula(operation: StylePropertyOperation(.set, property, property.initialArgument),
-                                               when: property == .pageStartSpacing ? StyleCondition(position: .firstOnPage) : StyleCondition())
-                                .validate(for: target)) != nil && property.phaseFamily == operation.property.phaseFamily
+                        ForEach(StyleDeclarationCatalog.properties(for: target).filter {
+                            $0.isDirective == operation.property.isDirective
                         }, id: \.self) { property in
                             Button(property.title) {
                                 let predicate = property.predicates.contains(operation.predicate) ? operation.predicate : .set
@@ -795,10 +790,6 @@ extension StyleProperty {
         case .keepWithNext, .keepTogether, .orphanLines, .widowLines, .nextLines, .previousLines: "link"
         }
     }
-
-    /// Le proprietà fra cui un'azione può cambiare restando nella sua specie: formattazione con formattazione,
-    /// comportamenti con comportamenti (un comportamento si valuta in un'altra fase).
-    var phaseFamily: Bool { isDirective }
 }
 
 // MARK: - Testata

@@ -13,14 +13,6 @@ public enum StyleProperty: String, CaseIterable, Hashable, Sendable {
     /// Formato 17: righe del seguente tenute con questo, righe del precedente tenute con questo.
     case nextLines, previousLines
 
-    public var predicates: [StylePredicate] {
-        if isDirective || self == .applyStyle { return [.set] }
-        return switch self {
-        case .alignment, .language, .family, .face, .color, .smallCaps, .hyphenates: [.set]
-        default: [.set, .add, .subtract]
-        }
-    }
-
     fileprivate var paragraphLength: WritableKeyPath<ParagraphStyle, Double>? {
         switch self {
         case .spaceBefore: \.spaceBefore

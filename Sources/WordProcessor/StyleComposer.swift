@@ -557,29 +557,6 @@ extension StyleProperty {
         case .lineSpacing: "Line spacing"
         }
     }
-    var initialArgument: StyleArgument {
-        switch self {
-        case .pageStartSpacing: .pageStart(.distance(72))
-        case .openingDistance: .length(0, .points)
-        case .opensSection: .text(Section.Role.chapter)
-        case .nextStyle: .styleName(nil)
-        case .applyStyle: .styleName("Strong")
-        case .outlineLevel: .integer(1)
-        case .keepWithNext, .keepTogether: .boolean(true)
-        case .orphanLines, .widowLines, .nextLines: .integer(2)
-        case .previousLines: .integer(1)
-        case .font: .font(.bold)
-        case .family: .family("Hoefler Text")
-        case .face: .face("HoeflerText-Regular")
-        case .color: .color(nil)
-        case .smallCaps: .smallCaps(.lowercase)
-        case .hyphenates: .hyphenates(true)
-        case .language: .language("it")
-        case .alignment: .alignment(.natural)
-        case .size: .length(12, .points)
-        default: .length(0, .points)
-        }
-    }
 }
 
 func roleTitle(_ role: FontRole) -> String {
@@ -875,7 +852,7 @@ struct FormulaQualifiers: View {
                 if !operation.property.isDirective {
                     Menu {
                         Button("No numeric condition") { choose(Optional<TextRule.Condition>.none) }
-                        ForEach(TextRule.Condition.Property.allCases, id: \.self) { metric in
+                        ForEach(StyleDeclarationCatalog.naturalMetrics, id: \.self) { metric in
                             Button(metricTitle(metric)) { choose(TextRule.Condition(metric, .greaterOrEqual, metric == .lastLineFill ? 50 : 2)) }
                         }
                     } label: { ComposerPill(title: condition.measurement.map { metricTitle($0.property) } ?? "＋ Condition") }.fixedSize()
@@ -893,8 +870,7 @@ struct FormulaQualifiers: View {
                 HStack(spacing: 8) {
                     Text("On").font(.caption).foregroundStyle(.secondary)
                     Menu {
-                        ForEach(Array([TextRule.Target.paragraph, .firstLetter, .firstWords(2), .firstSentence, .firstLines(1), .lastLine,
-                                       .words(.capitals), .words(.romanNumerals), .words(.numbers)].enumerated()), id: \.offset) { _, candidate in
+                        ForEach(StyleDeclarationCatalog.offeredTargets, id: \.self) { candidate in
                             if valid(condition, candidate) {
                                 Button(targetName(candidate)) { target = candidate }
                             }

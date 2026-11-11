@@ -11,25 +11,11 @@ public struct StyleCondition: Hashable, Sendable {
         self.measurement = measurement
     }
 
-    public var isAlways: Bool { position == .any && measurement == nil }
-    public var dependsOnLayout: Bool { position == .firstOnPage || measurement != nil }
+    public var isAlways: Bool { StyleDeclaration.Condition(self).isAlways }
+    public var dependsOnLayout: Bool { StyleDeclaration.Condition(self).dependsOnLayout }
 
     public func holds(in context: TextRule.ParagraphContext?, facts: TextRule.NaturalFacts? = nil) -> Bool {
-        if position != .any {
-            guard let context else { return false }
-            switch position {
-            case .any: break
-            case .firstAfter(let name):
-                guard context.previousStyleName == name && !context.isSequenceStart else { return false }
-            case .sequenceStart: guard context.isSequenceStart else { return false }
-            case .firstOnPage: guard context.isFirstOnPage == true else { return false }
-            }
-        }
-        if let measurement {
-            guard let facts else { return false }
-            return measurement.holds(for: facts)
-        }
-        return true
+        StyleDeclaration.Condition(self).holds(in: context, facts: facts)
     }
 }
 
@@ -43,20 +29,10 @@ public struct StyleDirectives: Equatable, Sendable {
     public init() {}
 }
 
-extension StyleProperty {
-    public var isDirective: Bool {
-        switch self {
-        case .pageStartSpacing, .openingDistance, .opensSection, .nextStyle, .outlineLevel,
-             .keepWithNext, .keepTogether, .orphanLines, .widowLines, .nextLines, .previousLines: true
-        default: false
-        }
-    }
-}
-
 extension StyleFormula {
-    public var isStatic: Bool { when.isAlways && target == .paragraph && operation.property != .applyStyle }
+    public var isStatic: Bool { StyleDeclaration(self).isStatic }
     public var isPageStartDirective: Bool { operation.property == .pageStartSpacing }
-    public var isRuntimeRule: Bool { !operation.property.isDirective && (!when.isAlways || target != .paragraph || operation.property == .applyStyle) }
+    public var isRuntimeRule: Bool { StyleDeclaration(self).isRuntimeRule }
 
     /// Solo le richieste dichiarative: l'impaginazione e gli eventi di scrittura
     /// continuano a risolverle nella fase appropriata.
@@ -151,16 +127,7 @@ public enum StyleFormulaPhase: Int, Comparable, Sendable {
 }
 
 extension StyleFormula {
-    public var phase: StyleFormulaPhase {
-        switch operation.property {
-        case .nextStyle: return .paragraphCreation
-        case .opensSection, .outlineLevel: return .assignment
-        case .pageStartSpacing, .openingDistance, .keepWithNext, .keepTogether, .orphanLines, .widowLines, .nextLines, .previousLines: return .placement
-        default:
-            if isRuntimeRule { return when.dependsOnLayout || target.isLineTarget ? .composition : .textContext }
-            return .base
-        }
-    }
+    public var phase: StyleFormulaPhase { StyleDeclaration(self).phase }
 }
 
 public struct StyleFormulaTrace: Sendable {

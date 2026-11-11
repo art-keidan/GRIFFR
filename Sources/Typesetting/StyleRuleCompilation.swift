@@ -40,22 +40,13 @@ extension StyleSheet {
                 chain.append(item); next = item.basedOn
             }
             for ancestor in chain.reversed() {
-                for formula in ancestor.formulas where formula.isRuntimeRule {
-                    let ownerKey = Data(style.name.utf8).base64EncodedString()
-                    let declarationKey = Data(ancestor.name.utf8).base64EncodedString()
-                    let name = FormulaTreatment.name(owner: ownerKey, declaration: declarationKey, formula: formula.id)
-                    if compiled.style(named: name) == nil {
-                        if formula.operation.property == .applyStyle, case .styleName(let reference) = formula.operation.argument,
-                           let reference, let appearance = self.style(named: reference) {
-                            compiled.styles.append(NamedStyle(name: name, target: appearance.target, values: values(of: reference)))
-                        } else {
-                            let operation = StyleFormula(id: formula.id, operation: formula.operation)
-                            compiled.styles.append(NamedStyle(name: name, target: formula.operation.property.isParagraphProperty ? .paragraph : ([StyleProperty.language, .hyphenates].contains(formula.operation.property) ? .word : .character), formulas: [operation]))
-                        }
+                for formula in ancestor.formulas {
+                    let declaration = StyleDeclaration(formula)
+                    guard declaration.isRuntimeRule else { continue }
+                    let rule = declaration.textRule(owner: style.name, declaredBy: ancestor.name)
+                    if compiled.style(named: rule.styleName) == nil {
+                        compiled.styles.append(declaration.treatment(named: rule.styleName, in: self))
                     }
-                    var rule = TextRule(target: formula.target, paragraphStyle: style.name, position: formula.when.position,
-                        condition: formula.when.measurement, styleName: name)
-                    rule.formulaOwner = style.name
                     generated.append(rule)
                 }
             }
@@ -79,19 +70,20 @@ extension StyleSheet {
             }
             if let next = owner.values.nextStyle, !next.isEmpty, style(named: next)?.target != .paragraph { return "The style after Return of “\(owner.name)” does not exist or is not a paragraph style." }
             for formula in owner.formulas {
-                if case .firstAfter(let name) = formula.when.position, style(named: name)?.target != .paragraph {
+                let declaration = StyleDeclaration(formula)
+                if case .afterStyle(let name) = declaration.condition.position, style(named: name)?.target != .paragraph {
                     return "The condition of “\(owner.name)” refers to an unknown paragraph style: “\(name)”."
                 }
-                if case .selection(let id) = formula.target, !selections.contains(where: { $0.id == id }) {
+                if case .namedSelection(let id) = declaration.target, !selections.contains(where: { $0.id == id }) {
                     return "The formula of “\(owner.name)” refers to a selection that does not exist."
                 }
-                if case .styleName(let name) = formula.operation.argument, let name, !name.isEmpty {
+                if case .styleName(let name) = declaration.operation.argument, let name, !name.isEmpty {
                     guard let target = style(named: name) else { return "The style “\(name)” referred to by “\(owner.name)” does not exist." }
-                    if formula.operation.property == .nextStyle, target.target != .paragraph {
+                    if declaration.operation.property == .nextStyle, target.target != .paragraph {
                         return "The style after Return must be a paragraph style."
                     }
-                    if formula.operation.property == .applyStyle {
-                        if target.target == .paragraph && formula.target != .paragraph { return "A paragraph style needs the whole paragraph." }
+                    if declaration.operation.property == .applyStyle {
+                        if target.target == .paragraph && declaration.target != .paragraph { return "A paragraph style needs the whole paragraph." }
                         var next: String? = target.name; var seen: Set<String> = []
                         while let current = next, seen.insert(current).inserted, let inherited = style(named: current) {
                             if inherited.formulas.contains(where: \.isRuntimeRule) {
@@ -104,6 +96,28 @@ extension StyleSheet {
             }
         }
         return nil
+    }
+}
+
+extension StyleDeclaration {
+    /// Conserva separatamente il proprietario a cui si applica la formula e lo stile che la dichiara.
+    func textRule(owner: String, declaredBy: String) -> TextRule {
+        let ownerKey = Data(owner.utf8).base64EncodedString()
+        let declarationKey = Data(declaredBy.utf8).base64EncodedString()
+        let name = FormulaTreatment.name(owner: ownerKey, declaration: declarationKey, formula: id)
+        var rule = TextRule(target: target.format18, paragraphStyle: owner, position: condition.position.format18,
+                            condition: condition.naturalComparison, styleName: name)
+        rule.formulaOwner = owner
+        return rule
+    }
+
+    func treatment(named name: String, in sheet: StyleSheet) -> NamedStyle {
+        if operation.property == .applyStyle, case .styleName(let reference) = operation.argument,
+           let reference, let appearance = sheet.style(named: reference) {
+            return NamedStyle(name: name, target: appearance.target, values: sheet.values(of: reference))
+        }
+        return NamedStyle(name: name, target: operation.property.descriptor.scope,
+                          formulas: [StyleFormula(id: id, operation: operation)])
     }
 }
 

@@ -1,6 +1,6 @@
 # Modello unico di oggetti, relazioni e formule
 
-Documento di progetto, 11 novembre 2026. **Da discutere prima di implementare.** Il codice del programma non è stato modificato.
+Documento di progetto, 11 novembre 2026. Il piano è nella sezione 9. Le appendici C e D registrano rispettivamente il riferimento della tappa 0 e l’implementazione della tappa 1.
 
 ## 0. Principio, decisioni ed evidenze
 
@@ -1334,3 +1334,17 @@ Questa è documentazione di progetto, senza codice applicativo. Le verifiche All
 L’archivio di riferimento `GRIFFR-tappa-0.zip` contiene le schede, il programma Swift che le estrae, il decimo campione e i log. SHA-256 della scheda JSON: `9655544cfd76f1adf60b9d0abc7e885c023c71a4bea299a6bd099f83ee7ea3d2`. Il confronto con la tappa 1 va eseguito con gli stessi campioni, macOS e font. Il campione Annapurna registra il font assente e la resa con i ripieghi disponibili.
 
 Sono passati 62 test mirati a formule, regole, riutilizzabili, variabili e ispettore e 5 test di navigazione PDF. La verifica completa resta aperta per gli errori già osservati con font e interfaccia. Il confronto per catalogo e adattatore della tappa 1 ha un riferimento riproducibile. Le prove sulle transazioni e sulla persistenza restano associate alle tappe che introducono le identità.
+
+## Appendice D. Catalogo e adattatore delle formule di stile
+
+11 novembre 2026. Il catalogo in `StyleDeclarationCatalog.swift` definisce argomenti, predicati, portata, fasi e corrispondenze con l’ispettore per le 27 proprietà delle formule di stile. La bacheca usa il catalogo per i menu. Il validatore usa gli stessi contratti per le definizioni caricate dal formato 18 e per le bozze.
+
+`StyleDeclaration` rappresenta percorso, condizione, operazione e binding. La condizione congiunge la posizione strutturale con l’eventuale confronto sui fatti naturali. L’adattatore produce le regole e i trattamenti del motore esistente. Le chiavi dei trattamenti includono stile proprietario, stile dichiarante e UUID locale, così l’ordine ereditato e la provenienza si conservano anche con UUID locali uguali. Il lettore e lo scrittore continuano a usare il formato 18. Campi, testate e risultati scritti passano alla rappresentazione comune nella tappa 2.
+
+Il confronto con l’appendice C ha riprodotto le schede JSON di tutti i 10 documenti e 12 pagine su macOS 27.3, build 26C5035r. Coincidono testo, intervalli, geometria, glifi, segni, numeri e proprietà PDF registrate. Il campione Annapurna conserva il ripiego documentato. L’unico campo diverso nel JSON completo è l’etichetta dei sorgenti.
+
+Nella selezione delle prove sono passati 86 degli 88 test Typesetting e tutti i 22 test WordProcessor. Le due prove di `DocumentFormatTests` legate a Vulcanius hanno riprodotto gli stessi tre errori sulla build della tappa 0. Le nuove prove coprono proprietà, predicati, bersagli, confronti, conversione del binding e traccia di input/output di due formule ereditate con lo stesso UUID. I test AppKit hanno esercitato anche la finestra stretta del compositore.
+
+Nel sandbox, la suite completa ha riportato le stesse 30 segnalazioni negli stessi punti prima e dopo la tappa, compresi i problemi di schermo e font. In entrambe le build Typesetting si interrompe in `GraphiteTests.swift:259`. La build Release è stata confezionata in `build/GRIFFR.app` con l’autorizzazione per la generazione dei simboli. Nella release aperta sul campione delle formule riutilizzabili ho verificato la bacheca, aggiunto `Set Size` in bozza, selezionato `First 2 words` e ripristinato le definizioni con `Reload`. Per impaginazione e navigazione PDF vale il confronto automatizzato delle schede.
+
+La suite integrale eseguita con accesso ai servizi di macOS è terminata con codice 0. Il riepilogo riporta 233 test WordProcessor e 522 test Typesetting, compresi i casi saltati in base alla configurazione. Passano le prove del formato con Vulcanius, quelle di Graphite con Padauk e Annapurna SIL e quelle sulle finestre. Swift Testing registra il problema già dichiarato in `PDFExportTests.swift:75` per l’estrazione del testo gotico da PDFKit. Questi font servono ai campioni delle prove.
