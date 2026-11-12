@@ -199,5 +199,65 @@ struct DeclaredNoteEditorTests {
         #expect(h.editor.settings.declaredNoteTexts.isEmpty)
         #expect(h.editor.inactiveDeclaredNotes().isEmpty)
     }
+
+    @Test("Un rimando a una nota dichiarata nel testo: legge il numero, segue la rinomina dello stile, e senza lo stile legge (??)")
+    func referenceInEditor() throws {
+        let h = EditorHarness(paragraphs: ["uno due tre quattro cinque sei", "Vedi "])
+        defer { h.close() }
+        var sheet = h.editor.settings.styles
+        var glossa = NamedStyle(name: "Glossa", target: .paragraph, basedOn: "Body")
+        glossa.declaredNotes = [try #require(DeclaredNote(word: 5))]
+        sheet.styles.append(glossa)
+        h.editor.changeStyles(to: sheet, restyle: false, actionName: "New Style")
+        h.select(0)
+        h.editor.applyNamedStyle(.paragraph, name: "Glossa")
+        h.step()
+        let placed = try #require(h.editor.currentLayout()?.declaredNotes.first)
+        let slot = DeclaredNoteSlot(paragraph: try #require(placed.paragraphID), declaringStyle: "Glossa", declaration: placed.declaration)
+
+        h.select(h.text.utf16.count)
+        h.editor.insert(field: .reference(ObjectReference(declaredNote: slot)))
+        h.step()
+        func reference() -> ObjectReference? {
+            let text = h.editor.editingText
+            var found: ObjectReference?
+            text.enumerateAttribute(.field, in: NSRange(location: 0, length: text.length)) { value, _, _ in
+                if let encoded = value as? String, case .reference(let reference)? = Field(encoded: encoded) { found = reference }
+            }
+            return found
+        }
+        let inserted = try #require(reference())
+        #expect(inserted.declaredNote == slot)
+        #expect(h.editor.currentLayout()?.referenceValue(inserted) == "1")
+
+        h.editor.renameStyle("Glossa", to: "Glossa marginale")
+        h.step()
+        let renamed = try #require(reference())
+        #expect(renamed.declaredNote?.declaringStyle == "Glossa marginale")
+        #expect(h.editor.currentLayout()?.referenceValue(renamed) == "1")
+        h.undo()
+        #expect(reference()?.declaredNote?.declaringStyle == "Glossa")
+
+        // Lo stile tolto: il capoverso passa a «Body», che non dichiara la nota; il rimando resta, e legge (??).
+        h.editor.removeStyle("Glossa")
+        h.step()
+        let after = try #require(reference())
+        #expect(after.declaredNote?.declaringStyle == "Glossa")
+        #expect(h.editor.currentLayout()?.referenceValue(after) == "(??)")
+    }
+
+    @Test("Nel foglio dei rimandi una riga di nota dichiarata costruisce il rimando alla sua occorrenza, e si riconosce scelta")
+    func referencePickerRows() {
+        let slot = DeclaredNoteSlot(paragraph: UUID(), declaringStyle: "Glossa", declaration: UUID())
+        let declared = ObjectReferenceEditor.Target(id: UUID(), title: "1", kind: "Declared note · Glossa", number: "1", excerpt: "", declaredNote: slot)
+        let floating = ObjectReferenceEditor.Target(id: UUID(), title: "2", kind: "Footnote", number: "2", excerpt: "")
+        let reference = declared.reference(reading: .page)
+        #expect(reference.declaredNote == slot && reference.target == slot.declaration && reference.reading == .page)
+        #expect(declared.isTarget(of: reference) && !floating.isTarget(of: reference))
+        let toFloating = floating.reference()
+        #expect(floating.isTarget(of: toFloating) && !declared.isTarget(of: toFloating))
+        // Un rimando a un flottante con lo stesso UUID della dichiarazione non è un rimando alla nota dichiarata.
+        #expect(!declared.isTarget(of: ObjectReference(target: slot.declaration)))
+    }
 }
 

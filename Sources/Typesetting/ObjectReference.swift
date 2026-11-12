@@ -75,7 +75,9 @@ public struct FloatingIdentity: Equatable, Sendable {
         }
         var changes: [(NSRange, ObjectReference)] = []
         fragment.enumerateAttribute(.field, in: NSRange(location: 0, length: fragment.length)) { value, range, _ in
-            guard let encoded = value as? String, case .reference(var reference)? = Field(encoded: encoded) else { return }
+            // Un rimando a una nota dichiarata punta a un'occorrenza, non a un oggetto copiato: resta com'è.
+            guard let encoded = value as? String, case .reference(var reference)? = Field(encoded: encoded),
+                  reference.declaredNote == nil else { return }
             if let id = mapping[reference.target] {
                 reference.target = id
             } else if !sameDocument {
@@ -100,10 +102,42 @@ public struct ObjectReference: Hashable, Sendable {
 
     public var target: UUID
     public var reading: Reading
+    /// Per un rimando a una nota dichiarata da uno stile: la sua occorrenza (capoverso, stile, dichiarazione); `target` è
+    /// allora l'identità della dichiarazione. `nil` per un rimando a un flottante con la sua identità (`FloatingIdentity`).
+    public var declaredNote: DeclaredNoteSlot?
 
     public init(target: UUID, reading: Reading = .number) {
         self.target = target
         self.reading = reading
+    }
+
+    /// Un rimando a una nota dichiarata.
+    public init(declaredNote: DeclaredNoteSlot, reading: Reading = .number) {
+        self.target = declaredNote.declaration
+        self.reading = reading
+        self.declaredNote = declaredNote
+    }
+
+    /// Lo stesso rimando con lo stile dichiarante rinominato (`nil` se il rimando non ne ha uno da rinominare).
+    func renamingDeclaringStyle(_ renames: [String: String?]) -> ObjectReference? {
+        guard var slot = declaredNote, let renamed = renames[slot.declaringStyle], let new = renamed else { return nil }
+        slot.declaringStyle = new
+        var reference = self
+        reference.declaredNote = slot
+        return reference
+    }
+
+    /// I rimandi a note dichiarate di uno stile rinominato seguono il nome nuovo; quelli di uno stile tolto restano (e
+    /// leggono «(??)»: la loro nota non c'è più).
+    public static func renameDeclaringStyles(in text: NSMutableAttributedString, _ renames: [String: String?]) {
+        guard !renames.isEmpty, text.length > 0 else { return }
+        var changes: [(NSRange, Field)] = []
+        text.enumerateAttribute(.field, in: NSRange(location: 0, length: text.length)) { value, range, _ in
+            guard let encoded = value as? String, case .reference(let reference)? = Field(encoded: encoded),
+                  let renamed = reference.renamingDeclaringStyle(renames) else { return }
+            changes.append((range, .reference(renamed)))
+        }
+        for (range, field) in changes { text.addAttribute(.field, value: field.encoded, range: range) }
     }
 }
 
@@ -119,6 +153,18 @@ extension DocumentLayout {
         let locations = Dictionary(FloatingIdentity.occurrences(in: text).map { ($0.identity.id, $0.location) },
                                    uniquingKeysWith: { first, _ in first })
         return Dictionary(uniqueKeysWithValues: references.map { reference in
+            if let slot = reference.declaredNote {
+                // La nota dichiarata presentata con quell'occorrenza; sospesa o tolta, il rimando non ha valore.
+                guard let note = declaredNotes.first(where: {
+                    $0.paragraphID == slot.paragraph && $0.declaringStyle == slot.declaringStyle && $0.declaration == slot.declaration
+                }) else { return (reference, "(??)") }
+                switch reference.reading {
+                case .number: return (reference, note.mark)
+                case .page:
+                    let index = locatedLine(for: note.position, affinity: .upstream)?.page
+                    return (reference, index.map { pages[$0].number } ?? "")
+                }
+            }
             guard let anchor = locations[reference.target] else { return (reference, "(??)") }
             switch reference.reading {
             case .number:

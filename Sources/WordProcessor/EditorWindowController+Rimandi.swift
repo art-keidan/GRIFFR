@@ -55,7 +55,7 @@ extension EditorWindowController {
     func presentObjectReference(_ existing: ObjectReference?, replacing range: NSRange) {
         guard let window, window.attachedSheet == nil else { return }
         let layout = currentLayout()
-        let targets = FloatingIdentity.occurrences(in: store).enumerated().map { offset, object in
+        let floatingTargets = FloatingIdentity.occurrences(in: store).enumerated().map { offset, object in
             let kind = store.attribute(.footnote, at: object.location, effectiveRange: nil) as? String ?? "Object"
             let number = layout?.noteMarks[object.location]
             let title = object.identity.label ?? number.flatMap { $0.isEmpty ? nil : $0 } ?? "\(kind) \(offset + 1)"
@@ -68,7 +68,21 @@ extension EditorWindowController {
             } ?? ""
             return ObjectReferenceEditor.Target(id: object.identity.id, title: title, kind: kind, number: number, excerpt: excerpt)
         }
-        guard let reference = existing ?? targets.first.map({ ObjectReference(target: $0.id) }) else { return }
+        // Le note dichiarate presentate: un rimando legge il loro numero o la loro pagina, come per una nota scritta.
+        let declaredTargets = (layout?.declaredNotes ?? []).compactMap { note -> ObjectReferenceEditor.Target? in
+            guard let paragraph = note.paragraphID else { return nil }
+            let slot = DeclaredNoteSlot(paragraph: paragraph, declaringStyle: note.declaringStyle, declaration: note.declaration)
+            // Il testo del capoverso senza le note scritte che contiene (`BodyText` le salta), per riconoscerlo.
+            let paragraphRange = TextStyling.bodyParagraph(in: store, at: min(note.paragraph, max(store.length - 1, 0))).range
+            let words = TextStyling.bodyText(in: store, paragraph: paragraphRange)
+                .replacingOccurrences(of: Field.placeholder, with: " ").split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            let text = settings.declaredNoteTexts[slot] ?? ""
+            return ObjectReferenceEditor.Target(id: UUID(), title: note.mark.isEmpty ? "Declared note" : note.mark,
+                                                kind: "Declared note · \(note.declaringStyle)", number: note.mark,
+                                                excerpt: text.isEmpty ? String(words.prefix(110)) : text, declaredNote: slot)
+        }
+        let targets = floatingTargets + declaredTargets
+        guard let reference = existing ?? targets.first.map({ $0.reference() }) else { return }
 
         let sheet = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: false)
         sheet.title = existing == nil ? "New Object Reference" : "Object Reference"

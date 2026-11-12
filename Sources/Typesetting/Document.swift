@@ -844,17 +844,28 @@ public enum Field: Hashable, Sendable {
         case .formula(let formula):
             return "formula\n" + formula.expression + (formula.role.map { "\n" + $0 } ?? "")
         case .reference(let reference):
-            return "reference\n" + reference.target.uuidString + "\n" + reference.reading.rawValue
+            var value = "reference\n" + reference.target.uuidString + "\n" + reference.reading.rawValue
+            if let slot = reference.declaredNote { value += "\n" + slot.paragraph.uuidString + "\n" + slot.declaringStyle }
+            return value
         }
     }
 
     public init?(encoded: String) {
-        let parts = encoded.split(separator: "\n", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
-        if parts.first == "reference", parts.count == 3, let id = UUID(uuidString: parts[1]),
-           let reading = ObjectReference.Reading(rawValue: parts[2]) {
-            self = .reference(ObjectReference(target: id, reading: reading))
+        if encoded.hasPrefix("reference\n") {
+            // «reference», bersaglio, lettura e, per una nota dichiarata, capoverso e stile dichiarante.
+            let parts = encoded.split(separator: "\n", maxSplits: 4, omittingEmptySubsequences: false).map(String.init)
+            guard parts.count == 3 || parts.count == 5, let id = UUID(uuidString: parts[1]),
+                  let reading = ObjectReference.Reading(rawValue: parts[2]) else { return nil }
+            if parts.count == 5 {
+                guard let paragraph = UUID(uuidString: parts[3]), !parts[4].isEmpty else { return nil }
+                self = .reference(ObjectReference(declaredNote: DeclaredNoteSlot(paragraph: paragraph, declaringStyle: parts[4], declaration: id),
+                                                  reading: reading))
+            } else {
+                self = .reference(ObjectReference(target: id, reading: reading))
+            }
             return
         }
+        let parts = encoded.split(separator: "\n", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
         guard parts.first == "formula", parts.count == 2 || parts.count == 3,
               let formula = FieldFormula(expression: parts[1], role: parts.count == 3 ? parts[2] : nil) else { return nil }
         self = .formula(formula)

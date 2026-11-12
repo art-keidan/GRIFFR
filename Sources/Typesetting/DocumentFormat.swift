@@ -162,8 +162,18 @@ public enum DocumentFormat {
             guard let list = $0.list, !list.continuesPreviousItem, list.listName != nil else { return false }
             return list.sequenceStart != nil || list.sequenceResume != nil
         }
+        let referencesDeclaredNotes = paragraphs.contains { paragraph in
+            paragraph.inlines.contains { inline in
+                func declared(_ field: Field?) -> Bool { if case .reference(let reference)? = field { reference.declaredNote != nil } else { false } }
+                switch inline {
+                case .text(let run): return declared(run.field)
+                case .floating(let object): return object.runs.contains { declared($0.field) }
+                case .image: return false
+                }
+            }
+        }
         let hasDeclaredNotes = document.styles.styles.contains { !$0.declaredNotes.isEmpty }
-            || document.declaredNoteTexts.values.contains { !$0.isEmpty }
+            || document.declaredNoteTexts.values.contains { !$0.isEmpty } || referencesDeclaredNotes
         let writtenVersion: Int
         if hasDeclaredNotes { writtenVersion = 22 }
         else if hasSequences { writtenVersion = 21 }
@@ -823,7 +833,12 @@ public enum DocumentFormat {
         case .formula(let formula):
             return " kind=\"formula\" expression=\"\(formula.expression)\"" + (formula.role.map { " role=\"\(escapedAttribute($0))\"" } ?? "")
         case .reference(let reference):
-            return " kind=\"reference\" target=\"\(reference.target.uuidString)\" read=\"\(reference.reading.rawValue)\""
+            var out = " kind=\"reference\" target=\"\(reference.target.uuidString)\" read=\"\(reference.reading.rawValue)\""
+            // Un rimando a una nota dichiarata (formato 22): il capoverso e lo stile dell'occorrenza.
+            if let slot = reference.declaredNote {
+                out += " paragraph=\"\(slot.paragraph.uuidString)\" declaring-style=\"\(escapedAttribute(slot.declaringStyle))\""
+            }
+            return out
         }
     }
 
@@ -1694,16 +1709,28 @@ public enum DocumentFormat {
                         runAttributes["role"] = nil
                         runAttributes["expression"] = nil
                     case "reference" where version >= 19:
-                        guard check(attributes, allowed: styleKeys.union(["kind", "target", "read"]), element: name, parser) else { return }
+                        guard check(attributes, allowed: styleKeys.union(["kind", "target", "read"] + (version >= 22 ? ["paragraph", "declaring-style"] : [])),
+                                    element: name, parser) else { return }
                         guard let target = attributes["target"].flatMap(UUID.init(uuidString:)) else {
                             throw DocumentFormatError.invalidValue(line: line, attribute: "target", value: attributes["target"] ?? "")
                         }
                         guard let reading = attributes["read"].flatMap(ObjectReference.Reading.init(rawValue:)) else {
                             throw DocumentFormatError.invalidValue(line: line, attribute: "read", value: attributes["read"] ?? "")
                         }
-                        field = .reference(ObjectReference(target: target, reading: reading))
+                        if attributes["paragraph"] != nil || attributes["declaring-style"] != nil {
+                            guard let paragraph = attributes["paragraph"].flatMap(UUID.init(uuidString:)),
+                                  let style = attributes["declaring-style"], !style.isEmpty else {
+                                throw DocumentFormatError.malformed(line: line, detail: "A reference to a declared note needs its paragraph and its declaring style")
+                            }
+                            field = .reference(ObjectReference(declaredNote: DeclaredNoteSlot(paragraph: paragraph, declaringStyle: style, declaration: target),
+                                                               reading: reading))
+                        } else {
+                            field = .reference(ObjectReference(target: target, reading: reading))
+                        }
                         runAttributes["target"] = nil
                         runAttributes["read"] = nil
+                        runAttributes["paragraph"] = nil
+                        runAttributes["declaring-style"] = nil
                     default:
                         throw DocumentFormatError.invalidValue(line: line, attribute: "kind", value: attributes["kind"] ?? "")
                     }

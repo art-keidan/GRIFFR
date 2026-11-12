@@ -71,3 +71,11 @@ enum DeclaredNoteAnchor {
         return NSMaxRange(last)
     }
 }
+
+extension TextStyling {
+    /// Il testo di un capoverso senza il contenuto delle note scritte che contiene: quello in cui si contano le parole
+    /// delle note dichiarate, e con cui l'editor riconosce il capoverso negli elenchi.
+    public static func bodyText(in text: NSAttributedString, paragraph: NSRange) -> String {
+        BodyText(text, paragraph: paragraph).string as String
+    }
+}

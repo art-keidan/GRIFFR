@@ -8,6 +8,19 @@ struct ObjectReferenceEditor: View {
         let kind: String
         let number: String?
         let excerpt: String
+        /// Per una nota dichiarata, la sua occorrenza: `id` allora distingue solo la riga dell'elenco.
+        var declaredNote: DeclaredNoteSlot? = nil
+
+        /// Il rimando a questo oggetto, con la lettura data.
+        func reference(reading: ObjectReference.Reading = .number) -> ObjectReference {
+            declaredNote.map { ObjectReference(declaredNote: $0, reading: reading) } ?? ObjectReference(target: id, reading: reading)
+        }
+
+        /// Vero se `reference` punta a questo oggetto.
+        func isTarget(of reference: ObjectReference) -> Bool {
+            if let declaredNote { return reference.declaredNote == declaredNote }
+            return reference.declaredNote == nil && reference.target == id
+        }
 
         var details: String {
             guard let number, !number.isEmpty, number != title else { return kind }
@@ -28,7 +41,7 @@ struct ObjectReferenceEditor: View {
     @State private var search = ""
     @FocusState private var searchFocused: Bool
 
-    private var target: Target? { targets.first { $0.id == reference.target } }
+    private var target: Target? { targets.first { $0.isTarget(of: reference) } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -116,7 +129,7 @@ struct ObjectReferenceEditor: View {
                                         }
                                     }
                                     Spacer(minLength: 8)
-                                    if reference.target == object.id {
+                                    if object.isTarget(of: reference) {
                                         Image(systemName: "checkmark").foregroundStyle(Color(nsColor: Theme.glyph))
                                             .accessibilityHidden(true)
                                     }
@@ -126,7 +139,7 @@ struct ObjectReferenceEditor: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.hover(.borderless))
-                            .accessibilityAddTraits(reference.target == object.id ? .isSelected : [])
+                            .accessibilityAddTraits(object.isTarget(of: reference) ? .isSelected : [])
                         }
                     }
                 }
@@ -140,7 +153,7 @@ struct ObjectReferenceEditor: View {
     }
 
     private func select(_ object: Target) {
-        reference.target = object.id
+        reference = object.reference(reading: reference.reading)
         choosingObject = false
     }
 }

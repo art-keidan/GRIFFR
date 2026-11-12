@@ -225,7 +225,7 @@ final class FieldMenuFiller: NSObject, NSMenuDelegate {
         for role in roles { add(.sectionContainingNumber(role: role)) }
         menu.addItem(.separator())
         if let editor = NSApp.mainWindow?.windowController as? EditorWindowController {
-            if !FloatingIdentity.occurrences(in: editor.documentText).isEmpty {
+            if !FloatingIdentity.occurrences(in: editor.documentText).isEmpty || editor.currentLayout()?.declaredNotes.isEmpty == false {
                 menu.addItem(withTitle: "Object Reference…", action: #selector(EditorWindowController.insertObjectReference(_:)), keyEquivalent: "").target = editor
             }
             if editor.objectAnchorForLabel != nil {

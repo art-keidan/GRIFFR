@@ -729,6 +729,13 @@ extension EditorWindowController {
                     names.word = renamed(names.word)
                     names.character = renamed(names.character)
                 }
+                // I rimandi alle note dichiarate seguono lo stile rinominato. Uno stile tolto passa il testo alla sua
+                // base, che non dichiara quelle note: i loro rimandi restano com'erano, e leggono «(??)».
+                let declarationRenames = renames.filter { old, new in
+                    guard let new, let before = oldSheet.style(named: old), let after = newSheet.style(named: new) else { return false }
+                    return !before.declaredNotes.isEmpty && before.declaredNotes.map(\.id) == after.declaredNotes.map(\.id)
+                }
+                ObjectReference.renameDeclaringStyles(in: store, declarationRenames)
             }
         }
         changeStyles(to: newSheet, restyle: false, actionName: actionName)

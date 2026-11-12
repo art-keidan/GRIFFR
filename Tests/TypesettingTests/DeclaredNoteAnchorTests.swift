@@ -189,5 +189,51 @@ struct DeclaredNoteAnchorTests {
         let renamedSlot = DeclaredNoteSlot(paragraph: paragraphID, declaringStyle: "Glossa marginale", declaration: declaration)
         #expect(renamed.declaredNoteTexts == [renamedSlot: "Glossa dell'autore"])
     }
+
+    @Test("Un rimando a una nota dichiarata legge il suo numero e la sua pagina, si salva e torna; con la nota sospesa legge (??)")
+    func referenceToDeclaredNote() throws {
+        let declaration = UUID(), paragraph = UUID()
+        func source(_ first: String) -> String {
+            """
+            <document version="22" font="HoeflerText-Regular" size="12">
+            <styles>
+            <style name="Glossa" target="paragraph"><declare-note id="\(declaration.uuidString)" word="5"/></style>
+            </styles>
+            <p>Prima<note>Una nota scritta.</note> di tutto.</p>
+            <p id="\(paragraph.uuidString)" style="Glossa">\(first)</p>
+            <p>Vedi la nota <field kind="reference" target="\(declaration.uuidString)" read="number" paragraph="\(paragraph.uuidString)" declaring-style="Glossa"/>, a pagina <field kind="reference" target="\(declaration.uuidString)" read="page" paragraph="\(paragraph.uuidString)" declaring-style="Glossa"/>.</p>
+            </document>
+            """
+        }
+        let document = try DocumentFormat.document(from: source("uno due tre quattro cinque sei"))
+        let slot = DeclaredNoteSlot(paragraph: paragraph, declaringStyle: "Glossa", declaration: declaration)
+        let number = ObjectReference(declaredNote: slot), page = ObjectReference(declaredNote: slot, reading: .page)
+        let result = layout(document)
+        // La nota scritta prima è la 1: quella dichiarata è la 2.
+        #expect(result.referenceValue(number) == "2")
+        #expect(result.referenceValue(page) == "1")
+
+        // Il campo come attributo del testo e nel file.
+        #expect(Field(encoded: Field.reference(number).encoded) == .reference(number))
+        #expect(Field(encoded: Field.reference(ObjectReference(target: declaration)).encoded) == .reference(ObjectReference(target: declaration)))
+        let written = DocumentFormat.string(for: document)
+        #expect(written.contains("declaring-style=\"Glossa\""))
+        #expect(try DocumentFormat.document(from: written) == document)
+        #expect(throws: DocumentFormatError.self) {
+            try DocumentFormat.document(from: source("uno").replacingOccurrences(of: " declaring-style=\"Glossa\"", with: ""))
+        }
+
+        // Con quattro parole la nota è sospesa: il rimando non ha un numero da leggere.
+        let suspended = layout(try DocumentFormat.document(from: source("uno due tre quattro")))
+        #expect(suspended.referenceValue(number) == "(??)")
+
+        // Rinominare lo stile nel testo: il rimando segue; uno stile tolto lascia il rimando com'è.
+        let text = NSMutableAttributedString(string: Field.placeholder, attributes: [.field: Field.reference(number).encoded])
+        ObjectReference.renameDeclaringStyles(in: text, ["Glossa": "Glossa marginale"])
+        let renamed = DeclaredNoteSlot(paragraph: paragraph, declaringStyle: "Glossa marginale", declaration: declaration)
+        #expect(text.attribute(.field, at: 0, effectiveRange: nil) as? String == Field.reference(ObjectReference(declaredNote: renamed)).encoded)
+        ObjectReference.renameDeclaringStyles(in: text, ["Glossa marginale": nil])
+        #expect(text.attribute(.field, at: 0, effectiveRange: nil) as? String == Field.reference(ObjectReference(declaredNote: renamed)).encoded)
+    }
 }
 
