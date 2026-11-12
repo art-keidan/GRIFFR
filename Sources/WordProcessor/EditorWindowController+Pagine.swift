@@ -26,12 +26,36 @@ extension EditorWindowController: PagesViewEditing {
             && TextStyling.bodyParagraph(in: store, at: range.location).range.location == range.location
             && store.attribute(.sectionTitle, at: range.location, effectiveRange: nil) != nil
         var start = range.location
+        // Il capoverso che c'era: tiene la sua identità, e con lei la ripartenza o la ripresa del tratto della Lista.
+        let keptParagraph = store.length > 0 ? store.paragraphID(at: min(range.location, store.length)).persistent : nil
         writeStore(actionName: "Typing", breakingUndo: false) { store in
             // Su una selezione che attraversa celle: le celle si svuotano, la tabella resta.
             start = TableEditing.replace(range, in: store, with: NSAttributedString(string: string, attributes: attributes))
             if beforeTitle { store.removeAttribute(.sectionTitle, range: NSRange(location: start, length: NSMaxRange(lastNewline))) }
+            if lastNewline.location != NSNotFound, !inNote {
+                Self.clearSequenceChoices(in: store, from: start, to: start + (string as NSString).length, keeping: keptParagraph)
+            }
         }
         setSelection(caretAfterEdit(at: start + (string as NSString).length, inNote: inNote))
+        if lastNewline.location != NSNotFound, !inNote { syncListTypingAttributes() }
+    }
+
+    /// Un a capo divide un capoverso: la ripartenza o la ripresa del tratto valgono solo per l'apertura del tratto,
+    /// quindi restano al capoverso che conserva l'identità (a cui le riprese rimandano) e si tolgono dai capoversi
+    /// nuovi fra `from` e `to`. Altrimenti ogni voce aggiunta con Invio riaprirebbe il tratto.
+    static func clearSequenceChoices(in store: DocumentStore, from: Int, to: Int, keeping kept: UUID?) {
+        for span in store.paragraphSpans where span.id.persistent != kept {
+            let location = span.range.location
+            guard location <= to, location + span.range.length >= from else { continue }
+            guard let item = TextStyling.listItem(in: store, at: location),
+                  item.sequenceStart != nil || item.sequenceResume != nil else { continue }
+            TextStyling.setListItem(in: store, at: location) { current in
+                var updated = current
+                updated.sequenceStart = nil
+                updated.sequenceResume = nil
+                return updated
+            }
+        }
     }
 
     /// Il cursore dopo un tasto o una cancellazione. Alla fine del testo di una nota la stessa posizione è anche il

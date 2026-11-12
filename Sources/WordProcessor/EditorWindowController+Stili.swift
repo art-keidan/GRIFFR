@@ -1245,7 +1245,8 @@ extension EditorWindowController {
 
     /// L'anteprima: la modifica applicata a una copia del testo (o delle Liste), e le pagine ricomposte da lì.
     func preview(_ edit: RulerEdit) {
-        let copy = NSMutableAttributedString(attributedString: documentText)
+        // La copia porta le identità dei capoversi: senza, le riprese dei tratti delle Liste non troverebbero il tratto.
+        let copy = NSMutableAttributedString(attributedString: store.identifiedCopy)
         var options = settings.layoutOptions
         switch edit {
         case .paragraph(let property, let values, _): TextStyling.setValue(values, of: property, in: copy, range: selection.range)

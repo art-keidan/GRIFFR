@@ -225,4 +225,74 @@ struct ListSequenceEditorTests {
         #expect(items[2].sequenceStart == 1)
         #expect(items[4].sequenceResume == h.editor.store.paragraphID(at: a).persistent)
     }
+
+    @Test("Invio dopo una voce che riparte: la voce nuova continua il tratto, la ripartenza resta sulla prima")
+    func returnAfterRestart() throws {
+        let (h, spots) = harness()
+        defer { h.close() }
+        let b = try #require(spots["B uno"])
+        h.select(b)
+        #expect(h.editor.applyListSequenceStart())
+        let id = h.editor.store.paragraphID(at: b).persistent
+        // A capo in fondo alla voce, poi una voce nuova.
+        h.select(b + "B uno".utf16.count)
+        h.press(#selector(NSResponder.insertNewline(_:)))
+        h.type("B mezzo")
+        let middle = location(of: "B mezzo", in: h)
+        #expect(h.editor.selectionListItem()?.sequenceStart == nil)
+        var marks = try #require(h.editor.currentLayout()).listMarks
+        #expect(marks[b] == "(1)" && marks[middle] == "(2)" && marks[try #require(spots["B due"]) + "B mezzo\n".utf16.count] == "(3)", "\(marks)")
+        #expect(h.editor.store.paragraphID(at: b).persistent == id, "la voce che riparte conserva la sua identità")
+        #expect(TextStyling.listItem(in: h.editor.store, at: b)?.sequenceStart == 1)
+
+        // Un capoverso diviso a metà: solo la prima parte riapre il tratto.
+        h.select(b + 2)
+        h.press(#selector(NSResponder.insertNewline(_:)))
+        marks = try #require(h.editor.currentLayout()).listMarks
+        #expect(marks[b] == "(1)" && marks[b + 3] == "(2)", "\(marks)")
+
+        // Annulla toglie l'a capo e torna come prima.
+        h.undo()
+        #expect(try #require(h.editor.currentLayout()).listMarks[middle] == "(2)")
+    }
+
+    @Test("L'anteprima del righello conserva le riprese dei tratti")
+    func rulerPreviewKeepsResume() throws {
+        let (h, spots) = harness()
+        defer { h.close() }
+        let a = try #require(spots["A uno"])
+        let b = try #require(spots["B uno"])
+        let c = try #require(spots["Ripresa uno"])
+        h.select(b)
+        #expect(h.editor.applyListSequenceStart())
+        h.select(c)
+        #expect(h.editor.applyListSequenceResume(from: h.editor.store.paragraphID(at: a).persistent))
+        #expect(h.editor.currentLayout()?.listMarks[c] == "(3)")
+
+        h.editor.preview(.lists(h.editor.settings.lists, name: "Examples"))
+        let layout = try #require(h.editor.pagesView.layout)
+        #expect(layout.listMarks[c] == "(3)", "\(layout.listMarks)")
+        #expect(layout.listWarnings.isEmpty, "\(layout.listWarnings)")
+    }
+
+    @Test("L'anteprima di Progetta il capoverso conserva le riprese dei tratti")
+    func paragraphDesignPreviewKeepsResume() throws {
+        let (h, spots) = harness()
+        defer { h.close() }
+        let a = try #require(spots["A uno"])
+        let b = try #require(spots["B uno"])
+        let c = try #require(spots["Ripresa uno"])
+        h.select(b)
+        #expect(h.editor.applyListSequenceStart())
+        h.select(c)
+        #expect(h.editor.applyListSequenceResume(from: h.editor.store.paragraphID(at: a).persistent))
+
+        h.editor.setParagraphDesign(true)
+        h.editor.dragDesignHandleForTests(.leftIndent, by: CGSize(width: 18, height: 0))
+        #expect(h.editor.paragraphDesignPreviewForTests != nil, "l'anteprima della bozza è in corso")
+        let layout = try #require(h.editor.pagesView.layout)
+        #expect(layout.listMarks[c] == "(3)", "\(layout.listMarks)")
+        #expect(layout.listWarnings.isEmpty, "\(layout.listWarnings)")
+        h.editor.setParagraphDesign(false)
+    }
 }

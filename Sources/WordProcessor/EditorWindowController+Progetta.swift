@@ -359,7 +359,8 @@ extension EditorWindowController {
 
     /// Il documento con la bozza: il testo, le opzioni e il formato con cui comporlo.
     private func draftDocument(_ draft: ParagraphDesignDraft) -> (text: NSMutableAttributedString, options: LayoutOptions, setup: PageSetup) {
-        let copy = NSMutableAttributedString(attributedString: documentText)
+        // La copia porta le identità dei capoversi: senza, le riprese dei tratti delle Liste non troverebbero il tratto.
+        let copy = NSMutableAttributedString(attributedString: store.identifiedCopy)
         var document = settings
         let sheet = draftSheet(draft)
         var localPreviewRange: NSRange?
