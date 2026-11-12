@@ -35,7 +35,7 @@ struct BandLayout: Codable, Equatable {
 
     static let defaultParagraph: [Zone] = [
         Zone(title: "styles", items: ["stile", "stileCarattere", "stiliFlottanteBanda"]),
-        Zone(title: "design", items: ["progetta"]),
+        Zone(title: "design", items: ["progetta", "compositore"]),
         Zone(title: "alignment", items: ["allineamento"]),
         Zone(title: "spacing", items: ["interlinea", "spazi"]),
         Zone(title: "lists", items: ["puntato", "numerato", "lista", "riduciLivello", "aumentaLivello"]),
@@ -50,7 +50,7 @@ struct BandLayout: Codable, Equatable {
         "carattereSpeciale": "symbols", "stile": "style", "stileCarattere": "word style",
         "stiliFlottanteBanda": "floats", "allineamento": "alignment", "interlinea": "line spacing", "spazi": "spacing",
         "puntato": "bullets", "numerato": "numbers", "lista": "list", "riduciLivello": "level", "aumentaLivello": "level",
-        "progetta": "design",
+        "progetta": "design", "compositore": "styles",
     ]
 
     static func name(of item: String) -> String {
