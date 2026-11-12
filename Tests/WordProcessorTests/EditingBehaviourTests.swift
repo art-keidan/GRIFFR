@@ -2044,7 +2044,7 @@ struct EditingBehaviourTests {
         defer { h.close() }
         let before = h.text
 
-        #expect(h.editor.toolbarGroupsForTests == [["salva"], ["annulla", "ripeti", "cerca"], ["nota", "illustrazione", "tabella"]])
+        #expect(h.editor.toolbarGroupsForTests == [["salva"], ["annulla", "ripeti", "cerca"], ["nota", "illustrazione", "tabella", "campo"]])
         h.editor.setInterfaceMode(.advanced)
         h.step()
         #expect(h.editor.toolbarGroupsForTests == [["liste"], ["salva"]])
@@ -2052,7 +2052,7 @@ struct EditingBehaviourTests {
         h.step()
         h.editor.moveToolbarGroupForTests(from: 0, to: 2)
         h.step()
-        #expect(h.editor.toolbarGroupsForTests == [["annulla", "ripeti", "cerca"], ["nota", "illustrazione", "tabella"], ["salva"]])
+        #expect(h.editor.toolbarGroupsForTests == [["annulla", "ripeti", "cerca"], ["nota", "illustrazione", "tabella", "campo"], ["salva"]])
         #expect(h.text == before)
         h.editor.setInterfaceMode(.advanced)
         h.step()

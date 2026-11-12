@@ -28,6 +28,7 @@ extension EditorWindowController {
         .init(id: "nota", title: "Note", symbol: "text.append"),
         .init(id: "illustrazione", title: "Illustration", symbol: "photo"),
         .init(id: "tabella", title: "Table", symbol: "tablecells"),
+        .init(id: "campo", title: "Field", symbol: "curlybraces"),
         .init(id: "carattere", title: "Special Character", symbol: "character"),
         .init(id: "nuovoStile", title: "New Style from Selection…", symbol: "paintbrush"),
         .init(id: "liste", title: "Lists…", symbol: "list.number"),
@@ -40,8 +41,11 @@ extension EditorWindowController {
 
     /// La configurazione dettagliata conserva quella già scelta dall'utente; l'essenziale ha una configurazione propria.
     static let defaultToolbar = ["nuovo", "apri", "salva", "salvaCome", "chiudi", "|", "stampa", "pdf", "|", "annulla", "ripeti", "cerca", "|",
-                                 "nota", "illustrazione", "tabella", "|", "nascosti", "provenienza", "correzione", "|", "lorem"]
-    static let defaultSimpleToolbar = ["salva", "|", "annulla", "ripeti", "cerca", "|", "nota", "illustrazione", "tabella"]
+                                 "nota", "illustrazione", "tabella", "campo", "|", "nascosti", "provenienza", "correzione", "|", "lorem"]
+    static let defaultSimpleToolbar = ["salva", "|", "annulla", "ripeti", "cerca", "|", "nota", "illustrazione", "tabella", "campo"]
+    /// I comandi arrivati dopo che la barra si poteva personalizzare, e quello dopo cui vanno: una barra già scelta li
+    /// riceve una volta sola, al loro posto; se poi li si toglie, restano tolti.
+    static let introducedToolbarCommands: [(id: String, after: String)] = [("campo", "tabella")]
     static let toolbarKey = "ToolbarItems"
     static let simpleToolbarKey = "ToolbarItems.simple"
     static let toolbarChanged = Notification.Name("WordProcessorToolbarItemsChanged")
@@ -60,13 +64,28 @@ extension EditorWindowController {
     static func toolbarItems(for mode: InterfaceMode) -> [String] {
         let key = mode == .simple ? simpleToolbarKey : toolbarKey
         let fallback = mode == .simple ? defaultSimpleToolbar : defaultToolbar
-        guard let stored = UserDefaults.standard.stringArray(forKey: key) else { return fallback }
+        guard var stored = UserDefaults.standard.stringArray(forKey: key) else { return fallback }
+        let offeredKey = key + ".offered"
+        var offered = UserDefaults.standard.stringArray(forKey: offeredKey) ?? []
+        var changed = false
+        for (id, after) in introducedToolbarCommands where !offered.contains(id) {
+            offered.append(id)
+            changed = true
+            guard !stored.contains(id) else { continue }
+            if let index = stored.firstIndex(of: after) { stored.insert(id, at: index + 1) } else { stored.append(id) }
+        }
+        if changed {
+            UserDefaults.standard.set(stored, forKey: key)
+            UserDefaults.standard.set(offered, forKey: offeredKey)
+        }
         return sanitizedToolbar(stored)
     }
 
     static func setToolbarItems(_ items: [String], for mode: InterfaceMode) {
         let key = mode == .simple ? simpleToolbarKey : toolbarKey
         UserDefaults.standard.set(sanitizedToolbar(items), forKey: key)
+        // Una barra scelta dall'autore ha già visto i comandi nuovi: quelli che ha tolto restano tolti.
+        UserDefaults.standard.set(introducedToolbarCommands.map(\.id), forKey: key + ".offered")
         NotificationCenter.default.post(name: toolbarChanged, object: nil)
     }
 
@@ -124,7 +143,7 @@ extension EditorWindowController {
             case "nuovo", "apri", "salva", "salvaCome", "chiudi": "file"
             case "stampa", "pdf": "print"
             case "annulla", "ripeti", "cerca": "edit"
-            case "nota", "illustrazione", "tabella", "carattere", "lorem": "insert"
+            case "nota", "illustrazione", "tabella", "campo", "carattere", "lorem": "insert"
             case "nuovoStile", "liste", "stiliFlottante": "styles"
             case "nascosti", "provenienza", "correzione": "view"
             default: "tools"
@@ -235,6 +254,11 @@ extension EditorWindowController {
                     item.representedObject = style
                 }
                 menu.addItem(withTitle: "Inline Image…", action: #selector(self.insertImage(_:)), keyEquivalent: "").target = self
+            }
+        case "campo":
+            // Le stesse voci di Inserisci › Campo: numero di pagina, delle pagine, sezione, rimando, campo composto.
+            return pullDown(id, symbol: "curlybraces", title: "", width: 42, help: "Insert a field") { [weak self] menu in
+                FieldMenuFiller.shared.fill(menu, editor: self)
             }
         case "carattere":
             return pullDown(id, symbol: "character", title: "", width: 42, help: "Insert a special character") { [weak self] menu in

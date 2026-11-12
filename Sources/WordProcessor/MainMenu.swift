@@ -210,21 +210,28 @@ final class FieldMenuFiller: NSObject, NSMenuDelegate {
     static let shared = FieldMenuFiller()
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        fill(menu, editor: NSApp.mainWindow?.windowController as? EditorWindowController)
+    }
+
+    /// Le voci del menu dei campi per l'editor dato (il menu Inserisci › Campo, o il pulsante dei campi della barra, che
+    /// le indirizza al suo editor).
+    func fill(_ menu: NSMenu, editor: EditorWindowController?) {
         menu.removeAllItems()
         func add(_ formula: FieldFormula) {
             let item = menu.addItem(withTitle: formula.title, action: #selector(EditorWindowController.insertField(_:)), keyEquivalent: "")
             item.representedObject = Field.formula(formula).encoded
             item.toolTip = formula.chain
+            item.target = editor
         }
         add(.pageContainingNumber)
         add(.documentPageCount)
-        let roles = (NSApp.mainWindow?.windowController as? EditorWindowController)?.fieldRoles() ?? Section.Role.builtIn
+        let roles = editor?.fieldRoles() ?? Section.Role.builtIn
         menu.addItem(.separator())
         for role in roles { add(.sectionContainingTitle(role: role)) }
         menu.addItem(.separator())
         for role in roles { add(.sectionContainingNumber(role: role)) }
         menu.addItem(.separator())
-        if let editor = NSApp.mainWindow?.windowController as? EditorWindowController {
+        if let editor {
             if !FloatingIdentity.occurrences(in: editor.documentText).isEmpty || editor.currentLayout()?.declaredNotes.isEmpty == false {
                 menu.addItem(withTitle: "Object Reference…", action: #selector(EditorWindowController.insertObjectReference(_:)), keyEquivalent: "").target = editor
             }
@@ -232,8 +239,9 @@ final class FieldMenuFiller: NSObject, NSMenuDelegate {
                 menu.addItem(withTitle: "Object Label…", action: #selector(EditorWindowController.editObjectLabel(_:)), keyEquivalent: "").target = editor
             }
         }
-        menu.addItem(withTitle: "Other Field…", action: #selector(EditorWindowController.insertCustomField(_:)), keyEquivalent: "")
-            .toolTip = "Compose the field's formula: start, steps, result"
+        let other = menu.addItem(withTitle: "Other Field…", action: #selector(EditorWindowController.insertCustomField(_:)), keyEquivalent: "")
+        other.toolTip = "Compose the field's formula: start, steps, result"
+        other.target = editor
     }
 }
 
