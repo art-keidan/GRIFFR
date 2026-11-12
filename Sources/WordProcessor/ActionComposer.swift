@@ -82,6 +82,7 @@ private struct ComposerLibrary: View {
                     conditions
                     headingItems
                     writeItems
+                    noteItems
                     calculations
                 }
             }
@@ -135,6 +136,13 @@ private struct ComposerLibrary: View {
                     item(place.title, symbol: place == .before ? "text.insert" : "text.append") { model.addWrite(place) }
                 }
             }
+        }
+    }
+
+    @ViewBuilder private var noteItems: some View {
+        if model.currentStyle?.target == .paragraph, matches("Note after a word") {
+            group("Notes")
+            item("Note after a word", symbol: "text.append") { model.addDeclaredNote() }
         }
     }
 
@@ -239,6 +247,10 @@ private struct ComposerFlow: View {
                 caption("Write Result")
                 WritesBlock(model: model, writes: style.writes)
             }
+            if !style.declaredNotes.isEmpty {
+                caption("Notes")
+                DeclaredNotesBlock(model: model, notes: style.declaredNotes)
+            }
             if !style.variables.isEmpty {
                 caption("Variables")
                 ForEach(style.variables) { variable in
@@ -261,7 +273,7 @@ private struct ComposerFlow: View {
                         .onDrop(of: [UTType.text], delegate: ActionDrop(model: model, target: entry.formula.id, dragging: $dragging))
                 }
             }
-            if ordered.isEmpty && style.variables.isEmpty {
+            if ordered.isEmpty && style.variables.isEmpty && style.declaredNotes.isEmpty {
                 Text("Add an action from the library.").foregroundStyle(.secondary).padding(.vertical, 12)
             }
             ComposerBoard(model: model).compatibleProperties(style)
@@ -1135,5 +1147,45 @@ struct HeadingPreview: View {
         text(string, character)
             .lineLimit(3)
             .frame(maxWidth: .infinity, minHeight: minHeight.map { min(CGFloat($0), 80) }, alignment: Alignment(horizontal: alignment(value).horizontal, vertical: .bottom))
+    }
+}
+
+/// Le note che lo stile dichiara dopo una parola: una riga ciascuna, con la parola (un selettore numerico) e la serie.
+/// Il testo delle note si scrive nel documento, per ogni capoverso (Insert › Declared Note Text…).
+struct DeclaredNotesBlock: View {
+    @ObservedObject var model: ComposerBoardModel
+    let notes: [DeclaredNote]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(notes) { note in
+                HStack(spacing: 6) {
+                    Image(systemName: "text.append").foregroundStyle(Color(nsColor: Theme.glyph))
+                    Text("Note after word").fontWeight(.medium).fixedSize()
+                    TextField("Word", value: Binding(get: { note.word }, set: { model.updateDeclaredNote(note.id, word: max($0, 1)) }),
+                              format: .number)
+                        .textFieldStyle(.roundedBorder).frame(width: 48).multilineTextAlignment(.trailing)
+                        .accessibilityLabel("Word")
+                    Stepper("Word", value: Binding(get: { note.word }, set: { model.updateDeclaredNote(note.id, word: $0) }), in: 1...999)
+                        .labelsHidden()
+                    if model.noteSeries.count > 1 {
+                        ComposerChoiceMenu(title: note.style, choices: model.noteSeries, label: { $0 },
+                                           select: { model.updateDeclaredNote(note.id, style: $0) })
+                    } else {
+                        Text(note.style).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 4)
+                    Button { model.removeDeclaredNote(note.id) } label: { Image(systemName: "xmark") }
+                        .buttonStyle(.hover(.borderless)).accessibilityLabel("Remove note")
+                }
+                .accessibilityElement(children: .contain).accessibilityLabel("Note after word \(note.word)")
+            }
+            Text("Write the text of each note in the document: Insert › Declared Note Text…")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .padding(10)
+        .background(Color(nsColor: Theme.control))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: Theme.line)))
     }
 }

@@ -307,3 +307,37 @@ extension ComposerBoardModel {
         return editor
     }
 }
+
+/// Le note che lo stile scelto dichiara dopo una parola (vedi `DeclaredNote`): il compositore le aggiunge, cambia la
+/// parola e la serie, le toglie. Il testo di ciascuna nota non sta qui: si scrive nel documento (Insert › Declared Note
+/// Text…), occorrenza per occorrenza.
+extension ComposerBoardModel {
+    private func changeDeclaredNotes(_ change: (inout [DeclaredNote]) -> Void) {
+        guard let name = selectedStyle else { return }
+        selectStyle(name)
+        guard let i = currentStyleIndex, sheet.styles[i].target == .paragraph else { return }
+        change(&sheet.styles[i].declaredNotes)
+    }
+
+    /// Una nota a piè di pagina dopo la quinta parola, il caso guida.
+    @discardableResult
+    func addDeclaredNote() -> UUID? {
+        guard let note = DeclaredNote(word: 5) else { return nil }
+        var added: UUID?
+        changeDeclaredNotes { notes in notes.append(note); added = note.id }
+        return added
+    }
+
+    /// Cambia la parola o la serie di una nota dichiarata; la sua identità resta, e con lei il testo delle sue occorrenze.
+    func updateDeclaredNote(_ id: UUID, word: Int? = nil, style: String? = nil) {
+        changeDeclaredNotes { notes in
+            guard let index = notes.firstIndex(where: { $0.id == id }),
+                  let changed = DeclaredNote(id: id, word: word ?? notes[index].word, style: style ?? notes[index].style) else { return }
+            notes[index] = changed
+        }
+    }
+
+    func removeDeclaredNote(_ id: UUID) {
+        changeDeclaredNotes { notes in notes.removeAll { $0.id == id } }
+    }
+}

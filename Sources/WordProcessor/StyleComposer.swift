@@ -49,6 +49,8 @@ extension EditorWindowController {
             self.flushStyleChanges()
             return self.settings.styles
         }
+        model.noteSeries = settings.floatStyles.filter { [.pageFoot, .outerMargin, .documentEnd].contains($0.placement) }.map(\.name)
+        if model.noteSeries.isEmpty { model.noteSeries = [FloatStyle.footnoteName] }
         model.composeDocumentPreview = { [weak self] base, sheet in
             guard let self, self.settings.styles == base else { return nil }
             return self.styleBoardPreview(with: sheet)
@@ -134,6 +136,9 @@ final class ComposerBoardModel: ObservableObject {
     var commit: ((StyleSheet, StyleSheet) -> String?)?
     var reload: (() -> StyleSheet?)?
     var composeDocumentPreview: ((StyleSheet, StyleSheet) -> ComposerDocumentPreview?)?
+    /// Le serie di note del documento (gli stili di flottante che si possono dichiarare), per il menu delle note
+    /// dichiarate.
+    var noteSeries: [String] = [FloatStyle.footnoteName]
 
     func refreshDocumentPreview() {
         guard previewMode == .document else { return }

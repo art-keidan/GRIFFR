@@ -393,6 +393,19 @@ public struct PlacedImage {
     var floatingAnchor: Int? = nil
 }
 
+/// Una nota dichiarata da uno stile, presentata nella composizione.
+public struct PlacedDeclaredNote: Equatable, Sendable {
+    public var paragraph: Int
+    /// L'identità del capoverso, se il testo composto la porta: con lo stile e la dichiarazione fa l'occorrenza.
+    public var paragraphID: UUID?
+    public var position: Int
+    public var declaringStyle: String
+    public var declaration: UUID
+    /// La chiave della nota in `DocumentLayout.noteMarks`.
+    public var key: Int
+    public var mark: String
+}
+
 public struct PageStartPlacement {
     public let style: String
     public let requested: Double
@@ -426,6 +439,10 @@ public struct DocumentLayout {
     /// nota o figura numerata (chiave: la posizione del richiamo). Per l'albero degli oggetti.
     public var listMarks: [Int: String] = [:]
     public var noteMarks: [Int: String] = [:]
+    /// Le note dichiarate dagli stili che la composizione ha presentato (quelle sospese, senza la loro parola, mancano):
+    /// il paragrafo, la posizione del richiamo dopo la parola, la dichiarazione e il segno. Non sono testo del documento:
+    /// la loro chiave in `noteMarks` è negativa, perché non è la posizione di un carattere.
+    public var declaredNotes: [PlacedDeclaredNote] = []
     /// I tratti delle Liste con un nome, nell'ordine in cui cominciano: la loro identità è quella del capoverso che
     /// li apre, e serve a riprenderli.
     public var sequences: [ListSequence] = []
@@ -467,6 +484,8 @@ public struct LayoutOptions: Equatable, Sendable {
     public var pageNumbering: String?
     /// Gli stili di tabella.
     public var tableStyles: [TableStyle] = TableStyle.builtIn
+    /// Il testo delle note dichiarate, per occorrenza (vedi `Document.declaredNoteTexts`).
+    public var declaredNoteTexts: [DeclaredNoteSlot: String] = [:]
 
     /// Le sole scelte che contano per comporre in righe un paragrafo già pronto: le memorie delle righe e degli a capo
     /// le usano come chiave, così un cambio degli stili, delle liste o delle regole non le svuota (i paragrafi che lo
@@ -848,6 +867,8 @@ public enum PageLayout {
         var notes: [NSRange] = []
         var listMarks: [Int: String] = [:]
         var noteMarks: [Int: String] = [:]
+        // Le note dichiarate presentate fin qui; la chiave della prossima è -(quante sono + 1).
+        var declaredNotes: [PlacedDeclaredNote] = []
         var numbering = ListNumbering()
         // L'ultima voce incontrata nel corpo: dice se il paragrafo che segue è un altro capoverso della stessa voce.
         var lastListItem: ListItem?
@@ -872,13 +893,14 @@ public enum PageLayout {
         var assumedNotePages: [Int: Int] = [:]
         var notePages: [Int: Int] = [:]
         /// Il segno della prossima nota, il cui richiamo sta alla posizione `anchor`.
-        func noteMark(anchor: Int) -> String {
-            let mark = computeNoteMark(anchor: anchor)
+        /// `style`: la serie, per una nota dichiarata, che non ha un carattere da cui leggerla (la sua chiave è negativa).
+        func noteMark(anchor: Int, style declared: String? = nil) -> String {
+            let mark = computeNoteMark(anchor: anchor, style: declared)
             noteMarks[anchor] = mark
             return mark
         }
-        func computeNoteMark(anchor: Int) -> String {
-            let style = text.attribute(.footnote, at: anchor, effectiveRange: nil) as? String ?? FloatStyle.footnoteName
+        func computeNoteMark(anchor: Int, style declared: String?) -> String {
+            let style = declared ?? text.attribute(.footnote, at: anchor, effectiveRange: nil) as? String ?? FloatStyle.footnoteName
             guard let noteList = floatLists[style] else {
                 noteNumber += 1
                 return String(noteNumber)
@@ -1331,7 +1353,7 @@ public enum PageLayout {
                 guard let mark = (text.attribute(.tableCell, at: range.location, effectiveRange: nil) as? String).flatMap(CellMark.init(encoded:)),
                       mark.table == id else { break }
                 let body = composedBody(of: text.attributedSubstring(from: range), location: range.location, field: fieldText,
-                                        floatStyles: options.floatStyles, noteMark: noteMark)
+                                        floatStyles: options.floatStyles, noteMark: { noteMark(anchor: $0) })
                 let style = text.attribute(.paragraphStyle, at: range.location, effectiveRange: nil) as? NSParagraphStyle ?? .default
                 add(CellParagraph(range: range, body: body.text, map: body.map, style: style), mark: mark)
                 cursor = max(NSMaxRange(range), cursor + 1)
@@ -1759,6 +1781,7 @@ public enum PageLayout {
         func checkpoint() -> () -> Void {
             let saved = (column, pages, openSections, pageNumbering, pageValue, runningActive, runningFirst, pageRunning, pageSections, openingPages)
             let savedText = (y, location, noteNumber, notes, listMarks, noteMarks, numbering, named, noteNumberer, floatLists, overflowing, lastListItem)
+            let savedDeclared = declaredNotes
             let savedSequences = (sequences, sequenceIndex)
             let savedWarnings = listWarnings
             let savedNotes = (assumedNotePages, notePages, pageNotes, carried, marginBoxes, marginConflicts, endNotes)
@@ -1767,6 +1790,7 @@ public enum PageLayout {
             return {
                 (column, pages, openSections, pageNumbering, pageValue, runningActive, runningFirst, pageRunning, pageSections, openingPages) = saved
                 (y, location, noteNumber, notes, listMarks, noteMarks, numbering, named, noteNumberer, floatLists, overflowing, lastListItem) = savedText
+                declaredNotes = savedDeclared
                 (sequences, sequenceIndex) = savedSequences
                 listWarnings = savedWarnings
                 (assumedNotePages, notePages, pageNotes, carried, marginBoxes, marginConflicts, endNotes) = savedNotes
@@ -1927,9 +1951,34 @@ public enum PageLayout {
                 openSections.append((sectionMark.depth, sectionMark, titleText, listMarks[paragraphRange.location]))
             }
             // Il corpo del paragrafo, con i numeri di richiamo al posto delle note, e le note da comporre a parte.
+            // Le note che lo stile del paragrafo dichiara dopo una parola: dove la parola c'è, un richiamo e una nota; dove
+            // manca, niente (la nota è sospesa). Il testo del documento non cambia.
+            var declared: [GeneratedNote] = []
+            for (declaringStyle, declaration) in options.styles.declaredNotes(ofParagraphStyle: paragraphStyleName) {
+                let floatStyle = options.floatStyles.first { $0.name == declaration.style }
+                    ?? (declaration.style == FloatStyle.footnoteName ? FloatStyle(name: declaration.style) : nil)
+                guard let floatStyle, [.pageFoot, .outerMargin, .documentEnd].contains(floatStyle.placement),
+                      let position = DeclaredNoteAnchor.position(in: text, paragraph: paragraphRange,
+                                                                 selection: WordSelection(name: "", index: declaration.word)) else { continue }
+                let key = -(declaredNotes.count + declared.count + 1)
+                let slot = identities[paragraphRange.location].map {
+                    DeclaredNoteSlot(paragraph: $0, declaringStyle: declaringStyle, declaration: declaration.id)
+                }
+                declared.append(GeneratedNote(position: position - paragraphRange.location, key: key, style: floatStyle,
+                                              declaringStyle: declaringStyle, declaration: declaration.id,
+                                              text: slot.flatMap { options.declaredNoteTexts[$0] } ?? ""))
+            }
             var body = composedBody(of: text.attributedSubstring(from: paragraphRange), location: paragraphRange.location, field: fieldText,
-                                    floatStyles: options.floatStyles, noteMark: noteMark)
-            notes.append(contentsOf: body.notes.map(\.range))
+                                    floatStyles: options.floatStyles, noteMark: { noteMark(anchor: $0) },
+                                    generated: declared, generatedMark: { noteMark(anchor: $0.key, style: $0.style.name) })
+            for note in declared {
+                declaredNotes.append(PlacedDeclaredNote(paragraph: paragraphRange.location, paragraphID: identities[paragraphRange.location],
+                                                        position: paragraphRange.location + note.position,
+                                                        declaringStyle: note.declaringStyle, declaration: note.declaration,
+                                                        key: note.key, mark: noteMarks[note.key] ?? ""))
+            }
+            // Le note dichiarate non hanno caratteri: il cursore non ci entra, quindi non sono fra le note del testo.
+            notes.append(contentsOf: body.notes.filter { $0.key == nil }.map(\.range))
             endNotes += body.notes.filter { $0.style.placement == .documentEnd }.map { ($0, style) }
             var bodyText = body.text
             var lineRules = bodyText.length > 0 ? bodyText.attribute(.lineRules, at: 0, effectiveRange: nil) as? LineRuleSpec : nil
@@ -2252,7 +2301,7 @@ public enum PageLayout {
                     if !keeping.isNone { plannedBreak = widowBreak(from: lineNumber, fitting: linesFitting(from: lineNumber)) }
                     if let tailBreak, tailBreak > lineNumber { plannedBreak = min(plannedBreak ?? tailBreak, tailBreak) }
                 }
-                for note in lineNotes { notePages[note.info.range.location] = pages.count }
+                for note in lineNotes { notePages[note.info.numberingKey] = pages.count }
                 if lineNumber == 0 {
                     // Ricomposte qui: se il titolo è passato a una pagina nuova, i risultati leggono questa.
                     placeHeading(heading.map { headingPieces($0.split.before, number: headingNumber, titleStyle: paragraphStyleName, indices: $0.splitIndices.before) } ?? [],
@@ -2488,6 +2537,7 @@ public enum PageLayout {
         layout.layoutRulesApplied = layoutRulesApplied
         layout.listMarks = listMarks
         layout.noteMarks = noteMarks
+        layout.declaredNotes = declaredNotes
         layout.sequences = sequences
         layout.listWarnings = listWarnings
         return (layout, assumedNotePages, notePages, pageNumbers)
@@ -2869,6 +2919,10 @@ public enum PageLayout {
         var style: FloatStyle
         /// Per una figura, la sua immagine.
         var image: ImageObject?
+        /// Per una nota dichiarata, la sua chiave (negativa) in `noteMarks` e nelle pagine delle note; per le altre la
+        /// chiave è la posizione del richiamo.
+        var key: Int? = nil
+        var numberingKey: Int { key ?? range.location }
     }
 
     /// Il corpo di un paragrafo come va composto: il testo di ogni nota è sostituito dal numero di richiamo.
@@ -2898,15 +2952,33 @@ public enum PageLayout {
         flush(upTo: NSMaxRange(range))
     }
 
+    /// Una nota dichiarata da uno stile, da comporre nel paragrafo: non ha caratteri nel documento.
+    private struct GeneratedNote {
+        /// La posizione del richiamo nel paragrafo: subito dopo la parola dichiarata.
+        var position: Int
+        /// La chiave negativa della nota in `noteMarks`.
+        var key: Int
+        var style: FloatStyle
+        var declaringStyle: String
+        var declaration: UUID
+        /// Il testo della nota, dal registro del documento; vuoto finché l'autore non lo scrive.
+        var text: String
+    }
+
+    /// `generated`: le note dichiarate dallo stile del paragrafo, ciascuna nel suo punto, con il segno dato da
+    /// `generatedMark`. Compongono richiamo e nota come una nota scritta, ma il loro testo (per ora vuoto) non è nel
+    /// documento: nella mappa non hanno posto, come il numero di un richiamo.
     private static func composedBody(of paragraph: NSAttributedString, location: Int, field: (Field, Int) -> String, floatStyles: [FloatStyle],
-                                     noteMark: (_ anchor: Int) -> String)
+                                     noteMark: (_ anchor: Int) -> String, generated: [GeneratedNote] = [],
+                                     generatedMark: (GeneratedNote) -> String = { _ in "" })
         -> (text: NSAttributedString, map: TextMap, notes: [ComposedNote]) {
         let length = paragraph.length
         var effective = NSRange(location: 0, length: 0)
         var fieldRun = NSRange(location: 0, length: 0)
         let hasFields = length > 0 && !(paragraph.attribute(.field, at: 0, longestEffectiveRange: &fieldRun, in: NSRange(location: 0, length: length)) == nil
             && fieldRun.length == length)
-        if length == 0 || (!hasFields && paragraph.attribute(.footnote, at: 0, longestEffectiveRange: &effective, in: NSRange(location: 0, length: length)) == nil
+        if length == 0 || (generated.isEmpty && !hasFields
+                           && paragraph.attribute(.footnote, at: 0, longestEffectiveRange: &effective, in: NSRange(location: 0, length: length)) == nil
                            && effective.length == length) {
             return (paragraph, .identity(location: location, length: length), [])
         }
@@ -2921,13 +2993,54 @@ public enum PageLayout {
             }
             if let anchor = open { spans.append((anchor, NSMaxRange(range))) }
         }
-        guard !spans.isEmpty || hasFields else { return (paragraph, .identity(location: location, length: length), []) }
+        guard !spans.isEmpty || hasFields || !generated.isEmpty else { return (paragraph, .identity(location: location, length: length), []) }
 
         let body = NSMutableAttributedString()
         var segments: [TextMap.Segment] = []
         var notes: [ComposedNote] = []
         var cursor = 0
+        var pending = generated.filter { (0...length).contains($0.position) }.sorted { $0.position < $1.position }
+        /// Le note dichiarate che cadono prima di `limit` (o proprio lì: vengono prima di una nota scritta nello stesso punto).
+        func composeGenerated(upTo limit: Int) {
+            // Una posizione già superata (dentro una nota scritta, che non conta parole) non si compone.
+            pending.removeAll { $0.position < cursor }
+            while let note = pending.first, note.position <= limit, note.position >= cursor {
+                pending.removeFirst()
+                appendResolvingFields(paragraph, range: NSRange(location: cursor, length: note.position - cursor), documentStart: location,
+                                      into: body, segments: &segments, field: field)
+                cursor = note.position
+                let mark = note.style.reference == .none ? "" : generatedMark(note)
+                // Il richiamo prende l'aspetto del testo che lo precede, come quello di una nota scritta.
+                var attributes = body.length > 0 ? body.attributes(at: body.length - 1, effectiveRange: nil)
+                    : (length > 0 ? paragraph.attributes(at: min(note.position, length - 1), effectiveRange: nil) : [:])
+                for key in [NSAttributedString.Key.footnote, .composedField, .floatingIdentity, .field, .link] { attributes[key] = nil }
+                // Il testo della nota ha i cinque sesti del corpo, come una nota appena inserita (12 → 10).
+                var noteAttributes = attributes
+                if let font = attributes[.font] as? NSFont {
+                    noteAttributes[.font] = TextStyling.resized(font as CTFont, to: max((font.pointSize * 5 / 6 * 2).rounded() / 2, 4))
+                }
+                let marker = body.length
+                let text = NSMutableAttributedString()
+                switch note.style.reference {
+                case .superscript:
+                    body.append(referenceMark(mark, attributes: attributes))
+                    text.append(referenceMark(mark, attributes: noteAttributes))
+                case .plain:
+                    body.append(NSAttributedString(string: mark, attributes: attributes))
+                    text.append(NSAttributedString(string: mark, attributes: noteAttributes))
+                case .none:
+                    body.append(NSAttributedString(string: "\u{2060}", attributes: attributes))
+                }
+                if !note.text.isEmpty {
+                    text.append(NSAttributedString(string: (text.length > 0 ? " " : "") + note.text, attributes: noteAttributes))
+                }
+                let anchor = NSRange(location: location + note.position, length: 0)
+                notes.append(ComposedNote(range: anchor, textRange: anchor, marker: marker, text: text, map: TextMap(segments: []),
+                                          style: note.style, image: nil, key: note.key))
+            }
+        }
         for span in spans {
+            composeGenerated(upTo: span.anchor)
             appendResolvingFields(paragraph, range: NSRange(location: cursor, length: span.anchor - cursor), documentStart: location, into: body,
                                   segments: &segments, field: field)
             let styleName = paragraph.attribute(.footnote, at: span.anchor, effectiveRange: nil) as? String ?? FloatStyle.footnoteName
@@ -2970,6 +3083,7 @@ public enum PageLayout {
                 style: floatStyle, image: (paragraph.attribute(.floatImage, at: span.anchor, effectiveRange: nil) as? ImageAttachment)?.image))
             cursor = span.end
         }
+        composeGenerated(upTo: length)
         appendResolvingFields(paragraph, range: NSRange(location: cursor, length: length - cursor), documentStart: location, into: body,
                               segments: &segments, field: field)
         return (body, TextMap(segments: segments), notes)

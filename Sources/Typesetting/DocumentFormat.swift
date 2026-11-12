@@ -126,12 +126,14 @@ import Foundation
 /// - Variabili degli stili: `<variable id="…" name="Distanza" expression="…"/>` dentro `style`, prima delle formule: un
 ///   risultato con un nome che le formule dello stile richiamano per identità (`binding` con una variabile).
 ///
-/// Il programma legge le versioni da `oldestReadableVersion` a `version`. Il writer usa il formato 21 per i tratti di
+/// Il programma legge le versioni da `oldestReadableVersion` a `version`. Il formato 22 aggiunge
+/// `<declare-note id="…" word="…"/>` negli stili di paragrafo (con `style`, uno stile di flottante, per una serie
+/// diversa dalla nota a piè di pagina). Il writer usa il formato 21 per i tratti di
 /// una Lista scelti dall'autore, il 20 per le voci di elenco che continuano la precedente, il 19 per identità e
 /// rimandi, e il 18 per i documenti privi di questi dati. Un elemento o attributo sconosciuto produce un errore con il
 /// numero di riga.
 public enum DocumentFormat {
-    public static let version = 21
+    public static let version = 22
     /// La versione più vecchia che il programma legge. Le versioni dello sviluppo, prima della 18, non si leggono più.
     public static let oldestReadableVersion = 18
 
@@ -160,9 +162,14 @@ public enum DocumentFormat {
             guard let list = $0.list, !list.continuesPreviousItem, list.listName != nil else { return false }
             return list.sequenceStart != nil || list.sequenceResume != nil
         }
-        let writtenVersion: Int = hasSequences
-            ? version
-            : (paragraphs.contains { $0.list?.continuesPreviousItem == true } ? 20 : (usesIdentities ? 19 : oldestReadableVersion))
+        let hasDeclaredNotes = document.styles.styles.contains { !$0.declaredNotes.isEmpty }
+            || document.declaredNoteTexts.values.contains { !$0.isEmpty }
+        let writtenVersion: Int
+        if hasDeclaredNotes { writtenVersion = 22 }
+        else if hasSequences { writtenVersion = 21 }
+        else if paragraphs.contains(where: { $0.list?.continuesPreviousItem == true }) { writtenVersion = 20 }
+        else if usesIdentities { writtenVersion = 19 }
+        else { writtenVersion = oldestReadableVersion }
         // Lo stile più usato diventa quello del documento, così la maggior parte dei paragrafi non lo ripete.
         var base = dominantStyle(paragraphs.flatMap { paragraph in runs(of: paragraph).map { ($0.style, $0.text.utf16.count + 1) } })
         if document.styles.styles.contains(where: { !$0.formulas.isEmpty }) {
@@ -204,7 +211,7 @@ public enum DocumentFormat {
                 // La stringa vuota è «nessuna Lista»: toglie quella che darebbe lo stile su cui si basa.
                 if let list = values.listName, !list.isEmpty, !knownLists.contains(list) { values.listName = nil }
                 out += styleValueAttributes(values)
-                if style.formulas.isEmpty && style.variables.isEmpty && style.heading == nil && style.writes.isEmpty { out += "/>\n" }
+                if style.formulas.isEmpty && style.variables.isEmpty && style.heading == nil && style.writes.isEmpty && style.declaredNotes.isEmpty { out += "/>\n" }
                 else {
                     out += ">\n"
                     if let heading = style.heading {
@@ -212,6 +219,11 @@ public enum DocumentFormat {
                     }
                     if !style.writes.isEmpty {
                         out += "<writes encoding=\"json-v1\" data=\"\(FormulaCodec.encode(style.writes))\"/>\n"
+                    }
+                    for declaration in style.declaredNotes {
+                        out += "<declare-note id=\"\(declaration.id.uuidString)\" word=\"\(declaration.word)\""
+                        if declaration.style != FloatStyle.footnoteName { out += " style=\"\(escapedAttribute(declaration.style))\"" }
+                        out += "/>\n"
                     }
                     // Le variabili prima delle formule che le richiamano.
                     for variable in style.variables {
@@ -230,6 +242,21 @@ public enum DocumentFormat {
             out += "<float-styles>\n"
             for style in document.floatStyles { out += floatStyleElement(style, knownLists: knownLists, sheet: sheet) }
             out += "</float-styles>\n"
+        }
+
+        // Il testo delle note dichiarate dagli stili, per occorrenza (capoverso, stile, dichiarazione), in un ordine
+        // stabile. Anche quello di una nota sospesa, o di un capoverso che non c'è più: è testo dell'autore.
+        let declaredTexts = document.declaredNoteTexts.filter { !$0.value.isEmpty }.sorted {
+            ($0.key.paragraph.uuidString, $0.key.declaringStyle, $0.key.declaration.uuidString)
+                < ($1.key.paragraph.uuidString, $1.key.declaringStyle, $1.key.declaration.uuidString)
+        }
+        if !declaredTexts.isEmpty {
+            out += "<declared-notes>\n"
+            for (slot, text) in declaredTexts {
+                out += "<declared-note paragraph=\"\(slot.paragraph.uuidString)\" style=\"\(escapedAttribute(slot.declaringStyle))\""
+                out += " declaration=\"\(slot.declaration.uuidString)\" text=\"\(escapedAttribute(text))\"/>\n"
+            }
+            out += "</declared-notes>\n"
         }
 
         // Gli stili di tabella, solo se non sono quelli con cui nasce ogni documento.
@@ -1275,6 +1302,26 @@ public enum DocumentFormat {
                 case ("float-style", "float-styles"):
                     try readFloatStyle(attributes, line: line, parser)
 
+                case ("declared-notes", "document"):
+                    guard check(attributes, allowed: [], element: name, parser) else { return }
+                    guard version >= 22, paragraphs.isEmpty, paragraph == nil, settings.declaredNoteTexts.isEmpty else {
+                        throw DocumentFormatError.malformed(line: line, detail: "<declared-notes> requires version 22 and goes before the paragraphs, once")
+                    }
+
+                case ("declared-note", "declared-notes"):
+                    guard check(attributes, allowed: ["paragraph", "style", "declaration", "text"], element: name, parser) else { return }
+                    guard let paragraph = attributes["paragraph"].flatMap(UUID.init(uuidString:)),
+                          let style = attributes["style"], !style.isEmpty,
+                          let declaration = attributes["declaration"].flatMap(UUID.init(uuidString:)),
+                          let text = attributes["text"], !text.isEmpty else {
+                        throw DocumentFormatError.malformed(line: line, detail: "A declared note needs a paragraph, a style, a declaration and its text")
+                    }
+                    let slot = DeclaredNoteSlot(paragraph: paragraph, declaringStyle: style, declaration: declaration)
+                    guard settings.declaredNoteTexts[slot] == nil else {
+                        throw DocumentFormatError.malformed(line: line, detail: "The same declared note appears twice")
+                    }
+                    settings.declaredNoteTexts[slot] = text
+
                 case ("formula", "style"):
                     try readFormula(attributes, line: line, parser)
 
@@ -1297,6 +1344,18 @@ public enum DocumentFormat {
                         throw DocumentFormatError.malformed(line: line, detail: "Style results invalid, repeated, or on a style that is not a paragraph style")
                     }
                     settings.styles.styles[index].writes = writes
+
+                case ("declare-note", "style"):
+                    guard check(attributes, allowed: ["id", "word", "style"], element: name, parser) else { return }
+                    guard version >= 22, let index = settings.styles.styles.indices.last,
+                          settings.styles.styles[index].target == .paragraph,
+                          let id = attributes["id"].flatMap(UUID.init(uuidString:)),
+                          let word = attributes["word"].flatMap(Int.init),
+                          let declaration = DeclaredNote(id: id, word: word, style: attributes["style"] ?? FloatStyle.footnoteName),
+                          !settings.styles.styles[index].declaredNotes.contains(where: { $0.id == id }) else {
+                        throw DocumentFormatError.malformed(line: line, detail: "Declared note requires version 22, a paragraph style, a unique ID and a positive word index")
+                    }
+                    settings.styles.styles[index].declaredNotes.append(declaration)
 
                 case ("variable", "style"):
                     guard check(attributes, allowed: ["id", "name", "expression"], element: name, parser) else { return }

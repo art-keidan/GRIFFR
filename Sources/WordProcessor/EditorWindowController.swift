@@ -943,6 +943,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     var replaceFormulaAnswerForTests: Bool?
     /// Per le prove: le scelte offerte dal foglio delle riprese (il foglio non si apre).
     var chooseSequenceForTests: (([UUID]) -> Void)?
+    /// Per le prove: i testi da scrivere nelle note dichiarate del capoverso (il foglio non si apre).
+    var declaredNoteTextAnswerForTests: [String]?
 
     /// L'albero si ricostruisce dopo una breve pausa: mentre si scrive, un tasto dopo l'altro, una volta sola.
     private func scheduleObjectTree() {

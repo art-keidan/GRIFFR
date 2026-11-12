@@ -202,6 +202,8 @@ extension EditorWindowController {
             return !earlierSequences(of: name, before: range.location, in: pagesView.layout).isEmpty
         case #selector(setNamedList(_:)):
             menuItem.state = (menuItem.representedObject as? String) == selectionListItem()?.listName ? .on : .off
+        case #selector(editDeclaredNoteText(_:)):
+            return !declaredNotesAtSelection().isEmpty
         default:
             break
         }

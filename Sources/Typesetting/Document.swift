@@ -40,6 +40,9 @@ public struct Document: Equatable, Sendable {
     public var blocks: [Block]
     /// Le sezioni di primo livello: parti, capitoli, appendici. Ognuna contiene i suoi paragrafi e le sue sezioni interne.
     public var sections: [Section] = []
+    /// Il testo delle note dichiarate dagli stili, per occorrenza (formato 22). Resta anche quando la nota è sospesa, o
+    /// il suo capoverso non c'è più: così torna con la parola, o con Annulla. Una nota senza testo non ha una voce.
+    public var declaredNoteTexts: [DeclaredNoteSlot: String] = [:]
 
     /// La Lista che numera le note a piè di pagina (quella del loro stile di flottante); `nil` per la numerazione
     /// semplice 1, 2, 3.
@@ -78,6 +81,7 @@ public struct Document: Equatable, Sendable {
         options.pageTypes = pageTypes
         options.pageNumbering = pageNumbering
         options.tableStyles = tableStyles
+        options.declaredNoteTexts = declaredNoteTexts
         return options
     }
 

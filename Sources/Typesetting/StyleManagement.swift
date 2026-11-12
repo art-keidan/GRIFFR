@@ -186,6 +186,12 @@ extension Document {
         for index in result.floatStyles.indices where result.floatStyles[index].contentStyle == old {
             result.floatStyles[index].contentStyle = new
         }
+        // Il testo delle note che lo stile dichiara resta alle sue occorrenze, che ora portano il nome nuovo.
+        result.declaredNoteTexts = Dictionary(result.declaredNoteTexts.map { slot, text in
+            var renamed = slot
+            if renamed.declaringStyle == old { renamed.declaringStyle = new }
+            return (renamed, text)
+        }, uniquingKeysWith: { first, _ in first })
         return result
     }
 

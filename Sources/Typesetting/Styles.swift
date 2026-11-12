@@ -221,6 +221,7 @@ public struct NamedStyle: Hashable, Sendable {
     public var heading: HeadingComposition?
     /// «Scrivi risultato» dentro il paragrafo, per uno stile di paragrafo (formato 16).
     public var writes: [WrittenResult]
+    public var declaredNotes: [DeclaredNote] = []
 
     public init(name: String, target: StyleTarget, basedOn: String? = nil, values: StyleValues = StyleValues(), formulas: [StyleFormula] = [],
                 variables: [StyleVariable] = [], heading: HeadingComposition? = nil, writes: [WrittenResult] = []) {
