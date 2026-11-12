@@ -6,6 +6,42 @@ import Testing
 
 @Suite("Compositore di stili ad azioni", .serialized) @MainActor
 struct ActionComposerTests {
+    @Test("L'anteprima del documento usa la pagina della selezione e la bozza senza scrivere nel documento")
+    func documentSelectionPreview() throws {
+        let h = EditorHarness(paragraphs: (1...80).map { "Paragraph \($0)." })
+        defer { h.close() }
+        h.select((h.text as NSString).range(of: "Paragraph 80.").location)
+        h.editor.openStyleComposer(nil)
+        let board = try #require(h.editor.composerModel)
+        let saved = try h.document.data(ofType: TextDocument.typeName)
+        let selection = h.selection
+        let layout = try #require(h.editor.pagesView.layout)
+        let livePage = try #require(layout.caret(at: selection.location)?.page)
+        let liveLine = try #require(layout.pages[livePage].lines.first { $0.range.location == selection.location })
+        #expect(livePage > 0)
+
+        board.selectStyle("Body")
+        board.addWrite(.after)
+        let sampleEditor = try #require(board.writeEditor(at: 0) {})
+        #expect(sampleEditor.result == "1")
+        board.previewMode = .document
+        board.refreshDocumentPreview()
+        let preview = try #require(board.documentPreview)
+        #expect(preview.context.pageNumber == layout.pages[livePage].number)
+        let editor = try #require(board.writeEditor(at: 0) {})
+        #expect(editor.result == preview.page.number)
+        let draftLine = try #require(preview.page.lines.first { $0.range.location == selection.location })
+        #expect(draftLine.naturalWidth > liveLine.naturalWidth, "la bozza compone il risultato scritto")
+        #expect(try h.document.data(ofType: TextDocument.typeName) == saved)
+        #expect(h.selection == selection)
+        #expect(h.undoActionName.isEmpty)
+
+        board.selectStyle("Heading 1")
+        board.addHeadingPart(.result(formula: .pageContainingNumber, prefix: "", style: nil, alignment: .left, minHeight: nil))
+        let headingEditor = try #require(board.resultEditor(at: 0) {})
+        #expect(headingEditor.result == preview.page.number)
+    }
+
     private func leftIndent(_ h: EditorHarness) -> CGFloat? {
         (h.attributed.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)?.headIndent
     }

@@ -53,17 +53,11 @@ struct ObjectReferenceEditor: View {
                     }
                     .layoutPriority(1)
                 }
-                FieldFormulaBlock(number: 2, symbol: "text.viewfinder", verb: "Read") {
-                    Menu {
-                        ForEach(ObjectReference.Reading.allCases, id: \.self) { reading in
-                            Button(reading.title) { reference.reading = reading }
-                        }
-                    } label: {
-                        ComposerPill(title: reference.reading.title)
-                    }
-                    .accessibilityLabel("Read")
-                    .accessibilityValue(reference.reading.title)
-                }
+                ComposerPathEditor(rows: [.node(ComposerPathNode(
+                    verb: "Read", symbol: "text.viewfinder", title: reference.reading.title,
+                    choices: ComposerPathChoice.choices(ObjectReference.Reading.allCases, title: { $0.title },
+                                                        select: { reference.reading = $0 })))],
+                                   layout: .blocks, startNumber: 2)
                 FieldFormulaBlock(number: 3, symbol: "square.and.pencil", verb: "Write result") {
                     Text("Here").foregroundStyle(.secondary)
                 }

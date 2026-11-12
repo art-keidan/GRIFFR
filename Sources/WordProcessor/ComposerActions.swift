@@ -185,12 +185,24 @@ extension ComposerBoardModel {
         formula.value(in: sampleFieldContext)
     }
 
-    /// L'editor della catena di una parte «risultato»: lo stesso dei campi, con il risultato nel campione. OK scrive la
-    /// catena nella parte, Annulla la lascia com'era; `done` chiude.
+    var previewFieldContext: FieldContext? {
+        previewMode == .sample ? sampleFieldContext : documentPreview?.context
+    }
+
+    private func resultEditor(for formula: FieldFormula) -> FieldFormulaEditorModel {
+        refreshDocumentPreview()
+        let context = previewFieldContext
+        let label = previewMode == .sample ? "Sample result" : "Result at selection"
+        return FieldFormulaEditorModel(formula: formula, roles: sectionRoles, editing: true, previewLabel: label) { formula in
+            context.map { formula.value(in: $0) } ?? ""
+        }
+    }
+
+    /// OK scrive la catena nella parte della testata, Annulla la lascia com'era; `done` chiude.
     func resultEditor(at index: Int, done: @escaping () -> Void) -> FieldFormulaEditorModel? {
         guard let parts = currentHeading?.parts, parts.indices.contains(index),
               case .result(let formula, let prefix, let style, let alignment, let minHeight) = parts[index] else { return nil }
-        let editor = FieldFormulaEditorModel(formula: formula, roles: sectionRoles, editing: true) { [weak self] in self?.sampleResult($0) ?? "" }
+        let editor = resultEditor(for: formula)
         editor.finish = { [weak self] chosen in
             if let chosen, chosen.problem == nil {
                 self?.updateHeadingPart(at: index, to: .result(formula: chosen, prefix: prefix, style: style, alignment: alignment, minHeight: minHeight))
@@ -283,7 +295,7 @@ extension ComposerBoardModel {
         let writes = currentWrites
         guard writes.indices.contains(index) else { return nil }
         let written = writes[index]
-        let editor = FieldFormulaEditorModel(formula: written.formula, roles: sectionRoles, editing: true) { [weak self] in self?.sampleResult($0) ?? "" }
+        let editor = resultEditor(for: written.formula)
         editor.finish = { [weak self] chosen in
             if let chosen, chosen.problem == nil {
                 var changed = written

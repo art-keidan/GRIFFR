@@ -65,14 +65,7 @@ struct FormulaExpressionEditor: View {
 
 struct FormulaValueEditor: View {
     @Binding var value: FormulaValue
-    var body: some View {
-        switch value {
-        case .number(let n), .length(let n):
-            TextField("Value", value: Binding(get: { n }, set: { value = value.type == .length ? .length($0) : .number($0) }), format: .number)
-                .textFieldStyle(.roundedBorder).frame(width: 140)
-        case .boolean(let flag): Toggle("Yes", isOn: Binding(get: { flag }, set: { value = .boolean($0) }))
-        }
-    }
+    var body: some View { ComposerValueEditor(input: .formula($value)) }
 }
 
 struct ReusableDefinitionEditor: View {

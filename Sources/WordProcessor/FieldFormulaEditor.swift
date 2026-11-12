@@ -14,13 +14,16 @@ final class FieldFormulaEditorModel: ObservableObject {
     let editing: Bool
     /// Il risultato della catena nel punto del campo, nella composizione attuale.
     private let preview: (FieldFormula) -> String
+    let previewLabel: String
     /// Chiamata alla chiusura: con la formula per «OK», con `nil` per «Annulla».
     var finish: ((FieldFormula?) -> Void)?
 
-    init(formula: FieldFormula, roles: [String], editing: Bool, preview: @escaping (FieldFormula) -> String) {
+    init(formula: FieldFormula, roles: [String], editing: Bool, previewLabel: String = "Result here",
+         preview: @escaping (FieldFormula) -> String) {
         self.formula = formula
         self.roles = roles
         self.editing = editing
+        self.previewLabel = previewLabel
         self.preview = preview
     }
 
@@ -119,37 +122,7 @@ struct FieldFormulaEditorView: View {
             Text("The field starts from an object, moves to the objects that contain it, reads a result and writes it here.")
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 6) {
-                FieldFormulaBlock(number: 1, symbol: "scope", verb: "Start from") {
-                    Menu {
-                        ForEach(FieldFormula.Origin.allCases, id: \.self) { origin in
-                            Button(origin.title) { model.setOrigin(origin) }
-                        }
-                    } label: { ComposerPill(title: model.formula.origin.title) }.fixedSize()
-                }
-                ForEach(Array(model.formula.steps.enumerated()), id: \.offset) { index, step in
-                    FieldFormulaBlock(number: index + 2, symbol: "arrow.turn.down.right", verb: "Go to", remove: { model.removeStep(at: index) }) {
-                        stepControls(step, at: index)
-                    }
-                }
-                if !model.lastSubject.steps.isEmpty {
-                    Menu {
-                        ForEach(model.stepChoices(at: model.formula.steps.count), id: \.token) { step in
-                            Button(stepTitle(step)) { model.addStep(step) }
-                        }
-                    } label: { Label("Add Step", systemImage: "plus") }
-                        .menuStyle(.borderlessButton).hoverable().menuIndicator(.hidden).fixedSize().padding(.leading, 10)
-                }
-                FieldFormulaBlock(number: model.formula.steps.count + 2, symbol: "text.viewfinder", verb: "Read") {
-                    if model.lastSubject.readings.isEmpty {
-                        Text("Add a step: a \(model.lastSubject.title) gives no result.").foregroundStyle(.secondary)
-                    } else {
-                        Menu {
-                            ForEach(model.lastSubject.readings, id: \.self) { reading in
-                                Button(reading.title) { model.setReading(reading) }
-                            }
-                        } label: { ComposerPill(title: model.formula.reading.title) }.fixedSize()
-                    }
-                }
+                ComposerPathEditor(rows: pathRows, layout: .blocks)
                 FieldFormulaBlock(number: model.formula.steps.count + 3, symbol: "square.and.pencil", verb: "Write result") {
                     Text("Here").foregroundStyle(.secondary)
                 }
@@ -161,7 +134,7 @@ struct FieldFormulaEditorView: View {
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("Result here:").foregroundStyle(.secondary)
+                    Text(model.previewLabel + ":").foregroundStyle(.secondary)
                     Text(model.result.isEmpty ? "(nothing)" : model.result).fontWeight(.medium)
                         .foregroundStyle(model.result.isEmpty ? .secondary : .primary)
                 }
@@ -184,18 +157,41 @@ struct FieldFormulaEditorView: View {
         return step.title
     }
 
-    @ViewBuilder private func stepControls(_ step: FieldFormula.Step, at index: Int) -> some View {
+    var pathRows: [ComposerPathRow] {
+        var rows: [ComposerPathRow] = [.node(ComposerPathNode(
+            verb: "Start from", symbol: "scope", title: model.formula.origin.title,
+            choices: ComposerPathChoice.choices(FieldFormula.Origin.allCases, title: { $0.title }, select: model.setOrigin)))]
+        for (index, step) in model.formula.steps.enumerated() {
+            rows.append(.node(ComposerPathNode(
+                verb: "Go to", symbol: "arrow.turn.down.right", title: stepTitle(step),
+                choices: ComposerPathChoice.choices(model.stepChoices(at: index), title: stepTitle, select: { model.replaceStep(at: index, with: $0) }),
+                remove: { model.removeStep(at: index) }, detail: AnyView(stepDetails(step, at: index)))))
+        }
+        if !model.lastSubject.steps.isEmpty {
+            rows.append(.insertion(AnyView(addStep)))
+        }
+        rows.append(.node(ComposerPathNode(
+            verb: "Read", symbol: "text.viewfinder", title: model.formula.reading.title,
+            choices: ComposerPathChoice.choices(model.lastSubject.readings, title: { $0.title }, select: model.setReading),
+            emptyMessage: model.lastSubject.readings.isEmpty ? "Add a step: a \(model.lastSubject.title) gives no result." : nil)))
+        return rows
+    }
+
+    private var addStep: some View {
+        Menu {
+            ForEach(model.stepChoices(at: model.formula.steps.count), id: \.token) { step in
+                Button(stepTitle(step)) { model.addStep(step) }
+            }
+        } label: { Label("Add Step", systemImage: "plus") }
+            .menuStyle(.borderlessButton).hoverable().menuIndicator(.hidden).fixedSize().padding(.leading, 10)
+    }
+
+    @ViewBuilder private func stepDetails(_ step: FieldFormula.Step, at index: Int) -> some View {
         HStack(spacing: 8) {
-            Menu {
-                ForEach(model.stepChoices(at: index), id: \.token) { choice in
-                    Button(stepTitle(choice)) { model.replaceStep(at: index, with: choice) }
-                }
-            } label: { ComposerPill(title: stepTitle(step)) }.fixedSize()
             if case .containingSection(let role) = step {
                 Text("of role").foregroundStyle(.secondary).fixedSize()
                 if otherRoleIndex == index {
-                    TextField("Role", text: $otherRole)
-                        .frame(width: 110)
+                    ComposerValueEditor(input: .text(label: "Role", value: $otherRole, width: 110))
                         .onSubmit { commitOtherRole(at: index) }
                     Button("Use") { commitOtherRole(at: index) }
                 } else {

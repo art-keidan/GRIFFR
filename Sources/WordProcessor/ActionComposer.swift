@@ -669,13 +669,32 @@ private struct ComposerPreview: View {
             HStack {
                 Text("Preview").font(.headline)
                 Spacer()
-                Button { trial += 1; model.objectWillChange.send() } label: { Label("Try", systemImage: "play") }
-                    .help("Re-evaluate the style on the sample")
+                Button {
+                    if model.previewMode == .document { model.refreshDocumentPreview() }
+                    else { trial += 1 }
+                } label: { Label("Try", systemImage: "play") }
+                    .help("Refresh the preview")
             }
-            TextField("Sample text", text: $model.sample, axis: .vertical).textFieldStyle(.roundedBorder).lineLimit(2...4)
-            if let style = model.currentStyle {
-                context(style)
-                sample(style)
+            if model.composeDocumentPreview != nil {
+                Picker("Preview source", selection: $model.previewMode) {
+                    ForEach(ComposerBoardModel.PreviewMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }.pickerStyle(.segmented).labelsHidden()
+            }
+            if model.previewMode == .document {
+                documentSelection
+                    .task(id: model.sheet) {
+                        try? await Task.sleep(for: .milliseconds(250))
+                        guard !Task.isCancelled else { return }
+                        model.refreshDocumentPreview()
+                    }
+            } else {
+                TextField("Sample text", text: $model.sample, axis: .vertical).textFieldStyle(.roundedBorder).lineLimit(2...4)
+                if let style = model.currentStyle {
+                    context(style)
+                    sample(style)
+                }
             }
             Spacer(minLength: 0)
             Text(status).font(.caption)
@@ -697,6 +716,27 @@ private struct ComposerPreview: View {
 
     private var status: String {
         model.problem ?? model.validationIssue ?? (model.dirty ? "Changes to apply to the document" : "Ready")
+    }
+
+    private var documentSelection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let page = model.documentPreview?.page {
+                Text("Page " + page.number).font(.caption).foregroundStyle(.secondary)
+                Canvas { context, size in
+                    context.withCGContext { drawing in
+                        let paper = page.setup.paperSize
+                        let scale = min(size.width / paper.width, size.height / paper.height)
+                        drawing.translateBy(x: 0, y: paper.height * scale)
+                        drawing.scaleBy(x: scale, y: -scale)
+                        PDFRenderer.draw(page, in: drawing)
+                    }
+                }
+                .aspectRatio(page.setup.paperSize, contentMode: .fit)
+                .background(.white)
+                .overlay(Rectangle().strokeBorder(Color(nsColor: Theme.line)))
+                .accessibilityLabel("Page " + page.number)
+            }
+        }
     }
 
     @ViewBuilder private func context(_ style: NamedStyle) -> some View {
@@ -871,8 +911,7 @@ struct HeadingBlock: View {
                     TextField("Before the number", text: Binding(get: { prefix }, set: { model.updateHeadingPart(at: index, to: .numberBeside(prefix: $0, style: style, side: side, gap: gap)) }))
                         .textFieldStyle(.roundedBorder).frame(maxWidth: 160)
                 case .result(let formula, let prefix, let style, let alignment, let minHeight):
-                    TextField("Before", text: Binding(get: { prefix }, set: { model.updateHeadingPart(at: index, to: .result(formula: formula, prefix: $0, style: style, alignment: alignment, minHeight: minHeight)) }))
-                        .textFieldStyle(.roundedBorder).frame(maxWidth: 80)
+                    ComposerValueEditor(input: .text(label: "Before", value: Binding(get: { prefix }, set: { model.updateHeadingPart(at: index, to: .result(formula: formula, prefix: $0, style: style, alignment: alignment, minHeight: minHeight)) }), width: 80))
                     Button { editResult(at: index) } label: { ComposerPill(title: formula.title) }
                         .buttonStyle(.plain).fixedSize().help(formula.chain)
                         .accessibilityLabel("Formula: " + formula.chain)
@@ -945,16 +984,13 @@ struct HeadingBlock: View {
     }
 
     private func styleMenu(_ current: String?, _ commit: @escaping (String?) -> Void) -> some View {
-        Menu {
-            Button("Title style") { commit(nil) }
-            ForEach(paragraphStyles, id: \.self) { name in Button(name) { commit(name) } }
-        } label: { ComposerPill(title: current ?? "Title style") }.fixedSize()
+        ComposerChoiceMenu(title: current ?? "Title style", choices: [nil] + paragraphStyles.map(Optional.some),
+                           label: { $0 ?? "Title style" }, select: commit)
     }
 
     private func alignmentMenu(_ current: HeadingAlignment, _ commit: @escaping (HeadingAlignment) -> Void) -> some View {
-        Menu {
-            ForEach(HeadingAlignment.allCases, id: \.self) { alignment in Button(alignment.title) { commit(alignment) } }
-        } label: { ComposerPill(title: current.title) }.fixedSize()
+        ComposerChoiceMenu(title: current.title, choices: HeadingAlignment.allCases,
+                           label: { $0.title }, select: commit)
     }
 
     private func heightPill(_ current: Double?, _ commit: @escaping (Double?) -> Void) -> some View {
@@ -1003,13 +1039,11 @@ struct WritesBlock: View {
             HStack(spacing: 6) {
                 Image(systemName: "square.and.pencil").foregroundStyle(Color(nsColor: Theme.glyph))
                 Text("Write").fontWeight(.medium).fixedSize()
-                TextField("Before", text: Binding(get: { written.prefix }, set: { value in update(index) { $0.prefix = value } }))
-                    .textFieldStyle(.roundedBorder).frame(width: 56)
+                ComposerValueEditor(input: .text(label: "Before", value: Binding(get: { written.prefix }, set: { value in update(index) { $0.prefix = value } }), width: 56))
                 Button { editor = model.writeEditor(at: index) { editor = nil } } label: { ComposerPill(title: written.formula.title) }
                     .buttonStyle(.plain).fixedSize().help(written.formula.chain)
                     .accessibilityLabel("Formula: " + written.formula.chain)
-                TextField("After", text: Binding(get: { written.suffix }, set: { value in update(index) { $0.suffix = value } }))
-                    .textFieldStyle(.roundedBorder).frame(width: 56)
+                ComposerValueEditor(input: .text(label: "After", value: Binding(get: { written.suffix }, set: { value in update(index) { $0.suffix = value } }), width: 56))
                 Spacer(minLength: 4)
                 Button { model.removeWrite(at: index) } label: { Image(systemName: "xmark") }
                     .buttonStyle(.hover(.borderless)).accessibilityLabel("Remove action")
@@ -1024,8 +1058,8 @@ struct WritesBlock: View {
                 } label: { ComposerPill(title: written.style ?? "Text's look") }.fixedSize()
                 if let problem = written.problem {
                     Text(problem).font(.caption).foregroundStyle(Color(nsColor: Theme.warn)).lineLimit(2)
-                } else {
-                    Text("sample: " + written.text(in: model.sampleFieldContext).debugDescription)
+                } else if let context = model.previewFieldContext {
+                    Text(written.text(in: context).debugDescription)
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
             }

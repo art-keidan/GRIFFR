@@ -23,6 +23,7 @@ extension EditorWindowController {
     func showStyleComposer(style name: String? = nil) {
         if let controller = composerController {
             if let name { composerModel?.showingStyles = true; composerModel?.selectStyle(name) }
+            composerModel?.refreshDocumentPreview()
             controller.showWindow(nil)
             controller.window?.makeKeyAndOrderFront(nil)
             return
@@ -48,6 +49,10 @@ extension EditorWindowController {
             self.flushStyleChanges()
             return self.settings.styles
         }
+        model.composeDocumentPreview = { [weak self] base, sheet in
+            guard let self, self.settings.styles == base else { return nil }
+            return self.styleBoardPreview(with: sheet)
+        }
         let board = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
                              backing: .buffered, defer: false)
@@ -63,11 +68,43 @@ extension EditorWindowController {
         controller.showWindow(nil)
         board.makeKeyAndOrderFront(nil)
     }
+
+    /// Ricompone la pagina della selezione su una copia con le identità dei capoversi.
+    private func styleBoardPreview(with sheet: StyleSheet) -> ComposerDocumentPreview? {
+        let selected = selection
+        guard store.length > 0, NSMaxRange(selected.range) <= store.length else { return nil }
+        let copy = NSMutableAttributedString(attributedString: store.identifiedCopy)
+        let resolver = fontRoleResolver
+        if sheet != settings.styles {
+            TextStyling.restyle(copy, range: NSRange(location: 0, length: copy.length),
+                                from: settings.styles, to: sheet, resolver: resolver,
+                                base: settings.formulaBase ?? TextStyling.styleBase)
+        }
+        var options = settings.layoutOptions
+        options.styles = sheet
+        options.fontRoles = resolver.table
+        let layout = PageLayout.layout(copy, setup: settings.pageSetup, options: options)
+        let affinity = selected.range.length == 0 ? selected.affinity : .downstream
+        guard let caret = layout.caret(at: selected.range.location, affinity: affinity) else { return nil }
+        let page = layout.pages[caret.page]
+        var context = layout.fieldContext(at: selected.range.location)
+        context.pageNumber = page.number
+        return ComposerDocumentPreview(page: page, context: context)
+    }
+}
+
+struct ComposerDocumentPreview {
+    let page: LaidOutPage
+    let context: FieldContext
 }
 
 @MainActor
 final class ComposerBoardModel: ObservableObject {
     enum Section: String { case styles, selections, reusable }
+    enum PreviewMode: String, CaseIterable {
+        case sample = "Sample"
+        case document = "Document Selection"
+    }
     @Published var section = Section.styles
     var showingStyles: Bool {
         get { section == .styles }
@@ -79,6 +116,8 @@ final class ComposerBoardModel: ObservableObject {
     @Published var previewLineCount = 1
     @Published var previewLastLineFill = 100.0
     @Published var previewHyphens = 0
+    @Published var previewMode = PreviewMode.sample
+    @Published private(set) var documentPreview: ComposerDocumentPreview?
     @Published var selectedStyle: String?
     @Published var previewRole: FontRole? = nil
     @Published var sheet: StyleSheet
@@ -94,6 +133,17 @@ final class ComposerBoardModel: ObservableObject {
     let wordOwner: String?
     var commit: ((StyleSheet, StyleSheet) -> String?)?
     var reload: (() -> StyleSheet?)?
+    var composeDocumentPreview: ((StyleSheet, StyleSheet) -> ComposerDocumentPreview?)?
+
+    func refreshDocumentPreview() {
+        guard previewMode == .document else { return }
+        guard !dirty || valid else {
+            documentPreview = nil
+            return
+        }
+        documentPreview = composeDocumentPreview?(baseSheet, sheet)
+        if documentPreview == nil { previewMode = .sample }
+    }
 
     init(sheet: StyleSheet, owner: String?, sample: String, resolver: FontRoleResolver = FontRoleResolver(),
          documentBase: CharacterStyle = TextStyling.styleBase, wordOwner: String? = nil) {
@@ -235,6 +285,8 @@ final class ComposerBoardModel: ObservableObject {
         guard !isApplying, updated != baseSheet else { return }
         guard sheet == cleanDraft else {
             problem = "The document's styles have changed. The draft is kept; reload before applying."
+            documentPreview = nil
+            previewMode = .sample
             return
         }
         install(sheet: updated)
@@ -313,6 +365,25 @@ struct ComposerPill: View {
         .clipShape(RoundedRectangle(cornerRadius: 3))
         .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color(nsColor: hovered ? Theme.hoverLine : Theme.controlLine)))
         .onHover { hovered = $0 }
+    }
+}
+
+/// Un menu tipizzato per scegliere un oggetto, un passo o un valore.
+struct ComposerChoiceMenu<Choice: Hashable>: View {
+    let title: String
+    let choices: [Choice]
+    let label: (Choice) -> String
+    let select: (Choice) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(choices, id: \.self) { choice in
+                Button(label(choice)) { select(choice) }
+            }
+        } label: { ComposerPill(title: title) }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
     }
 }
 
@@ -753,7 +824,7 @@ struct FormulaArgumentPill: View {
         .popover(isPresented: $editing) {
             VStack(alignment: .leading, spacing: 10) {
                 Text(operation.property.title).font(.headline)
-                TextField("Value", text: $text).frame(width: 220)
+                ComposerValueEditor(input: .text(label: "Value", value: $text, width: 220))
                 if case .length = operation.argument { Text("Accepted units · pt, mm, cm, in, pc").font(.caption) }
                 Button("Use This Value") {
                     if validEdit, let value = editedArgument { commit(value); editing = false }
@@ -797,6 +868,10 @@ struct FormulaQualifiers: View {
         (try? StyleFormula(operation: operation, when: condition, target: target).validate(for: .paragraph)) != nil
     }
     private var targetTitle: String { Self.title(of: target, selections: selections) }
+    var targetChoices: [TextRule.Target] {
+        (StyleDeclarationCatalog.offeredTargets + selections.map { .selection($0.id) })
+            .filter { valid(condition, $0) }
+    }
 
     static func title(of target: TextRule.Target, selections: [WordSelection]) -> String {
         switch target {
@@ -867,27 +942,20 @@ struct FormulaQualifiers: View {
                 }
             }
             if !operation.property.isDirective {
-                HStack(spacing: 8) {
-                    Text("On").font(.caption).foregroundStyle(.secondary)
-                    Menu {
-                        ForEach(StyleDeclarationCatalog.offeredTargets, id: \.self) { candidate in
-                            if valid(condition, candidate) {
-                                Button(targetName(candidate)) { target = candidate }
-                            }
-                        }
-                        ForEach(selections) { selection in
-                            if valid(condition, .selection(selection.id)) { Button(selection.name) { target = .selection(selection.id) } }
-                        }
-                    } label: { ComposerPill(title: targetTitle) }.fixedSize()
-                    if case .firstWords(let count) = target {
-                        FormulaNumberPill(value: Double(count)) { if $0 >= 1, $0.rounded() == $0 { target = .firstWords(Int($0)) } }
-                    }
-                    if case .firstLines(let count) = target {
-                        FormulaNumberPill(value: Double(count)) { if $0 >= 1, $0.rounded() == $0 { target = .firstLines(Int($0)) } }
-                    }
-                }
+                ComposerPathEditor(rows: [.node(ComposerPathNode(
+                    verb: "On", symbol: "scope", title: targetTitle,
+                    choices: ComposerPathChoice.choices(targetChoices, title: targetName, select: { target = $0 }),
+                    detail: AnyView(targetDetails)))], layout: .inline)
             }
         }.menuStyle(.borderlessButton).menuIndicator(.hidden)
+    }
+    @ViewBuilder private var targetDetails: some View {
+        if case .firstWords(let count) = target {
+            FormulaNumberPill(value: Double(count)) { if $0 >= 1, $0.rounded() == $0 { target = .firstWords(Int($0)) } }
+        }
+        if case .firstLines(let count) = target {
+            FormulaNumberPill(value: Double(count)) { if $0 >= 1, $0.rounded() == $0 { target = .firstLines(Int($0)) } }
+        }
     }
     private func targetName(_ target: TextRule.Target) -> String {
         switch target {
@@ -900,7 +968,7 @@ struct FormulaQualifiers: View {
         case .words(.capitals): "Capitalized abbreviations"
         case .words(.romanNumerals): "Roman numerals"
         case .words(.numbers): "Numbers"
-        default: "Selection"
+        default: Self.title(of: target, selections: selections)
         }
     }
 }
