@@ -79,3 +79,67 @@ extension TextStyling {
         BodyText(text, paragraph: paragraph).string as String
     }
 }
+
+/// Il testo di una nota dichiarata: tratti formattati (corsivo, neretto, font, funzioni…), come il testo di una nota
+/// scritta. Gli stili con un nome dei tratti non si conservano: resta il loro aspetto risolto.
+public struct DeclaredNoteText: Equatable, Sendable {
+    public var runs: [TextRun]
+
+    public init(runs: [TextRun]) {
+        self.runs = runs.filter { !$0.text.isEmpty }.map { run in
+            var plain = run
+            plain.wordStyleName = nil
+            plain.characterStyleName = nil
+            plain.ruleExceptions = []
+            plain.field = nil
+            return plain
+        }
+    }
+
+    /// Un testo senza formattazione, tutto nello stile dato.
+    public init(_ text: String, style: CharacterStyle) {
+        self.init(runs: [TextRun(text, style: style)])
+    }
+
+    public var plainText: String { runs.map(\.text).joined() }
+    /// Vero se non c'è niente da conservare: nessun carattere che non sia uno spazio.
+    public var isBlank: Bool { plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    /// Il testo con i suoi attributi, per comporlo o per modificarlo.
+    public var attributedString: NSAttributedString {
+        let result = NSMutableAttributedString()
+        for run in runs {
+            result.append(NSAttributedString(string: run.text, attributes: TextStyling.characterAttributes(for: run.style).attributes))
+        }
+        return result
+    }
+
+    /// Il testo dei tratti di un testo con attributi (il campo dell'editor): gli a capo diventano spazi, perché la nota
+    /// è un capoverso solo.
+    public init(attributedString text: NSAttributedString) {
+        let flat = NSMutableAttributedString(attributedString: text)
+        let newline = CharacterSet.newlines
+        for index in (0..<flat.length).reversed() {
+            guard let scalar = Unicode.Scalar((flat.string as NSString).character(at: index)), newline.contains(scalar) else { continue }
+            flat.replaceCharacters(in: NSRange(location: index, length: 1), with: " ")
+        }
+        let document = Document(attributedString: flat)
+        self.init(runs: document.flatParagraphs.first?.paragraph.inlines.compactMap { inline in
+            if case .text(let run) = inline { run } else { nil }
+        } ?? [])
+    }
+
+    /// Il testo come frammento del formato del documento: un documento minimo con un solo capoverso. Lo scrivono e lo
+    /// leggono le stesse funzioni dei capoversi, quindi conserva font, funzioni, colore e il resto dell'aspetto.
+    var fragment: String {
+        DocumentFormat.string(for: Document(blocks: [.paragraph(Paragraph(inlines: runs.map { .text($0) }))]))
+    }
+
+    init?(fragment: String) {
+        guard let document = try? DocumentFormat.document(from: fragment) else { return nil }
+        let runs = document.flatParagraphs.first?.paragraph.inlines.compactMap { inline -> TextRun? in
+            if case .text(let run) = inline { run } else { nil }
+        } ?? []
+        self.init(runs: runs)
+    }
+}

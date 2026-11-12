@@ -173,7 +173,7 @@ public enum DocumentFormat {
             }
         }
         let hasDeclaredNotes = document.styles.styles.contains { !$0.declaredNotes.isEmpty }
-            || document.declaredNoteTexts.values.contains { !$0.isEmpty } || referencesDeclaredNotes
+            || document.declaredNoteTexts.values.contains { !$0.isBlank } || referencesDeclaredNotes
         let writtenVersion: Int
         if hasDeclaredNotes { writtenVersion = 22 }
         else if hasSequences { writtenVersion = 21 }
@@ -256,7 +256,7 @@ public enum DocumentFormat {
 
         // Il testo delle note dichiarate dagli stili, per occorrenza (capoverso, stile, dichiarazione), in un ordine
         // stabile. Anche quello di una nota sospesa, o di un capoverso che non c'è più: è testo dell'autore.
-        let declaredTexts = document.declaredNoteTexts.filter { !$0.value.isEmpty }.sorted {
+        let declaredTexts = document.declaredNoteTexts.filter { !$0.value.isBlank }.sorted {
             ($0.key.paragraph.uuidString, $0.key.declaringStyle, $0.key.declaration.uuidString)
                 < ($1.key.paragraph.uuidString, $1.key.declaringStyle, $1.key.declaration.uuidString)
         }
@@ -264,7 +264,8 @@ public enum DocumentFormat {
             out += "<declared-notes>\n"
             for (slot, text) in declaredTexts {
                 out += "<declared-note paragraph=\"\(slot.paragraph.uuidString)\" style=\"\(escapedAttribute(slot.declaringStyle))\""
-                out += " declaration=\"\(slot.declaration.uuidString)\" text=\"\(escapedAttribute(text))\"/>\n"
+                // Il testo con il suo aspetto, come frammento del formato (un documento minimo di un capoverso).
+                out += " declaration=\"\(slot.declaration.uuidString)\" content=\"\(escapedAttribute(text.fragment))\"/>\n"
             }
             out += "</declared-notes>\n"
         }
@@ -874,6 +875,12 @@ public enum DocumentFormat {
             document.formulaBase = try reader.documentStyle.resolved(line: 1)
         }
         document.setFlatParagraphs(reader.flatParagraphs)
+        for entry in reader.declaredContents {
+            guard let text = DeclaredNoteText(fragment: entry.fragment), !text.isBlank else {
+                throw DocumentFormatError.malformed(line: entry.line, detail: "The content of a declared note cannot be read")
+            }
+            document.declaredNoteTexts[entry.slot] = text
+        }
         return document
     }
 
@@ -1066,6 +1073,8 @@ public enum DocumentFormat {
         private var floatingIDs: Set<UUID> = []
         private var paragraphIDs: Set<UUID> = []
         private var floatingLabels: Set<String> = []
+        /// I contenuti delle note dichiarate, ancora da leggere: l'occorrenza, il frammento e la riga.
+        var declaredContents: [(slot: DeclaredNoteSlot, fragment: String, line: Int)] = []
         var sawDocument = false
         var settings = Document()
         var pageSetup: PageSetup {
@@ -1319,23 +1328,25 @@ public enum DocumentFormat {
 
                 case ("declared-notes", "document"):
                     guard check(attributes, allowed: [], element: name, parser) else { return }
-                    guard version >= 22, paragraphs.isEmpty, paragraph == nil, settings.declaredNoteTexts.isEmpty else {
+                    guard version >= 22, paragraphs.isEmpty, paragraph == nil, declaredContents.isEmpty else {
                         throw DocumentFormatError.malformed(line: line, detail: "<declared-notes> requires version 22 and goes before the paragraphs, once")
                     }
 
                 case ("declared-note", "declared-notes"):
-                    guard check(attributes, allowed: ["paragraph", "style", "declaration", "text"], element: name, parser) else { return }
+                    guard check(attributes, allowed: ["paragraph", "style", "declaration", "content"], element: name, parser) else { return }
                     guard let paragraph = attributes["paragraph"].flatMap(UUID.init(uuidString:)),
                           let style = attributes["style"], !style.isEmpty,
                           let declaration = attributes["declaration"].flatMap(UUID.init(uuidString:)),
-                          let text = attributes["text"], !text.isEmpty else {
-                        throw DocumentFormatError.malformed(line: line, detail: "A declared note needs a paragraph, a style, a declaration and its text")
+                          let content = attributes["content"], !content.isEmpty else {
+                        throw DocumentFormatError.malformed(line: line, detail: "A declared note needs a paragraph, a style, a declaration and its content")
                     }
                     let slot = DeclaredNoteSlot(paragraph: paragraph, declaringStyle: style, declaration: declaration)
-                    guard settings.declaredNoteTexts[slot] == nil else {
+                    guard !declaredContents.contains(where: { $0.slot == slot }) else {
                         throw DocumentFormatError.malformed(line: line, detail: "The same declared note appears twice")
                     }
-                    settings.declaredNoteTexts[slot] = text
+                    // Il contenuto è un frammento del formato: lo si legge a lettura finita, perché un secondo lettore
+                    // non può partire mentre questo è al lavoro.
+                    declaredContents.append((slot, content, line))
 
                 case ("formula", "style"):
                     try readFormula(attributes, line: line, parser)

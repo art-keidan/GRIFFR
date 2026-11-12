@@ -485,7 +485,7 @@ public struct LayoutOptions: Equatable, Sendable {
     /// Gli stili di tabella.
     public var tableStyles: [TableStyle] = TableStyle.builtIn
     /// Il testo delle note dichiarate, per occorrenza (vedi `Document.declaredNoteTexts`).
-    public var declaredNoteTexts: [DeclaredNoteSlot: String] = [:]
+    public var declaredNoteTexts: [DeclaredNoteSlot: DeclaredNoteText] = [:]
 
     /// Le sole scelte che contano per comporre in righe un paragrafo già pronto: le memorie delle righe e degli a capo
     /// le usano come chiave, così un cambio degli stili, delle liste o delle regole non le svuota (i paragrafi che lo
@@ -1966,7 +1966,7 @@ public enum PageLayout {
                 }
                 declared.append(GeneratedNote(position: position - paragraphRange.location, key: key, style: floatStyle,
                                               declaringStyle: declaringStyle, declaration: declaration.id,
-                                              text: slot.flatMap { options.declaredNoteTexts[$0] } ?? ""))
+                                              text: slot.flatMap { options.declaredNoteTexts[$0] }))
             }
             var body = composedBody(of: text.attributedSubstring(from: paragraphRange), location: paragraphRange.location, field: fieldText,
                                     floatStyles: options.floatStyles, noteMark: { noteMark(anchor: $0) },
@@ -2961,8 +2961,8 @@ public enum PageLayout {
         var style: FloatStyle
         var declaringStyle: String
         var declaration: UUID
-        /// Il testo della nota, dal registro del documento; vuoto finché l'autore non lo scrive.
-        var text: String
+        /// Il testo della nota, dal registro del documento; `nil` finché l'autore non lo scrive.
+        var text: DeclaredNoteText?
     }
 
     /// `generated`: le note dichiarate dallo stile del paragrafo, ciascuna nel suo punto, con il segno dato da
@@ -3031,8 +3031,10 @@ public enum PageLayout {
                 case .none:
                     body.append(NSAttributedString(string: "\u{2060}", attributes: attributes))
                 }
-                if !note.text.isEmpty {
-                    text.append(NSAttributedString(string: (text.length > 0 ? " " : "") + note.text, attributes: noteAttributes))
+                // Il testo con il suo aspetto (corsivo, neretto…), dopo il numero e uno spazio nell'aspetto della nota.
+                if let content = note.text, !content.isBlank {
+                    if text.length > 0 { text.append(NSAttributedString(string: " ", attributes: noteAttributes)) }
+                    text.append(content.attributedString)
                 }
                 let anchor = NSRange(location: location + note.position, length: 0)
                 notes.append(ComposedNote(range: anchor, textRange: anchor, marker: marker, text: text, map: TextMap(segments: []),

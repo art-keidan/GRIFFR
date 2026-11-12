@@ -157,7 +157,7 @@ struct DeclaredNoteAnchorTests {
         paragraphs[0].paragraph.id = paragraphID
         document.setFlatParagraphs(paragraphs)
         let slot = DeclaredNoteSlot(paragraph: paragraphID, declaringStyle: "Glossa", declaration: declaration)
-        document.declaredNoteTexts[slot] = "Glossa dell'autore"
+        document.declaredNoteTexts[slot] = DeclaredNoteText("Glossa dell'autore", style: TextStyling.styleBase)
 
         let present = layout(document)
         let placed = try #require(present.declaredNotes.first)
@@ -169,7 +169,7 @@ struct DeclaredNoteAnchorTests {
         // Il file lo conserva, con il formato 22, e la riapertura lo ritrova.
         let written = DocumentFormat.string(for: document)
         #expect(written.contains("<declared-note paragraph=\"\(paragraphID.uuidString)\" style=\"Glossa\""))
-        #expect(written.contains("text=\"Glossa dell&apos;autore\"") || written.contains("text=\"Glossa dell'autore\""))
+        #expect(written.contains("content=\"") && written.contains("Glossa dell"))
         let reopened = try DocumentFormat.document(from: written)
         #expect(reopened.declaredNoteTexts == document.declaredNoteTexts)
         #expect(throws: DocumentFormatError.self) {
@@ -182,12 +182,12 @@ struct DeclaredNoteAnchorTests {
         short[0].paragraph.inlines = [.text(TextRun("uno due tre quattro", style: TextStyling.styleBase))]
         shorter.setFlatParagraphs(short)
         #expect(layout(shorter).declaredNotes.isEmpty)
-        #expect(shorter.declaredNoteTexts[slot] == "Glossa dell'autore")
+        #expect(shorter.declaredNoteTexts[slot]?.plainText == "Glossa dell'autore")
 
         // Rinominare lo stile non stacca il testo dalla sua nota.
         let renamed = document.renamingStyle("Glossa", to: "Glossa marginale")
         let renamedSlot = DeclaredNoteSlot(paragraph: paragraphID, declaringStyle: "Glossa marginale", declaration: declaration)
-        #expect(renamed.declaredNoteTexts == [renamedSlot: "Glossa dell'autore"])
+        #expect(renamed.declaredNoteTexts.mapValues(\.plainText) == [renamedSlot: "Glossa dell'autore"])
     }
 
     @Test("Un rimando a una nota dichiarata legge il suo numero e la sua pagina, si salva e torna; con la nota sospesa legge (??)")

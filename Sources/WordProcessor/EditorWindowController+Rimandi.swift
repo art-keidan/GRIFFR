@@ -76,7 +76,7 @@ extension EditorWindowController {
             let paragraphRange = TextStyling.bodyParagraph(in: store, at: min(note.paragraph, max(store.length - 1, 0))).range
             let words = TextStyling.bodyText(in: store, paragraph: paragraphRange)
                 .replacingOccurrences(of: Field.placeholder, with: " ").split(whereSeparator: \.isWhitespace).joined(separator: " ")
-            let text = settings.declaredNoteTexts[slot] ?? ""
+            let text = settings.declaredNoteTexts[slot]?.plainText ?? ""
             return ObjectReferenceEditor.Target(id: UUID(), title: note.mark.isEmpty ? "Declared note" : note.mark,
                                                 kind: "Declared note · \(note.declaringStyle)", number: note.mark,
                                                 excerpt: text.isEmpty ? String(words.prefix(110)) : text, declaredNote: slot)

@@ -951,6 +951,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     var chooseSequenceForTests: (([UUID]) -> Void)?
     /// Per le prove: i testi da scrivere nelle note dichiarate del capoverso (il foglio non si apre).
     var declaredNoteTextAnswerForTests: [String]?
+    /// Per le prove: i testi formattati da scrivere (il foglio non si apre).
+    var declaredNoteContentAnswerForTests: [NSAttributedString]?
     /// Per le prove: la risposta alla domanda sul testo delle note dichiarate che perdono la dichiarazione.
     var declaredTextChoiceForTests: DeclaredTextChoice?
 

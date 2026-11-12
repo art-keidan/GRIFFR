@@ -35,13 +35,15 @@ struct DeclaredNoteEditorTests {
         h.editor.declaredNoteTextAnswerForTests = ["Glossa dell'autore"]
         h.editor.editDeclaredNoteText(nil)
         let slot = try #require(entries.first?.slot)
-        #expect(h.editor.settings.declaredNoteTexts == [slot: "Glossa dell'autore"])
-        #expect(DocumentFormat.string(for: h.editor.currentDocument()).contains("text=\"Glossa dell"))
+        #expect(h.editor.settings.declaredNoteTexts.mapValues(\.plainText) == [slot: "Glossa dell'autore"])
+        let saved = DocumentFormat.string(for: h.editor.currentDocument())
+        #expect(saved.contains("<declared-note ") && saved.contains("content=\"") && saved.contains("Glossa dell"))
+        #expect(try DocumentFormat.document(from: saved).declaredNoteTexts == h.editor.settings.declaredNoteTexts)
 
         h.undo()
         #expect(h.editor.settings.declaredNoteTexts.isEmpty)
         h.redo()
-        #expect(h.editor.settings.declaredNoteTexts == [slot: "Glossa dell'autore"])
+        #expect(h.editor.settings.declaredNoteTexts.mapValues(\.plainText) == [slot: "Glossa dell'autore"])
 
         // Via «cinque sei»: la nota non si presenta più, ma il suo testo resta; Annulla la riporta.
         let words = ("uno due tre quattro" as NSString).length
@@ -51,7 +53,7 @@ struct DeclaredNoteEditorTests {
         #expect(h.editor.currentLayout()?.declaredNotes.isEmpty == true)
         h.select(0)
         #expect(h.editor.declaredNotesAtSelection().first?.mark == nil)
-        #expect(h.editor.settings.declaredNoteTexts[slot] == "Glossa dell'autore")
+        #expect(h.editor.settings.declaredNoteTexts[slot]?.plainText == "Glossa dell'autore")
         h.undo()
         #expect(h.editor.currentLayout()?.declaredNotes.first?.mark == "1")
 
@@ -110,11 +112,11 @@ struct DeclaredNoteEditorTests {
         defer { h.close() }
         h.editor.renameStyle("Body", to: "Corpo")
         let renamed = DeclaredNoteSlot(paragraph: slot.paragraph, declaringStyle: "Corpo", declaration: slot.declaration)
-        #expect(h.editor.settings.declaredNoteTexts == [renamed: "Glossa"])
+        #expect(h.editor.settings.declaredNoteTexts.mapValues(\.plainText) == [renamed: "Glossa"])
         #expect(h.editor.inactiveDeclaredNotes().isEmpty)
         #expect(h.editor.currentLayout()?.declaredNotes.count == 1)
         h.undo()
-        #expect(h.editor.settings.declaredNoteTexts == [slot: "Glossa"])
+        #expect(h.editor.settings.declaredNoteTexts.mapValues(\.plainText) == [slot: "Glossa"])
     }
 
     @Test("Togliere la dichiarazione dal compositore chiede che cosa fare del testo: conservarlo come nota inattiva, eliminarlo, o non applicare")
@@ -139,7 +141,7 @@ struct DeclaredNoteEditorTests {
         model.apply()
         #expect(model.problem == nil)
         #expect(h.editor.settings.styles.style(named: "Body")?.declaredNotes.isEmpty == true)
-        #expect(h.editor.settings.declaredNoteTexts == [slot: "Glossa"])
+        #expect(h.editor.settings.declaredNoteTexts.mapValues(\.plainText) == [slot: "Glossa"])
         #expect(h.editor.inactiveDeclaredNotes() == [slot])
         #expect(h.editor.warningTitles.contains { $0.contains("inactive") })
         let item = NSMenuItem(title: "", action: #selector(EditorWindowController.editInactiveDeclaredNotes(_:)), keyEquivalent: "")
@@ -157,7 +159,7 @@ struct DeclaredNoteEditorTests {
         #expect(h.editor.settings.declaredNoteTexts.isEmpty)
         h.undo()
         #expect(h.editor.settings.styles.style(named: "Body")?.declaredNotes.count == 1)
-        #expect(h.editor.settings.declaredNoteTexts == [slot: "Glossa"])
+        #expect(h.editor.settings.declaredNoteTexts.mapValues(\.plainText) == [slot: "Glossa"])
     }
 
     @Test("Togliere lo stile che dichiara la nota chiede del testo; le note inattive si ritrovano e si modificano")
@@ -184,7 +186,7 @@ struct DeclaredNoteEditorTests {
         #expect(h.editor.settings.declaredNoteTexts.isEmpty)
         h.undo()
         #expect(h.editor.settings.styles.style(named: "Glossa") != nil)
-        #expect(h.editor.settings.declaredNoteTexts == [slot: "Glossa"])
+        #expect(h.editor.settings.declaredNoteTexts.mapValues(\.plainText) == [slot: "Glossa"])
 
         // Il capoverso cambia stile: la nota non ha più dichiarazione, senza domanda; il testo resta, inattivo.
         h.select(0)
@@ -193,7 +195,7 @@ struct DeclaredNoteEditorTests {
         // Dal foglio delle note inattive il testo si cambia, e un campo vuoto lo elimina.
         h.editor.declaredNoteTextAnswerForTests = ["Glossa rivista"]
         h.editor.editInactiveDeclaredNotes(nil)
-        #expect(h.editor.settings.declaredNoteTexts == [slot: "Glossa rivista"])
+        #expect(h.editor.settings.declaredNoteTexts.mapValues(\.plainText) == [slot: "Glossa rivista"])
         h.editor.declaredNoteTextAnswerForTests = [""]
         h.editor.editInactiveDeclaredNotes(nil)
         #expect(h.editor.settings.declaredNoteTexts.isEmpty)
@@ -258,6 +260,56 @@ struct DeclaredNoteEditorTests {
         #expect(floating.isTarget(of: toFloating) && !declared.isTarget(of: toFloating))
         // Un rimando a un flottante con lo stesso UUID della dichiarazione non è un rimando alla nota dichiarata.
         #expect(!declared.isTarget(of: ObjectReference(target: slot.declaration)))
+    }
+
+    @Test("Il testo di una nota dichiarata conserva il corsivo: nel registro, nel file, sulla pagina")
+    func richText() throws {
+        let h = try harness()
+        defer { h.close() }
+        h.select(0)
+        let base = h.editor.declaredNoteBaseStyle
+        let plain = TextStyling.characterAttributes(for: base).attributes
+        var italic = plain
+        let roman = try #require(plain[.font] as? NSFont)
+        italic[.font] = NSFontManager.shared.convert(roman, toHaveTrait: .italicFontMask)
+        #expect(NSFontManager.shared.traits(of: try #require(italic[.font] as? NSFont)).contains(.italicFontMask))
+        let content = NSMutableAttributedString(string: "Vedi ", attributes: plain)
+        content.append(NSAttributedString(string: "Lexicon", attributes: italic))
+        content.append(NSAttributedString(string: ", s.v.", attributes: plain))
+        h.editor.declaredNoteContentAnswerForTests = [content]
+        h.editor.editDeclaredNoteText(nil)
+        let stored = try #require(h.editor.settings.declaredNoteTexts.values.first)
+        #expect(stored.plainText == "Vedi Lexicon, s.v.")
+        let lexicon = try #require(stored.runs.first { $0.text == "Lexicon" })
+        let font = try #require(TextStyling.characterAttributes(for: lexicon.style).attributes[.font] as? NSFont)
+        #expect(NSFontManager.shared.traits(of: font).contains(.italicFontMask))
+        #expect(stored.runs.filter { $0.text != "Lexicon" }.allSatisfy { run in
+            (TextStyling.characterAttributes(for: run.style).attributes[.font] as? NSFont).map { !NSFontManager.shared.traits(of: $0).contains(.italicFontMask) } ?? false
+        })
+        // Il file lo conserva tale e quale.
+        let written = DocumentFormat.string(for: h.editor.currentDocument())
+        let reopened = try DocumentFormat.document(from: written)
+        #expect(reopened.declaredNoteTexts == h.editor.settings.declaredNoteTexts)
+        // Sulla pagina la riga della nota ha più di un font (il corsivo).
+        let note = try #require(h.editor.currentLayout()?.pages[0].lines.first { $0.noteRange != nil })
+        let fonts = Set((CTLineGetGlyphRuns(note.line) as? [CTRun] ?? []).compactMap { run -> String? in
+            let attributes = CTRunGetAttributes(run) as NSDictionary
+            return (attributes[kCTFontAttributeName] as! CTFont?).map { CTFontCopyPostScriptName($0) as String }
+        })
+        #expect(fonts.count >= 2, "\(fonts)")
+
+        // Il pulsante del corsivo del foglio mette e toglie il tratto al testo scelto.
+        let view = NSTextView(frame: NSRect(x: 0, y: 0, width: 200, height: 40))
+        view.isRichText = true
+        view.textStorage?.setAttributedString(NSAttributedString(string: "parola", attributes: plain))
+        view.setSelectedRange(NSRange(location: 0, length: 6))
+        let button = NoteTraitButton(title: "I", trait: .italicFontMask, view: view)
+        button.toggle(nil)
+        let changed = try #require(view.textStorage?.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)
+        #expect(NSFontManager.shared.traits(of: changed).contains(.italicFontMask))
+        button.toggle(nil)
+        let back = try #require(view.textStorage?.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)
+        #expect(!NSFontManager.shared.traits(of: back).contains(.italicFontMask))
     }
 }
 
