@@ -59,6 +59,7 @@ enum MainMenu {
         series.delegate = FloatSeriesMenuFiller.shared
         insert.addItem(withTitle: "Note of Another Series", action: nil, keyEquivalent: "").submenu = series
         insert.addItem(withTitle: "Declared Note Text…", action: #selector(EditorWindowController.editDeclaredNoteText(_:)), keyEquivalent: "")
+        insert.addItem(withTitle: "Inactive Declared Notes…", action: #selector(EditorWindowController.editInactiveDeclaredNotes(_:)), keyEquivalent: "")
         insert.addItem(.separator())
         insert.addItem(withTitle: "Image…", action: #selector(EditorWindowController.insertImage(_:)), keyEquivalent: "")
         insert.addItem(withTitle: "Figure…", action: #selector(EditorWindowController.insertFigure(_:)), keyEquivalent: "")

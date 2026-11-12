@@ -770,6 +770,12 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
             let paragraph = TextStyling.bodyParagraph(in: documentText, at: min(warning.paragraph, documentText.length - 1)).range
             return (title, paragraph as NSRange?)
         }
+        // Testo di note dichiarate che nessun capoverso presenta: resta, e l'autore deve sapere dove ritrovarlo.
+        let inactive = inactiveDeclaredNotes().count
+        if inactive > 0 {
+            result.append((inactive == 1 ? "A declared note with text is inactive: Insert › Inactive Declared Notes…"
+                                         : "\(inactive) declared notes with text are inactive: Insert › Inactive Declared Notes…", nil))
+        }
         // Un foglio con formule non risolvibili si compone senza di esse: lo si dice, invece di tacerlo.
         if let problem = formulaProblem() { result.append(("Style formulas: " + problem, nil)) }
         if layout.graphiteFallbacks > 0 {
@@ -945,6 +951,8 @@ final class EditorWindowController: NSWindowController, NSComboBoxDelegate, NSMe
     var chooseSequenceForTests: (([UUID]) -> Void)?
     /// Per le prove: i testi da scrivere nelle note dichiarate del capoverso (il foglio non si apre).
     var declaredNoteTextAnswerForTests: [String]?
+    /// Per le prove: la risposta alla domanda sul testo delle note dichiarate che perdono la dichiarazione.
+    var declaredTextChoiceForTests: DeclaredTextChoice?
 
     /// L'albero si ricostruisce dopo una breve pausa: mentre si scrive, un tasto dopo l'altro, una volta sola.
     private func scheduleObjectTree() {

@@ -18,7 +18,7 @@ public struct DeclaredNote: Hashable, Sendable, Identifiable {
 extension StyleSheet {
     /// Le dichiarazioni di nota che valgono per un paragrafo con lo stile `name`: quelle dello stile e delle sue basi,
     /// dalla base allo stile assegnato, ciascuna con lo stile che la dichiara.
-    func declaredNotes(ofParagraphStyle name: String?) -> [(declaringStyle: String, declaration: DeclaredNote)] {
+    public func declaredNotes(ofParagraphStyle name: String?) -> [(declaringStyle: String, declaration: DeclaredNote)] {
         var current = name
         var chain: [NamedStyle] = []
         var visited: Set<String> = []

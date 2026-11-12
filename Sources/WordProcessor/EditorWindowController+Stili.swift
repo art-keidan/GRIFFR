@@ -660,8 +660,17 @@ extension EditorWindowController {
     /// Toglie uno stile: il testo, gli stili, le formule e gli stili di flottante passano allo stile su cui si basava.
     func removeStyle(_ name: String) {
         flushStyleChanges()
-        let (updated, replacement) = settings.removingStyle(name)
+        var (updated, replacement) = settings.removingStyle(name)
         guard updated.styles != settings.styles else { return }
+        // Le note che lo stile dichiarava, con un testo scritto: conservarle come inattive o toglierne il testo.
+        let losing = declaredTextsLosingDeclaration(from: settings.styles, to: updated.styles)
+        if !losing.isEmpty {
+            switch askAboutDeclaredTexts(count: losing.count) {
+            case .cancel: return
+            case .keep: break
+            case .delete: for slot in losing { updated.declaredNoteTexts[slot] = nil }
+            }
+        }
         changeDefinitions(updated, renames: [name: replacement], actionName: "Remove Style “\(name)”")
         stylesTab.selection = replacement
     }
@@ -725,6 +734,10 @@ extension EditorWindowController {
         changeStyles(to: newSheet, restyle: false, actionName: actionName)
         if updated.floatStyles != settings.floatStyles {
             changeListSettings(lists: settings.lists, noteList: nil, styles: settings.styles, floatStyles: updated.floatStyles, actionName: actionName)
+        }
+        // Il testo delle note dichiarate segue lo stile rinominato (le chiavi portano il nome dello stile).
+        if updated.declaredNoteTexts != settings.declaredNoteTexts {
+            changeDeclaredNoteTexts(to: updated.declaredNoteTexts, actionName: actionName)
         }
         document?.undoManager?.endUndoGrouping()
         document?.undoManager?.setActionName(actionName)

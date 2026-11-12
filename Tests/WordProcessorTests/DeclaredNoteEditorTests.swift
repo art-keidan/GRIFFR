@@ -91,5 +91,113 @@ struct DeclaredNoteEditorTests {
         model.removeDeclaredNote(again)
         #expect(model.currentStyle?.declaredNotes.isEmpty == true)
     }
+
+    /// Un editor in cui «Body» dichiara la nota e il primo capoverso ne ha già il testo.
+    private func harnessWithText() throws -> (EditorHarness, DeclaredNoteSlot) {
+        let h = try harness()
+        h.select(0)
+        h.editor.declaredNoteTextAnswerForTests = ["Glossa"]
+        h.editor.editDeclaredNoteText(nil)
+        let slot = try #require(h.editor.settings.declaredNoteTexts.keys.first)
+        h.document.undoManager?.removeAllActions()
+        h.step()
+        return (h, slot)
+    }
+
+    @Test("Rinominare lo stile dalla scheda Stili non stacca il testo dalla sua nota; Annulla torna al nome di prima")
+    func renameKeepsText() throws {
+        let (h, slot) = try harnessWithText()
+        defer { h.close() }
+        h.editor.renameStyle("Body", to: "Corpo")
+        let renamed = DeclaredNoteSlot(paragraph: slot.paragraph, declaringStyle: "Corpo", declaration: slot.declaration)
+        #expect(h.editor.settings.declaredNoteTexts == [renamed: "Glossa"])
+        #expect(h.editor.inactiveDeclaredNotes().isEmpty)
+        #expect(h.editor.currentLayout()?.declaredNotes.count == 1)
+        h.undo()
+        #expect(h.editor.settings.declaredNoteTexts == [slot: "Glossa"])
+    }
+
+    @Test("Togliere la dichiarazione dal compositore chiede che cosa fare del testo: conservarlo come nota inattiva, eliminarlo, o non applicare")
+    func removalFromComposer() throws {
+        let (h, slot) = try harnessWithText()
+        defer { h.close() }
+        h.editor.showStyleComposer(style: "Body")
+        let model = try #require(h.editor.composerModel)
+        defer { h.editor.composerController?.close() }
+        let declaration = slot.declaration
+
+        // Annulla la domanda: niente si applica.
+        h.editor.declaredTextChoiceForTests = .cancel
+        model.removeDeclaredNote(declaration)
+        model.apply()
+        #expect(model.problem != nil)
+        #expect(h.editor.settings.styles.style(named: "Body")?.declaredNotes.count == 1)
+
+        // Conserva: la dichiarazione va via, il testo resta come nota inattiva, e gli avvisi lo dicono.
+        h.editor.declaredTextChoiceForTests = .keep
+        model.problem = nil
+        model.apply()
+        #expect(model.problem == nil)
+        #expect(h.editor.settings.styles.style(named: "Body")?.declaredNotes.isEmpty == true)
+        #expect(h.editor.settings.declaredNoteTexts == [slot: "Glossa"])
+        #expect(h.editor.inactiveDeclaredNotes() == [slot])
+        #expect(h.editor.warningTitles.contains { $0.contains("inactive") })
+        let item = NSMenuItem(title: "", action: #selector(EditorWindowController.editInactiveDeclaredNotes(_:)), keyEquivalent: "")
+        #expect(h.editor.validateMenuItem(item))
+        h.undo()
+        #expect(h.editor.settings.styles.style(named: "Body")?.declaredNotes.count == 1)
+        #expect(h.editor.inactiveDeclaredNotes().isEmpty)
+
+        // Elimina: il testo va via con la dichiarazione, e un solo Annulla riporta l'una e l'altro.
+        h.editor.declaredTextChoiceForTests = .delete
+        model.discard()
+        model.removeDeclaredNote(declaration)
+        model.apply()
+        #expect(h.editor.settings.styles.style(named: "Body")?.declaredNotes.isEmpty == true)
+        #expect(h.editor.settings.declaredNoteTexts.isEmpty)
+        h.undo()
+        #expect(h.editor.settings.styles.style(named: "Body")?.declaredNotes.count == 1)
+        #expect(h.editor.settings.declaredNoteTexts == [slot: "Glossa"])
+    }
+
+    @Test("Togliere lo stile che dichiara la nota chiede del testo; le note inattive si ritrovano e si modificano")
+    func removalOfStyleAndInactiveSheet() throws {
+        let h = EditorHarness(paragraphs: ["uno due tre quattro cinque sei", "Altro."])
+        defer { h.close() }
+        var sheet = h.editor.settings.styles
+        var glossa = NamedStyle(name: "Glossa", target: .paragraph, basedOn: "Body")
+        glossa.declaredNotes = [try #require(DeclaredNote(word: 5))]
+        sheet.styles.append(glossa)
+        h.editor.changeStyles(to: sheet, restyle: false, actionName: "New Style")
+        h.select(0)
+        h.editor.applyNamedStyle(.paragraph, name: "Glossa")
+        h.editor.declaredNoteTextAnswerForTests = ["Glossa"]
+        h.editor.editDeclaredNoteText(nil)
+        let slot = try #require(h.editor.settings.declaredNoteTexts.keys.first)
+        #expect(slot.declaringStyle == "Glossa")
+        // Un evento dopo l'altro, come nell'uso: la scrittura del testo e la rimozione sono due passi di Annulla.
+        h.step()
+
+        h.editor.declaredTextChoiceForTests = .delete
+        h.editor.removeStyle("Glossa")
+        #expect(h.editor.settings.styles.style(named: "Glossa") == nil)
+        #expect(h.editor.settings.declaredNoteTexts.isEmpty)
+        h.undo()
+        #expect(h.editor.settings.styles.style(named: "Glossa") != nil)
+        #expect(h.editor.settings.declaredNoteTexts == [slot: "Glossa"])
+
+        // Il capoverso cambia stile: la nota non ha più dichiarazione, senza domanda; il testo resta, inattivo.
+        h.select(0)
+        h.editor.applyNamedStyle(.paragraph, name: "Body")
+        #expect(h.editor.inactiveDeclaredNotes() == [slot])
+        // Dal foglio delle note inattive il testo si cambia, e un campo vuoto lo elimina.
+        h.editor.declaredNoteTextAnswerForTests = ["Glossa rivista"]
+        h.editor.editInactiveDeclaredNotes(nil)
+        #expect(h.editor.settings.declaredNoteTexts == [slot: "Glossa rivista"])
+        h.editor.declaredNoteTextAnswerForTests = [""]
+        h.editor.editInactiveDeclaredNotes(nil)
+        #expect(h.editor.settings.declaredNoteTexts.isEmpty)
+        #expect(h.editor.inactiveDeclaredNotes().isEmpty)
+    }
 }
 

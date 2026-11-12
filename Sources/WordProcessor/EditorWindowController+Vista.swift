@@ -204,6 +204,8 @@ extension EditorWindowController {
             menuItem.state = (menuItem.representedObject as? String) == selectionListItem()?.listName ? .on : .off
         case #selector(editDeclaredNoteText(_:)):
             return !declaredNotesAtSelection().isEmpty
+        case #selector(editInactiveDeclaredNotes(_:)):
+            return !inactiveDeclaredNotes().isEmpty
         default:
             break
         }

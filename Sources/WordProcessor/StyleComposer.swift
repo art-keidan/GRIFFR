@@ -9,10 +9,25 @@ extension EditorWindowController {
         guard self.settings.styles == base else {
             return "The document's styles have changed. Reload the composer before applying."
         }
+        // Una dichiarazione di nota tolta, con testi scritti: si chiede che cosa farne, nello stesso passo di Annulla.
+        let losing = declaredTextsLosingDeclaration(from: base, to: updated)
+        var deleting = false
+        if !losing.isEmpty {
+            switch askAboutDeclaredTexts(count: losing.count) {
+            case .cancel: return "Nothing applied: the notes whose declaration you removed still have their text."
+            case .keep: break
+            case .delete: deleting = true
+            }
+        }
         self.endUndoStep(next: .none)
         let undo = (self.document as? NSDocument)?.undoManager
         undo?.beginUndoGrouping()
         self.changeStyles(to: updated, restyle: true, actionName: "Style Formulas")
+        if deleting {
+            var texts = settings.declaredNoteTexts
+            for slot in losing { texts[slot] = nil }
+            changeDeclaredNoteTexts(to: texts, actionName: "Style Formulas")
+        }
         undo?.endUndoGrouping()
         undo?.setActionName("Style Formulas")
         return nil
