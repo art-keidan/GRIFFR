@@ -16,7 +16,7 @@ GRIFFR is a native macOS app (AppKit, SwiftUI, Core Text) for writing and typese
 
 ## Guide
 
-A short visual guide, with screenshots of every part of the interface: [docs/guide/index.html](docs/guide/index.html). Open it in a browser, or publish the `docs` folder with GitHub Pages. The same guide as a PDF: [docs/guide/GRIFFR-guide.pdf](docs/guide/GRIFFR-guide.pdf).
+A short visual guide, with screenshots of every part of the interface: [docs/index.html](docs/index.html). Open it in a browser, or publish the `docs` folder with GitHub Pages. The same guide as a PDF: [docs/guide/GRIFFR-guide.pdf](docs/GRIFFR-guide.pdf).
 
 The screenshots are made by the app itself: `GRIFFR_GUIDE_OUT="$PWD/docs/guide/images/full" swift test --filter GuideScreenshotTests`, then `swift Scripts/guide-crops.swift docs/guide/images/full docs/guide/images`. The tabs of the Definitions panel are taken from the running app.
 
